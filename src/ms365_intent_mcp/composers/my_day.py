@@ -147,4 +147,6 @@ def _sender_name(msg: dict) -> str:
 
 
 def _chat_sender(preview: dict) -> str:
-    return preview.get("from", {}).get("user", {}).get("displayName", "Unknown")
+    from_field = preview.get("from") or {}
+    user_field = from_field.get("user") or {}
+    return user_field.get("displayName", "Unknown")
