@@ -1,0 +1,122 @@
+"""compose composer — dispatches to email_draft, reply_draft, event, teams_message."""
+
+from enum import Enum
+
+from ..formatters import format_draft_created_markdown, format_event_created_markdown
+from ..graph import GraphClient
+from ..permissions import PermissionRegistry
+
+
+class ComposeType(str, Enum):
+    EMAIL_DRAFT = "email_draft"
+    REPLY_DRAFT = "reply_draft"
+    EVENT = "event"
+    TEAMS_MESSAGE = "teams_message"
+
+
+SCOPE_REQUIREMENTS = {
+    ComposeType.EMAIL_DRAFT: "Mail.ReadWrite",
+    ComposeType.REPLY_DRAFT: "Mail.ReadWrite",
+    ComposeType.EVENT: "Calendars.ReadWrite",
+    ComposeType.TEAMS_MESSAGE: "ChatMessage.Send",
+}
+
+
+async def compose_action(
+    client: GraphClient,
+    permissions: PermissionRegistry,
+    action_type: ComposeType,
+    params: dict,
+) -> str:
+    required_scope = SCOPE_REQUIREMENTS[action_type]
+    scope_msg = permissions.check(required_scope)
+    if scope_msg:
+        return scope_msg
+
+    if action_type == ComposeType.EMAIL_DRAFT:
+        return await _create_email_draft(client, params)
+    elif action_type == ComposeType.REPLY_DRAFT:
+        return await _create_reply_draft(client, params)
+    elif action_type == ComposeType.EVENT:
+        return await _create_event(client, params)
+    elif action_type == ComposeType.TEAMS_MESSAGE:
+        return await _send_teams_message(client, params)
+    else:
+        return f"❌ Unknown compose type: {action_type}"
+
+
+async def _create_email_draft(client: GraphClient, params: dict) -> str:
+    recipients = [
+        {"emailAddress": {"address": r["email"], "name": r.get("name", r["email"])}}
+        for r in params["to"]
+    ]
+    payload = {
+        "subject": params["subject"],
+        "body": {"contentType": "HTML", "content": params["body"]},
+        "toRecipients": recipients,
+    }
+    if params.get("cc"):
+        payload["ccRecipients"] = [
+            {"emailAddress": {"address": r["email"], "name": r.get("name", r["email"])}}
+            for r in params["cc"]
+        ]
+    if params.get("importance"):
+        payload["importance"] = params["importance"]
+
+    draft = await client.post("/me/messages", payload)
+    return format_draft_created_markdown(draft)
+
+
+async def _create_reply_draft(client: GraphClient, params: dict) -> str:
+    message_id = params["message_id"]
+    reply_all = params.get("reply_all", True)
+    endpoint = "createReplyAll" if reply_all else "createReply"
+
+    payload = {
+        "message": {
+            "body": {"contentType": "HTML", "content": params["body"]},
+        }
+    }
+    if params.get("comment"):
+        payload["comment"] = params["comment"]
+
+    draft = await client.post(f"/me/messages/{message_id}/{endpoint}", payload)
+    return format_draft_created_markdown(draft)
+
+
+async def _create_event(client: GraphClient, params: dict) -> str:
+    tz = params.get("timezone", "Europe/Berlin")
+    payload = {
+        "subject": params["subject"],
+        "start": {"dateTime": params["start"], "timeZone": tz},
+        "end": {"dateTime": params["end"], "timeZone": tz},
+    }
+    if params.get("body"):
+        payload["body"] = {"contentType": "HTML", "content": params["body"]}
+    if params.get("location"):
+        payload["location"] = {"displayName": params["location"]}
+    if params.get("attendees"):
+        payload["attendees"] = [
+            {
+                "emailAddress": {"address": a["email"], "name": a.get("name", a["email"])},
+                "type": a.get("type", "required"),
+            }
+            for a in params["attendees"]
+        ]
+    if params.get("is_online_meeting"):
+        payload["isOnlineMeeting"] = True
+
+    event = await client.post("/me/events", payload)
+    return format_event_created_markdown(event)
+
+
+async def _send_teams_message(client: GraphClient, params: dict) -> str:
+    chat_id = params["chat_id"]
+    content = params["content"]
+    content_type = params.get("content_type", "text")
+
+    payload = {
+        "body": {"contentType": content_type, "content": content},
+    }
+    await client.post(f"/chats/{chat_id}/messages", payload)
+    return "✅ Message sent to Teams chat."
