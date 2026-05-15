@@ -1,6 +1,7 @@
 """Tests for GraphClient response handling."""
 
 import pytest
+from unittest.mock import AsyncMock, patch
 
 from ms365_intent_mcp.graph import GraphAPIError
 from tests.conftest import make_graph_client, make_graph_response
@@ -48,3 +49,57 @@ class TestGraphAPIError:
         assert err.status_code == 500
         assert err.error_code == "InternalError"
         assert "500" in str(err)
+
+
+class TestGetAll:
+    @pytest.mark.asyncio
+    async def test_single_page_no_next_link(self):
+        client = make_graph_client()
+        async with client:
+            with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = {"value": [{"id": "1"}, {"id": "2"}]}
+                items, has_more = await client.get_all("/me/messages")
+        assert items == [{"id": "1"}, {"id": "2"}]
+        assert has_more is False
+        mock_get.assert_called_once_with("/me/messages", params=None, headers=None)
+
+    @pytest.mark.asyncio
+    async def test_follows_next_link(self):
+        client = make_graph_client()
+        async with client:
+            with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.side_effect = [
+                    {
+                        "value": [{"id": "1"}],
+                        "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/messages?$skip=1",
+                    },
+                    {"value": [{"id": "2"}]},
+                ]
+                items, has_more = await client.get_all("/me/messages")
+        assert items == [{"id": "1"}, {"id": "2"}]
+        assert has_more is False
+        assert mock_get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_respects_max_pages_and_signals_has_more(self):
+        client = make_graph_client()
+        async with client:
+            with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = {
+                    "value": [{"id": "x"}],
+                    "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/messages?$skip=1",
+                }
+                items, has_more = await client.get_all("/me/messages", max_pages=2)
+        assert len(items) == 2
+        assert has_more is True
+        assert mock_get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_empty_value_list(self):
+        client = make_graph_client()
+        async with client:
+            with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = {"value": []}
+                items, has_more = await client.get_all("/me/messages")
+        assert items == []
+        assert has_more is False

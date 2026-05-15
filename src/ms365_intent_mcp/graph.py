@@ -63,6 +63,40 @@ class GraphClient:
     ) -> dict:
         return await self._request("POST", endpoint, json_data=json_data, headers=headers)
 
+    async def get_all(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        max_pages: int = 5,
+    ) -> tuple[list[dict], bool]:
+        """Fetch all items from a paginated endpoint, following @odata.nextLink.
+
+        Returns (items, has_more) where has_more indicates truncation.
+        """
+        items: list[dict] = []
+        current_endpoint: str | None = endpoint
+        current_params = params
+        pages_fetched = 0
+
+        while current_endpoint and pages_fetched < max_pages:
+            page = await self.get(current_endpoint, params=current_params, headers=headers)
+            items.extend(page.get("value", []))
+            pages_fetched += 1
+
+            next_link = page.get("@odata.nextLink")
+            if next_link:
+                if next_link.startswith(self.base_url):
+                    current_endpoint = next_link[len(self.base_url):]
+                else:
+                    current_endpoint = next_link
+                current_params = None
+            else:
+                current_endpoint = None
+
+        has_more = current_endpoint is not None
+        return items, has_more
+
     async def _request(
         self,
         method: str,
