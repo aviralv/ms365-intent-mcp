@@ -103,3 +103,76 @@ class TestGetAll:
                 items, has_more = await client.get_all("/me/messages")
         assert items == []
         assert has_more is False
+
+
+import httpx
+
+
+class TestGetContent:
+    @pytest.mark.asyncio
+    async def test_returns_bytes_on_200(self):
+        client = make_graph_client()
+        async with client:
+            fake_response = httpx.Response(
+                200,
+                content=b"hello file content",
+                headers={"content-type": "text/plain"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/test"),
+            )
+            with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = fake_response
+                result = await client.get_content("/me/drive/items/123/content")
+        assert result == b"hello file content"
+
+    @pytest.mark.asyncio
+    async def test_follows_allowed_redirect(self):
+        client = make_graph_client()
+        async with client:
+            redirect_response = httpx.Response(
+                302,
+                headers={"location": "https://files.sharepoint.com/download/file.xlsx"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/test"),
+            )
+            final_response = httpx.Response(
+                200,
+                content=b"file data",
+                headers={"content-type": "application/octet-stream"},
+                request=httpx.Request("GET", "https://files.sharepoint.com/download/file.xlsx"),
+            )
+            with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.side_effect = [redirect_response, final_response]
+                result = await client.get_content("/me/drive/items/123/content")
+        assert result == b"file data"
+        assert mock_get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_blocks_disallowed_redirect(self):
+        client = make_graph_client()
+        async with client:
+            redirect_response = httpx.Response(
+                302,
+                headers={"location": "https://evil.com/steal"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/test"),
+            )
+            with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = redirect_response
+                with pytest.raises(GraphAPIError) as exc_info:
+                    await client.get_content("/me/drive/items/123/content")
+        assert exc_info.value.status_code == 403
+        assert "RedirectBlocked" in exc_info.value.error_code
+
+    @pytest.mark.asyncio
+    async def test_raises_on_404(self):
+        client = make_graph_client()
+        async with client:
+            fake_response = httpx.Response(
+                404,
+                content=b'{"error":{"code":"NotFound","message":"gone"}}',
+                headers={"content-type": "application/json"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/test"),
+            )
+            with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = fake_response
+                with pytest.raises(GraphAPIError) as exc_info:
+                    await client.get_content("/me/drive/items/missing/content")
+        assert exc_info.value.status_code == 404

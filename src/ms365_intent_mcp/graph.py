@@ -20,6 +20,8 @@ class GraphAPIError(Exception):
 
 
 class GraphClient:
+    _ALLOWED_REDIRECT_DOMAINS = (".microsoft.com", ".sharepoint.com", ".office.com", ".office365.com")
+
     def __init__(
         self,
         base_url: str,
@@ -96,6 +98,55 @@ class GraphClient:
 
         has_more = current_endpoint is not None
         return items, has_more
+
+    async def get_content(
+        self,
+        endpoint: str,
+        headers: dict[str, str] | None = None,
+    ) -> bytes:
+        """Download raw file content. Validates redirect targets against allowed domains."""
+        if not self._client:
+            raise RuntimeError("Client not initialized. Use async context manager.")
+
+        auth_headers = {"Authorization": f"Bearer {self._token_provider()}"}
+        merged = {**auth_headers, **(headers or {})}
+        url = f"{self.base_url}{endpoint}"
+
+        response = await self._client.get(url, headers=merged, follow_redirects=False)
+
+        if response.status_code in (301, 302, 307, 308):
+            redirect_url = response.headers.get("location", "")
+            if not self._is_allowed_redirect(redirect_url):
+                raise GraphAPIError(
+                    403, "RedirectBlocked",
+                    f"Redirect to disallowed domain: {redirect_url[:100]}"
+                )
+            response = await self._client.get(redirect_url, headers=merged, follow_redirects=False)
+
+        self._log_request("GET", endpoint, response)
+
+        if response.status_code >= 400:
+            try:
+                error_data = response.json()
+                error = error_data.get("error", {})
+                error_code = error.get("code", "UnknownError")
+                message = error.get("message", response.text)
+            except Exception:
+                error_code = "UnknownError"
+                message = response.text or f"HTTP {response.status_code}"
+            raise GraphAPIError(response.status_code, error_code, message)
+
+        return response.content
+
+    @staticmethod
+    def _is_allowed_redirect(url: str) -> bool:
+        """Check if redirect URL targets an allowed Microsoft domain."""
+        from urllib.parse import urlparse
+        try:
+            hostname = urlparse(url).hostname or ""
+            return any(hostname.endswith(domain) for domain in GraphClient._ALLOWED_REDIRECT_DOMAINS)
+        except Exception:
+            return False
 
     async def _request(
         self,
