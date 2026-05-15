@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+.env.local
+
+# Tokens (sensitive)
+tokens/
+*.token.json
+
+# Design specs (local reference, not shipped)
+docs/specs/
+
+# OS
+.DS_Store
+Thumbs.db
