@@ -10,7 +10,7 @@ from ..formatters import (
 )
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
-from ._utils import NOISE_PATTERNS, _error_reason
+from ._utils import _chat_sender, _error_reason, _is_noise, _sender_name
 
 
 async def compose_my_day(
@@ -119,16 +119,3 @@ async def compose_my_day(
     return "\n\n".join(sections)
 
 
-def _is_noise(msg: dict) -> bool:
-    from_addr = msg.get("from", {}).get("emailAddress", {}).get("address", "").lower()
-    return any(p in from_addr for p in NOISE_PATTERNS)
-
-
-def _sender_name(msg: dict) -> str:
-    return msg.get("from", {}).get("emailAddress", {}).get("name", "Unknown")
-
-
-def _chat_sender(preview: dict) -> str:
-    from_field = preview.get("from") or {}
-    user_field = from_field.get("user") or {}
-    return user_field.get("displayName", "Unknown")

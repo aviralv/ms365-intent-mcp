@@ -18,8 +18,7 @@ class ResolvedUrl:
     required_scope: str
 
 
-_PATTERNS: list[tuple[str, re.Pattern, str, str]] = [
-    # Teams channel message: /l/message/19:xxx@thread.tacv2/timestamp
+_PATTERNS: list[tuple[str, re.Pattern, str]] = [
     (
         "channel_message",
         re.compile(
@@ -27,10 +26,8 @@ _PATTERNS: list[tuple[str, re.Pattern, str, str]] = [
             r"(19:[^/]+@thread\.tacv2)/"
             r"(\d+\.\d+)"
         ),
-        "channel_message",
         "ChannelMessage.Read.All",
     ),
-    # Teams chat message: /l/message/19:xxx@unq.gbl.spaces/timestamp
     (
         "chat_message",
         re.compile(
@@ -38,42 +35,31 @@ _PATTERNS: list[tuple[str, re.Pattern, str, str]] = [
             r"(19:[^/]+@(?:unq\.gbl\.spaces|thread\.spaces))/"
             r"(\d+\.\d+)"
         ),
-        "chat_message",
         "Chat.Read",
     ),
-    # Teams meeting join link: /l/meetup-join/
     (
         "meeting",
         re.compile(r"teams\.microsoft\.com/l/meetup-join/([^/\?&]+)"),
-        "meeting",
         "Calendars.Read",
     ),
-    # Outlook mail deep link
     (
         "email",
         re.compile(r"outlook\.office(?:365)?\.com/mail/(?:id|deeplink)/([A-Za-z0-9=+/_\-%.]+)"),
-        "email",
         "Mail.Read",
     ),
-    # SharePoint page (.aspx)
     (
         "sharepoint_page",
         re.compile(r"sharepoint\.com/sites/[^/]+/SitePages/[^/\?]+\.aspx"),
-        "sharepoint_page",
         "Sites.Read.All",
     ),
-    # OneDrive share link (/_layouts/ pattern) — must come before onedrive_file
     (
         "onedrive_share_link",
         re.compile(r"sharepoint\.com/.*/_layouts/\d+/Doc\.aspx"),
-        "onedrive_share_link",
         "Files.Read",
     ),
-    # OneDrive personal file (must come after share_link)
     (
         "onedrive_file",
         re.compile(r"sharepoint\.com/personal/[^/]+/(?:Documents|_layouts)"),
-        "onedrive_file",
         "Files.Read",
     ),
 ]
@@ -81,7 +67,7 @@ _PATTERNS: list[tuple[str, re.Pattern, str, str]] = [
 
 def resolve_url(url: str) -> ResolvedUrl:
     """Parse an M365 URL and return the resolved type + graph endpoint template."""
-    for url_type, pattern, _, scope in _PATTERNS:
+    for url_type, pattern, scope in _PATTERNS:
         m = pattern.search(url)
         if m:
             endpoint = _build_endpoint(url_type, url, m)

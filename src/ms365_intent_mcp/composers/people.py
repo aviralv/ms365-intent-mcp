@@ -23,7 +23,7 @@ async def compose_people(
         email_addr = email_addresses[0].get("address", "")
 
     tasks = {}
-    if email_addr and not permissions.check("Mail.Read"):
+    if email_addr and permissions.has("Mail.Read"):
         tasks["emails"] = client.get("/me/messages", params={
             "$filter": f"from/emailAddress/address eq '{email_addr}'",
             "$select": "subject,from,receivedDateTime",
@@ -31,9 +31,8 @@ async def compose_people(
             "$top": "5",
         })
 
-    if not permissions.check("Chat.ReadWrite"):
+    if permissions.has("Chat.ReadWrite"):
         tasks["chats"] = client.get("/me/chats", params={
-            "$filter": f"contains(topic, '{query}')",
             "$expand": "lastMessagePreview",
             "$top": "5",
         })
@@ -63,7 +62,7 @@ async def _lookup_person(
     permissions: PermissionRegistry,
     query: str,
 ) -> list[dict]:
-    if not permissions.check("People.Read"):
+    if permissions.has("People.Read"):
         try:
             result = await client.get("/me/people", params={
                 "$search": query,

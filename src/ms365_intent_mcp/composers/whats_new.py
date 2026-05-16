@@ -11,7 +11,7 @@ from ..formatters import (
 )
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
-from ._utils import NOISE_PATTERNS, _error_reason
+from ._utils import _chat_sender, _error_reason, _is_noise, _sender_name
 
 _VALID_SCOPES = {"mail", "calendar", "teams", "all"}
 
@@ -112,11 +112,8 @@ async def compose_whats_new(
                 for chat in chats[:5]:
                     preview = chat.get("lastMessagePreview")
                     if preview:
-                        from_field = (preview.get("from") or {})
-                        user_field = (from_field.get("user") or {})
-                        display_name = user_field.get("displayName", "Unknown")
                         preview_msgs.append({
-                            "from": {"user": {"displayName": display_name}},
+                            "from": {"user": {"displayName": _chat_sender(preview)}},
                             "body": preview.get("body", {}),
                         })
                 sections.append(format_teams_activity_markdown(preview_msgs))
@@ -124,10 +121,3 @@ async def compose_whats_new(
     return "\n\n".join(sections) if sections else "Nothing new since that time."
 
 
-def _is_noise(msg: dict) -> bool:
-    from_addr = (msg.get("from") or {}).get("emailAddress", {}).get("address", "").lower()
-    return any(p in from_addr for p in NOISE_PATTERNS)
-
-
-def _sender_name(msg: dict) -> str:
-    return (msg.get("from") or {}).get("emailAddress", {}).get("name", "Unknown")
