@@ -2,10 +2,9 @@
 
 import asyncio
 
-from ..formatters import format_people_markdown, format_section_error
+from ..formatters import format_people_markdown
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
-from ._utils import _error_reason
 
 
 async def compose_people(

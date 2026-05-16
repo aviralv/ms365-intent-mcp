@@ -8,7 +8,7 @@ from ..formatters import (
     format_section_error,
     format_teams_activity_markdown,
 )
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphClient
 from ..permissions import PermissionRegistry
 from ._utils import NOISE_PATTERNS, _error_reason
 

@@ -105,7 +105,6 @@ class TestGetAll:
         assert has_more is False
 
 
-import asyncio
 import httpx
 
 
