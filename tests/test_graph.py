@@ -105,6 +105,7 @@ class TestGetAll:
         assert has_more is False
 
 
+import asyncio
 import httpx
 
 
@@ -176,3 +177,93 @@ class TestGetContent:
                 with pytest.raises(GraphAPIError) as exc_info:
                     await client.get_content("/me/drive/items/missing/content")
         assert exc_info.value.status_code == 404
+
+
+class TestRetryAfter:
+    @pytest.mark.asyncio
+    async def test_retries_on_429_with_retry_after_header(self):
+        client = make_graph_client()
+        async with client:
+            throttled_response = httpx.Response(
+                429,
+                content=b'{"error":{"code":"TooManyRequests","message":"slow down"}}',
+                headers={"content-type": "application/json", "Retry-After": "1"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/me"),
+            )
+            success_response = httpx.Response(
+                200,
+                content=b'{"value": []}',
+                headers={"content-type": "application/json"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/me"),
+            )
+            with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.side_effect = [throttled_response, success_response]
+                with patch("ms365_intent_mcp.graph.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                    result = await client.get("/me")
+        assert result == {"value": []}
+        assert mock_get.call_count == 2
+        mock_sleep.assert_called_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_retries_on_503(self):
+        client = make_graph_client()
+        async with client:
+            error_response = httpx.Response(
+                503,
+                content=b'{"error":{"code":"ServiceUnavailable","message":"try again"}}',
+                headers={"content-type": "application/json"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/me"),
+            )
+            success_response = httpx.Response(
+                200,
+                content=b'{"id": "123"}',
+                headers={"content-type": "application/json"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/me"),
+            )
+            with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.side_effect = [error_response, success_response]
+                with patch("ms365_intent_mcp.graph.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                    result = await client.get("/me")
+        assert result == {"id": "123"}
+        mock_sleep.assert_called_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_raises_if_retry_also_fails(self):
+        client = make_graph_client()
+        async with client:
+            throttled = httpx.Response(
+                429,
+                content=b'{"error":{"code":"TooManyRequests","message":"slow down"}}',
+                headers={"content-type": "application/json", "Retry-After": "2"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/me"),
+            )
+            with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = throttled
+                with patch("ms365_intent_mcp.graph.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                    with pytest.raises(GraphAPIError) as exc_info:
+                        await client.get("/me")
+        assert exc_info.value.status_code == 429
+        assert mock_get.call_count == 2
+        mock_sleep.assert_called_once_with(2)
+
+    @pytest.mark.asyncio
+    async def test_caps_retry_after_at_10(self):
+        client = make_graph_client()
+        async with client:
+            throttled = httpx.Response(
+                429,
+                content=b'{"error":{"code":"TooManyRequests","message":"slow"}}',
+                headers={"content-type": "application/json", "Retry-After": "60"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/me"),
+            )
+            success = httpx.Response(
+                200,
+                content=b'{"ok": true}',
+                headers={"content-type": "application/json"},
+                request=httpx.Request("GET", "https://graph.microsoft.com/v1.0/me"),
+            )
+            with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.side_effect = [throttled, success]
+                with patch("ms365_intent_mcp.graph.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                    await client.get("/me")
+        mock_sleep.assert_called_once_with(10)

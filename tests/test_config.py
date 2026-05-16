@@ -24,6 +24,10 @@ class TestConfigDefaults:
         config = Config()
         assert "Calendars.ReadWrite" in config.scopes
 
+    def test_scopes_includes_people_read(self):
+        config = Config()
+        assert "People.Read" in config.scopes
+
 
 class TestConfigEnvOverride:
     def test_timezone_override(self):

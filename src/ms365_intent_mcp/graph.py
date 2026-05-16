@@ -1,5 +1,6 @@
 """Async HTTP client for Microsoft Graph API."""
 
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -174,6 +175,15 @@ class GraphClient:
             response = await self._cb.call(_do_request)
         else:
             response = await _do_request()
+
+        if response.status_code in (429, 503):
+            retry_after = min(int(response.headers.get("Retry-After", "1")), 10)
+            _logger.warning("graph_api retry_after=%d status=%d endpoint=%s", retry_after, response.status_code, endpoint)
+            await asyncio.sleep(retry_after)
+            if self._cb is not None:
+                response = await self._cb.call(_do_request)
+            else:
+                response = await _do_request()
 
         self._log_request(method, endpoint, response)
         return self._handle_response(response)
