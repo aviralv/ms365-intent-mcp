@@ -1,4 +1,6 @@
-"""find composer — Microsoft Search API with 403 chatMessage fallback."""
+"""find composer — Microsoft Search API with per-type requests."""
+
+import asyncio
 
 from ..formatters import format_search_results_markdown, format_section_error
 from ..graph import GraphClient, GraphAPIError
@@ -23,6 +25,23 @@ async def compose_find(
 ) -> str:
     entity_types = _TYPE_MAP.get(search_type or "", _DEFAULT_ENTITY_TYPES)
 
+    if len(entity_types) == 1:
+        return await _search_single(client, query, entity_types)
+
+    results = await asyncio.gather(
+        *[_search_single_raw(client, query, [et]) for et in entity_types],
+        return_exceptions=True,
+    )
+
+    hits = []
+    for result in results:
+        if isinstance(result, list):
+            hits.extend(result)
+
+    return format_search_results_markdown(query, hits)
+
+
+async def _search_single(client: GraphClient, query: str, entity_types: list[str]) -> str:
     payload = {
         "requests": [
             {
@@ -37,20 +56,25 @@ async def compose_find(
     try:
         response = await client.post("/search/query", payload)
     except GraphAPIError as exc:
-        if exc.status_code == 403 and "chatMessage" in entity_types:
-            entity_types_fallback = [t for t in entity_types if t != "chatMessage"]
-            if not entity_types_fallback:
-                return "### Find\nSearch unavailable — chatMessage scope not granted."
-            payload["requests"][0]["entityTypes"] = entity_types_fallback
-            try:
-                response = await client.post("/search/query", payload)
-            except GraphAPIError as exc2:
-                return format_section_error("Find", _error_reason(exc2))
-        else:
-            return format_section_error("Find", _error_reason(exc))
+        return format_section_error("Find", _error_reason(exc))
 
     hits = _extract_hits(response)
     return format_search_results_markdown(query, hits)
+
+
+async def _search_single_raw(client: GraphClient, query: str, entity_types: list[str]) -> list[dict]:
+    payload = {
+        "requests": [
+            {
+                "entityTypes": entity_types,
+                "query": {"queryString": query},
+                "from": 0,
+                "size": 5,
+            }
+        ]
+    }
+    response = await client.post("/search/query", payload)
+    return _extract_hits(response)
 
 
 def _extract_hits(response: dict) -> list[dict]:

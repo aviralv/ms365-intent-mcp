@@ -1,6 +1,7 @@
 """whats_new composer — mail/calendar/teams since a given datetime."""
 
 import asyncio
+from datetime import datetime, timedelta
 
 from ..formatters import (
     format_events_markdown,
@@ -29,7 +30,7 @@ async def compose_whats_new(
     tasks = {}
 
     if scope in ("calendar", "all"):
-        now_end = "2099-12-31T23:59:59"
+        now_end = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%dT23:59:59")
         cal_params = {
             "startDateTime": since,
             "endDateTime": now_end,
@@ -42,8 +43,9 @@ async def compose_whats_new(
 
     mail_unavailable = permissions.check("Mail.Read")
     if scope in ("mail", "all") and not mail_unavailable:
+        since_z = since if since.endswith("Z") else since + "Z"
         tasks["messages"] = client.get("/me/messages", params={
-            "$filter": f"receivedDateTime ge {since}",
+            "$filter": f"receivedDateTime ge {since_z}",
             "$select": "subject,from,receivedDateTime,importance",
             "$orderby": "receivedDateTime desc",
             "$top": "25",

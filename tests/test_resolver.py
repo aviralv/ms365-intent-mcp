@@ -2,7 +2,7 @@
 
 import pytest
 
-from ms365_intent_mcp.resolver import resolve_url, UrlParseError, ResolvedUrl
+from ms365_intent_mcp.resolver import resolve_url, UrlParseError
 
 
 class TestChannelMessageUrls:

@@ -81,7 +81,7 @@ _PATTERNS: list[tuple[str, re.Pattern, str, str]] = [
 
 def resolve_url(url: str) -> ResolvedUrl:
     """Parse an M365 URL and return the resolved type + graph endpoint template."""
-    for url_type, pattern, endpoint_hint, scope in _PATTERNS:
+    for url_type, pattern, _, scope in _PATTERNS:
         m = pattern.search(url)
         if m:
             endpoint = _build_endpoint(url_type, url, m)
@@ -105,8 +105,9 @@ def _build_endpoint(url_type: str, url: str, match: re.Match) -> str:
     if url_type == "sharepoint_page":
         parsed = urllib.parse.urlparse(url)
         host = parsed.hostname or ""
-        path = parsed.path
-        return f"/sites/{host}:/{path}"
+        path_parts = parsed.path.split("/SitePages/")
+        site_path = path_parts[0] if path_parts else parsed.path
+        return f"/sites/{host}:{site_path}"
     if url_type in ("onedrive_file", "onedrive_share_link"):
         return "/me/drive/root"
     return "/"

@@ -44,7 +44,6 @@ class Config(BaseSettings):
             "Channel.ReadBasic.All",
             "Team.ReadBasic.All",
             "Sites.Read.All",
-            "People.Read",
         ],
         description="Microsoft Graph API scopes",
     )

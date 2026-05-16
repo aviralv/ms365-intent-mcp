@@ -24,9 +24,9 @@ class TestConfigDefaults:
         config = Config()
         assert "Calendars.ReadWrite" in config.scopes
 
-    def test_scopes_includes_people_read(self):
+    def test_scopes_includes_contacts_read(self):
         config = Config()
-        assert "People.Read" in config.scopes
+        assert "Contacts.Read" in config.scopes
 
 
 class TestConfigEnvOverride:
