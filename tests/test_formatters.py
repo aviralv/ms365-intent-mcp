@@ -8,6 +8,10 @@ from ms365_intent_mcp.formatters import (
     format_event_created_markdown,
     format_section_error,
     format_teams_activity_markdown,
+    format_people_markdown,
+    format_search_results_markdown,
+    format_meeting_times_markdown,
+    format_resolved_content_markdown,
 )
 
 
@@ -142,3 +146,88 @@ class TestFormatMailSummary:
         assert "10" in result
         assert "7" in result
         assert "Urgent" in result
+
+
+class TestFormatPeopleMarkdown:
+    def test_empty_list(self):
+        result = format_people_markdown("alice", [], [], None)
+        assert "alice" in result.lower() or "No results" in result
+
+    def test_with_person_and_mail(self):
+        people = [{"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@sap.com"}]}]
+        emails = [{"subject": "Project update", "from": {"emailAddress": {"name": "Bob"}}, "receivedDateTime": "2026-05-15T10:00:00Z"}]
+        result = format_people_markdown("alice", people, emails, None)
+        assert "Alice Smith" in result
+        assert "Project update" in result
+
+    def test_with_teams_chat(self):
+        people = [{"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@sap.com"}]}]
+        chat = {"id": "19:abc", "chatType": "oneOnOne", "lastMessagePreview": {"body": {"content": "Hey!"}}}
+        result = format_people_markdown("alice", people, [], chat)
+        assert "Alice Smith" in result
+
+
+class TestFormatSearchResultsMarkdown:
+    def test_empty_results(self):
+        result = format_search_results_markdown("budget", [])
+        assert "No results" in result or "budget" in result.lower()
+
+    def test_with_results(self):
+        hits = [
+            {
+                "resource": {
+                    "@odata.type": "#microsoft.graph.message",
+                    "subject": "Q2 Budget Review",
+                    "from": {"emailAddress": {"name": "Finance", "address": "finance@sap.com"}},
+                    "receivedDateTime": "2026-05-10T09:00:00Z",
+                    "bodyPreview": "Please find attached the Q2 budget...",
+                }
+            }
+        ]
+        result = format_search_results_markdown("budget", hits)
+        assert "Q2 Budget Review" in result
+        assert "Finance" in result
+
+
+class TestFormatMeetingTimesMarkdown:
+    def test_empty_suggestions(self):
+        result = format_meeting_times_markdown([])
+        assert "No available" in result or "No slots" in result
+
+    def test_with_suggestions(self):
+        suggestions = [
+            {
+                "meetingTimeSlot": {
+                    "start": {"dateTime": "2026-05-20T10:00:00", "timeZone": "UTC"},
+                    "end": {"dateTime": "2026-05-20T10:30:00", "timeZone": "UTC"},
+                },
+                "confidence": 100.0,
+                "attendeeAvailability": [],
+            }
+        ]
+        result = format_meeting_times_markdown(suggestions)
+        assert "10:00" in result
+        assert "100" in result
+
+
+class TestFormatResolvedContentMarkdown:
+    def test_email_type(self):
+        data = {
+            "subject": "Hello",
+            "from": {"emailAddress": {"name": "Bob", "address": "bob@sap.com"}},
+            "receivedDateTime": "2026-05-15T08:00:00Z",
+            "bodyPreview": "Hi there",
+        }
+        result = format_resolved_content_markdown("email", data)
+        assert "Hello" in result
+        assert "Bob" in result
+
+    def test_sharepoint_page_type(self):
+        data = {"displayName": "Project Overview", "webUrl": "https://sap.sharepoint.com/sites/proj"}
+        result = format_resolved_content_markdown("sharepoint_page", data)
+        assert "Project Overview" in result
+
+    def test_onedrive_file_type(self):
+        data = {"name": "report.xlsx", "size": 20480, "webUrl": "https://sap-my.sharepoint.com/files/1"}
+        result = format_resolved_content_markdown("onedrive_file", data)
+        assert "report.xlsx" in result
