@@ -1,5 +1,7 @@
 """resolve composer — parse M365 URLs and fetch their content via Graph."""
 
+from datetime import datetime, timedelta, timezone
+
 from ..formatters import format_resolved_content_markdown, format_section_error
 from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
@@ -26,6 +28,9 @@ async def compose_resolve(
     except GraphAPIError as exc:
         return format_section_error("Resolve", _error_reason(exc))
 
+    if "_error" in data:
+        return format_section_error("Resolve", data["_error"])
+
     return format_resolved_content_markdown(resolved.url_type, data)
 
 
@@ -37,19 +42,57 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
         return await client.get(endpoint, params={
             "$select": "subject,from,receivedDateTime,bodyPreview,body",
         })
+
     elif url_type == "channel_message":
-        result = await client.get(endpoint)
-        messages = (result or {}).get("value", [])
-        return messages[0] if messages else {}
+        return await client.get(endpoint, params={
+            "$select": "body,from,createdDateTime,subject",
+        })
+
     elif url_type == "chat_message":
-        result = await client.get(endpoint, params={"$top": "1"})
-        messages = (result or {}).get("value", [])
-        return messages[0] if messages else {}
+        return await client.get(endpoint, params={
+            "$select": "body,from,createdDateTime",
+        })
+
     elif url_type == "meeting":
-        return {"subject": "Meeting", "body": {"content": "Meeting details via Teams link."}}
-    elif url_type == "sharepoint_page":
-        return await client.get(endpoint)
+        thread_id = resolved.extra.get("thread_id", "")
+        now = datetime.now(timezone.utc)
+        start = (now - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end = (now + timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        result = await client.get("/me/calendarView", params={
+            "startDateTime": start,
+            "endDateTime": end,
+            "$filter": "isOnlineMeeting eq true",
+            "$top": "50",
+            "$select": "subject,start,end,organizer,attendees,body,location,isOnlineMeeting,onlineMeeting",
+        })
+        events = (result or {}).get("value", [])
+        for event in events:
+            join_url = (event.get("onlineMeeting") or {}).get("joinUrl", "")
+            if thread_id and thread_id in join_url:
+                return event
+        return {"_error": "No matching meeting found for this Teams link."}
+
     elif url_type in ("onedrive_file", "onedrive_share_link"):
-        return await client.get("/me/drive/root", params={"$select": "name,size,webUrl"})
+        return await client.get(endpoint, params={
+            "$select": "name,size,webUrl,lastModifiedDateTime,createdDateTime,file",
+        })
+
+    elif url_type == "sharepoint_page":
+        site_data = await client.get(endpoint)
+        site_id = (site_data or {}).get("id", "")
+        page_filename = resolved.extra.get("page_filename", "")
+        if site_id and page_filename:
+            try:
+                page_data = await client.get(
+                    f"/sites/{site_id}/drive/root:/SitePages/{page_filename}",
+                    params={"$select": "name,webUrl,lastModifiedDateTime,size"},
+                )
+                page_data["_page_found"] = True
+                page_data["_site_name"] = (site_data or {}).get("displayName", "")
+                return page_data
+            except GraphAPIError:
+                return site_data
+        return site_data
+
     else:
         return {}

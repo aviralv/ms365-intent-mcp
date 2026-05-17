@@ -232,12 +232,27 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
     elif url_type == "meeting":
         return format_event_detail_markdown(data)
     elif url_type == "sharepoint_page":
-        name = data.get("displayName", data.get("name", "?"))
-        url = data.get("webUrl", "")
-        lines = [f"### SharePoint Page: {name}"]
-        if url:
-            lines.append(f"**URL:** {url}")
-        return "\n".join(lines)
+        if data.get("_page_found"):
+            name = data.get("name", "?")
+            site_name = data.get("_site_name", "")
+            url = data.get("webUrl", "")
+            modified = data.get("lastModifiedDateTime", "")[:10]
+            lines = [f"### SharePoint Page: {name}"]
+            if site_name:
+                lines.append(f"**Site:** {site_name}")
+            if modified:
+                lines.append(f"**Modified:** {modified}")
+            if url:
+                lines.append(f"**URL:** {url}")
+            return "\n".join(lines)
+        else:
+            name = data.get("displayName", data.get("name", "?"))
+            url = data.get("webUrl", "")
+            lines = [f"### SharePoint Site: {name}"]
+            if url:
+                lines.append(f"**URL:** {url}")
+            lines.append("_(Page content unavailable — showing site info)_")
+            return "\n".join(lines)
     elif url_type in ("onedrive_file", "onedrive_share_link"):
         name = data.get("name", "?")
         size = data.get("size", 0)
