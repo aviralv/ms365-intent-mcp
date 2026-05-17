@@ -15,7 +15,7 @@ from ms365_intent_mcp.resolver import ResolvedUrl, UrlParseError
 def full_permissions():
     return PermissionRegistry([
         "ChannelMessage.Read.All",
-        "Chat.Read",
+        "Chat.ReadWrite",
         "Calendars.Read",
         "Mail.Read",
         "Sites.Read.All",
@@ -239,19 +239,23 @@ class TestSharePointPageResolve:
         url = "https://sap.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
 
         site_response = {"id": "site-id-123", "displayName": "My Project", "webUrl": "https://sap.sharepoint.com/sites/MyProject"}
-        page_response = {
-            "name": "Overview.aspx",
+        lists_response = {"value": [{"id": "list-id-456"}]}
+        items_response = {"value": [{
+            "id": "42",
             "webUrl": "https://sap.sharepoint.com/sites/MyProject/SitePages/Overview.aspx",
-            "lastModifiedDateTime": "2026-01-01T00:00:00Z",
-            "size": 512,
-        }
+            "fields": {
+                "FileLeafRef": "Overview.aspx",
+                "Title": "Project Overview",
+                "Modified": "2026-01-01T00:00:00Z",
+            },
+        }]}
 
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=[site_response, page_response])
+        client.get = AsyncMock(side_effect=[site_response, lists_response, items_response])
 
         result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "SharePoint Page" in result
-        assert "Overview.aspx" in result
+        assert "Project Overview" in result
 
     @pytest.mark.asyncio
     async def test_sharepoint_page_fallback(self, full_permissions):

@@ -233,11 +233,11 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
         return format_event_detail_markdown(data)
     elif url_type == "sharepoint_page":
         if data.get("_page_found"):
-            name = data.get("name", "?")
+            title = data.get("title", "") or data.get("name", "?")
             site_name = data.get("_site_name", "")
             url = data.get("webUrl", "")
             modified = data.get("lastModifiedDateTime", "")[:10]
-            lines = [f"### SharePoint Page: {name}"]
+            lines = [f"### SharePoint Page: {title}"]
             if site_name:
                 lines.append(f"**Site:** {site_name}")
             if modified:

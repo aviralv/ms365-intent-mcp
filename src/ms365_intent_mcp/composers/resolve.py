@@ -61,7 +61,6 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
         result = await client.get("/me/calendarView", params={
             "startDateTime": start,
             "endDateTime": end,
-            "$filter": "isOnlineMeeting eq true",
             "$top": "50",
             "$select": "subject,start,end,organizer,attendees,body,location,isOnlineMeeting,onlineMeeting",
         })
@@ -83,16 +82,47 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
         page_filename = resolved.extra.get("page_filename", "")
         if site_id and page_filename:
             try:
-                page_data = await client.get(
-                    f"/sites/{site_id}/drive/root:/SitePages/{page_filename}",
-                    params={"$select": "name,webUrl,lastModifiedDateTime,size"},
-                )
-                page_data["_page_found"] = True
-                page_data["_site_name"] = (site_data or {}).get("displayName", "")
-                return page_data
+                page_data = await _fetch_sharepoint_page(client, site_id, page_filename)
+                if page_data:
+                    page_data["_page_found"] = True
+                    page_data["_site_name"] = (site_data or {}).get("displayName", "")
+                    return page_data
             except GraphAPIError:
-                return site_data
+                pass
         return site_data
 
     else:
         return {}
+
+
+async def _fetch_sharepoint_page(client: GraphClient, site_id: str, filename: str) -> dict | None:
+    """Look up a SharePoint page by filename via the Site Pages list."""
+    lists_result = await client.get(
+        f"/sites/{site_id}/lists",
+        params={"$filter": "displayName eq 'Site Pages'", "$select": "id"},
+    )
+    lists = (lists_result or {}).get("value", [])
+    if not lists:
+        return None
+    list_id = lists[0]["id"]
+    items_result = await client.get(
+        f"/sites/{site_id}/lists/{list_id}/items",
+        params={
+            "$filter": f"fields/FileLeafRef eq '{filename}'",
+            "$select": "id,webUrl",
+            "$expand": "fields($select=FileLeafRef,Title,Modified)",
+            "$top": "1",
+        },
+        headers={"Prefer": "HonorNonIndexedQueriesWarningMayFailRandomly"},
+    )
+    items = (items_result or {}).get("value", [])
+    if not items:
+        return None
+    item = items[0]
+    fields = item.get("fields", {})
+    return {
+        "name": fields.get("FileLeafRef", filename),
+        "title": fields.get("Title", ""),
+        "webUrl": item.get("webUrl", ""),
+        "lastModifiedDateTime": fields.get("Modified", ""),
+    }

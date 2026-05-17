@@ -27,7 +27,7 @@ _PATTERNS: list[tuple[str, re.Pattern, str]] = [
         re.compile(
             r"teams\.microsoft\.com/l/message/"
             r"(19:[^/]+@thread\.tacv2)/"
-            r"(\d+\.\d+)"
+            r"(\d+(?:\.\d+)?)"
         ),
         "ChannelMessage.Read.All",
     ),
@@ -35,10 +35,10 @@ _PATTERNS: list[tuple[str, re.Pattern, str]] = [
         "chat_message",
         re.compile(
             r"teams\.microsoft\.com/l/message/"
-            r"(19:[^/]+@(?:unq\.gbl\.spaces|thread\.spaces))/"
-            r"(\d+\.\d+)"
+            r"(19:[^/]+@(?:unq\.gbl\.spaces|thread\.spaces|thread\.v2))/"
+            r"(\d+(?:\.\d+)?)"
         ),
-        "Chat.Read",
+        "Chat.ReadWrite",
     ),
     (
         "meeting",
