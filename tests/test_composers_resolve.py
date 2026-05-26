@@ -312,3 +312,352 @@ class TestGetEventByIdHelper:
         event = await _get_event_by_id(client, "")
         assert event is None
         client.get.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# chat_thread
+# ---------------------------------------------------------------------------
+
+class TestResolveChatThread:
+    @pytest.fixture
+    def chat_meta(self):
+        return {
+            "id": "19:abc@thread.v2",
+            "topic": "Project Sync",
+            "chatType": "meeting",
+            "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            "onlineMeetingInfo": {
+                "calendarEventId": "AAMkevent123",
+                "joinWebUrl": "https://teams.microsoft.com/l/meetup-join/19:abc@thread.v2/0",
+            },
+            "members": [
+                {"displayName": "Alice"},
+                {"displayName": "Bob"},
+            ],
+        }
+
+    @pytest.fixture
+    def messages_payload(self):
+        return {
+            "value": [
+                {"from": {"user": {"displayName": "Alice"}},
+                 "body": {"content": "Hello"},
+                 "createdDateTime": "2026-05-26T10:00:00Z"},
+                {"from": {"user": {"displayName": "Bob"}},
+                 "body": {"content": "Hi"},
+                 "createdDateTime": "2026-05-26T10:05:00Z"},
+            ]
+        }
+
+    @pytest.fixture
+    def event_payload(self):
+        return {
+            "subject": "Project Sync",
+            "start": {"dateTime": "2026-05-26T10:00:00"},
+            "end": {"dateTime": "2026-05-26T10:30:00"},
+            "organizer": {"emailAddress": {"name": "Alice"}},
+        }
+
+    @pytest.mark.asyncio
+    async def test_happy_path_uses_calendar_event_id(
+        self, full_permissions, chat_meta, messages_payload, event_payload
+    ):
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:abc@thread.v2":
+                return chat_meta
+            if endpoint == "/chats/19:abc@thread.v2/messages":
+                return messages_payload
+            if endpoint == "/me/events/AAMkevent123":
+                return event_payload
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:abc@thread.v2",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:abc@thread.v2"},
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            )
+
+        assert "Project Sync" in result
+        assert "Alice" in result
+        assert "Hello" in result
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_join_web_url_when_calendar_event_id_absent(
+        self, full_permissions, messages_payload, event_payload
+    ):
+        chat_meta = {
+            "id": "19:abc@thread.v2",
+            "topic": "Project Sync",
+            "chatType": "meeting",
+            "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            "onlineMeetingInfo": {
+                "calendarEventId": None,
+                "joinWebUrl": "https://teams.microsoft.com/l/meetup-join/19:meet@thread.v2/0",
+            },
+            "members": [],
+        }
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:abc@thread.v2":
+                return chat_meta
+            if endpoint == "/chats/19:abc@thread.v2/messages":
+                return messages_payload
+            if endpoint == "/me/calendarView":
+                return {"value": [{**event_payload,
+                                   "onlineMeeting": {"joinUrl": "https://teams.microsoft.com/l/meetup-join/19:meet@thread.v2/0"}}]}
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:abc@thread.v2",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:abc@thread.v2"},
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            )
+
+        assert "Project Sync" in result
+
+    @pytest.mark.asyncio
+    async def test_one_to_one_chat_renders_without_meeting_block(
+        self, full_permissions, messages_payload
+    ):
+        chat_meta = {
+            "id": "19:dm@unq.gbl.spaces",
+            "topic": None,
+            "chatType": "oneOnOne",
+            "webUrl": "https://teams.microsoft.com/l/chat/19:dm@unq.gbl.spaces/conversations",
+            "onlineMeetingInfo": None,
+            "members": [{"displayName": "Avi"}, {"displayName": "Alice"}],
+        }
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:dm@unq.gbl.spaces":
+                return chat_meta
+            if endpoint == "/chats/19:dm@unq.gbl.spaces/messages":
+                return messages_payload
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:dm@unq.gbl.spaces",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:dm@unq.gbl.spaces"},
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:dm@unq.gbl.spaces/conversations",
+            )
+
+        assert "Hello" in result
+        assert "Meeting context" not in result
+
+    @pytest.mark.asyncio
+    async def test_empty_online_meeting_info_renders_without_meeting_block(
+        self, full_permissions, messages_payload
+    ):
+        chat_meta = {
+            "id": "19:abc@thread.v2",
+            "topic": "Group chat",
+            "chatType": "group",
+            "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            "onlineMeetingInfo": {},
+            "members": [{"displayName": "A"}, {"displayName": "B"}, {"displayName": "C"}],
+        }
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:abc@thread.v2":
+                return chat_meta
+            if endpoint == "/chats/19:abc@thread.v2/messages":
+                return messages_payload
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:abc@thread.v2",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:abc@thread.v2"},
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            )
+
+        assert "Group chat" in result
+        assert "Meeting context" not in result
+
+    @pytest.mark.asyncio
+    async def test_messages_failure_partial_success(
+        self, full_permissions, chat_meta, event_payload
+    ):
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:abc@thread.v2":
+                return chat_meta
+            if endpoint == "/chats/19:abc@thread.v2/messages":
+                raise GraphAPIError(500, "InternalError", "down")
+            if endpoint == "/me/events/AAMkevent123":
+                return event_payload
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:abc@thread.v2",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:abc@thread.v2"},
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            )
+
+        assert "Project Sync" in result
+        assert "⚠️" in result or "unavailable" in result.lower()
+        assert "Hello" not in result  # messages failed; no message content should render
+
+    @pytest.mark.asyncio
+    async def test_chat_failure_partial_success(
+        self, full_permissions, messages_payload
+    ):
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:abc@thread.v2":
+                raise GraphAPIError(403, "Forbidden", "no access")
+            if endpoint == "/chats/19:abc@thread.v2/messages":
+                return messages_payload
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:abc@thread.v2",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:abc@thread.v2"},
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            )
+
+        assert "⚠️" in result or "unavailable" in result.lower()
+        assert "Hello" in result  # messages still rendered
+
+    @pytest.mark.asyncio
+    async def test_calendar_fuse_404_silently_skipped(
+        self, full_permissions, chat_meta, messages_payload
+    ):
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:abc@thread.v2":
+                return chat_meta
+            if endpoint == "/chats/19:abc@thread.v2/messages":
+                return messages_payload
+            if endpoint == "/me/events/AAMkevent123":
+                raise GraphAPIError(404, "NotFound", "deleted")
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:abc@thread.v2",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:abc@thread.v2"},
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            )
+
+        # Chat + messages still render; meeting block silently absent
+        assert "Project Sync" in result  # chat topic
+        assert "Hello" in result
+
+    @pytest.mark.asyncio
+    async def test_messages_sorted_client_side(
+        self, full_permissions, chat_meta, event_payload
+    ):
+        out_of_order = {
+            "value": [
+                {"from": {"user": {"displayName": "Alice"}},
+                 "body": {"content": "OLDEST"},
+                 "createdDateTime": "2026-05-26T08:00:00Z"},
+                {"from": {"user": {"displayName": "Bob"}},
+                 "body": {"content": "NEWEST"},
+                 "createdDateTime": "2026-05-26T10:00:00Z"},
+                {"from": {"user": {"displayName": "Carol"}},
+                 "body": {"content": "MIDDLE"},
+                 "createdDateTime": "2026-05-26T09:00:00Z"},
+            ]
+        }
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:abc@thread.v2":
+                return chat_meta
+            if endpoint == "/chats/19:abc@thread.v2/messages":
+                return out_of_order
+            if endpoint == "/me/events/AAMkevent123":
+                return event_payload
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:abc@thread.v2",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:abc@thread.v2"},
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            )
+
+        # Newest message must appear before middle and oldest
+        newest_pos = result.find("NEWEST")
+        middle_pos = result.find("MIDDLE")
+        oldest_pos = result.find("OLDEST")
+        assert 0 <= newest_pos < middle_pos < oldest_pos

@@ -1,5 +1,6 @@
 """resolve composer — parse M365 URLs and fetch their content via Graph."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from ..formatters import format_resolved_content_markdown, format_section_error
@@ -95,6 +96,49 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
         return await client.get(endpoint, params={
             "$select": "body,from,createdDateTime",
         })
+
+    elif url_type == "chat_thread":
+        chat_id = resolved.extra["chat_id"]
+        chat_task = client.get(f"/chats/{chat_id}", params={
+            "$select": "id,topic,chatType,webUrl,onlineMeetingInfo",
+            "$expand": "members",
+        })
+        msgs_task = client.get(f"/chats/{chat_id}/messages", params={
+            "$top": "20",
+        })
+        chat_result, msgs_result = await asyncio.gather(
+            chat_task, msgs_task, return_exceptions=True
+        )
+
+        chat = chat_result if not isinstance(chat_result, BaseException) else None
+        messages_raw = (
+            msgs_result.get("value", [])
+            if isinstance(msgs_result, dict) else []
+        )
+        messages = sorted(
+            messages_raw,
+            key=lambda m: m.get("createdDateTime", ""),
+            reverse=True,
+        )[:20]
+
+        meeting_event = None
+        if chat:
+            omi = chat.get("onlineMeetingInfo") or {}
+            calendar_event_id = omi.get("calendarEventId") or ""
+            join_web_url = omi.get("joinWebUrl") or ""
+            if calendar_event_id:
+                meeting_event = await _get_event_by_id(client, calendar_event_id)
+            elif join_web_url:
+                meeting_event = await _find_meeting_by_join_url(client, join_web_url)
+
+        return {
+            "chat": chat,
+            "messages": messages,
+            "meeting": meeting_event,
+            "_chat_error": _error_reason(chat_result) if isinstance(chat_result, BaseException) else None,
+            "_messages_error": _error_reason(msgs_result) if isinstance(msgs_result, BaseException) else None,
+            "_url_type": "chat_thread",
+        }
 
     elif url_type == "meeting":
         thread_id = resolved.extra.get("thread_id", "")

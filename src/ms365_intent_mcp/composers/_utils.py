@@ -15,7 +15,7 @@ NOISE_PATTERNS = [
 ]
 
 
-def _error_reason(exc: Exception) -> str:
+def _error_reason(exc: BaseException) -> str:
     if isinstance(exc, GraphAPIError):
         if exc.status_code == 429:
             return "rate limited — retry shortly"
