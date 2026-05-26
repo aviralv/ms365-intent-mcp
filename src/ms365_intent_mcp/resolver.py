@@ -41,6 +41,14 @@ _PATTERNS: list[tuple[str, re.Pattern, str]] = [
         "Chat.ReadWrite",
     ),
     (
+        "chat_thread",
+        re.compile(
+            r"teams\.microsoft\.com/l/chat/"
+            r"(19:[^/]+@(?:thread\.v2|unq\.gbl\.spaces|thread\.spaces))"
+        ),
+        "Chat.ReadWrite",
+    ),
+    (
         "meeting",
         re.compile(r"teams\.microsoft\.com/l/meetup-join/([^/\?&]+)"),
         "Calendars.Read",
@@ -136,6 +144,8 @@ def _decode_upn(encoded: str) -> str:
 
 def _build_extra(url_type: str, url: str, match: re.Match) -> dict[str, str]:
     """Extract additional context needed by the composer."""
+    if url_type == "chat_thread":
+        return {"chat_id": match.group(1)}
     if url_type == "meeting":
         return {"thread_id": urllib.parse.unquote(match.group(1))}
     if url_type == "sharepoint_page":
@@ -164,6 +174,8 @@ def _build_extra(url_type: str, url: str, match: re.Match) -> dict[str, str]:
 
 
 def _build_endpoint(url_type: str, url: str, match: re.Match, extra: dict[str, str]) -> str:
+    if url_type == "chat_thread":
+        return f"/chats/{match.group(1)}"
     if url_type == "channel_message":
         channel_id = extra.get("channel_id", match.group(1))
         message_id = extra.get("message_id", match.group(2))

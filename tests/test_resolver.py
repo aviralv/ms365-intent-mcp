@@ -124,3 +124,44 @@ class TestDecodeUpn:
 
     def test_single_name_with_domain(self):
         assert _decode_upn("admin_contoso_com") == "admin@contoso.com"
+
+
+class TestChatThread:
+    def test_meeting_chat_url_parses(self):
+        url = (
+            "https://teams.microsoft.com/l/chat/"
+            "19:meeting_ZmMxNDhi@thread.v2/conversations"
+            "?context=%7B%22contextType%22%3A%22chat%22%7D"
+        )
+        result = resolve_url(url)
+        assert result.url_type == "chat_thread"
+        assert result.extra["chat_id"] == "19:meeting_ZmMxNDhi@thread.v2"
+        assert result.required_scope == "Chat.ReadWrite"
+
+    def test_one_to_one_chat_url_parses(self):
+        url = "https://teams.microsoft.com/l/chat/19:abc123@unq.gbl.spaces/conversations"
+        result = resolve_url(url)
+        assert result.url_type == "chat_thread"
+        assert result.extra["chat_id"] == "19:abc123@unq.gbl.spaces"
+
+    def test_group_chat_url_parses(self):
+        url = "https://teams.microsoft.com/l/chat/19:groupabc@thread.v2/conversations"
+        result = resolve_url(url)
+        assert result.url_type == "chat_thread"
+        assert result.extra["chat_id"] == "19:groupabc@thread.v2"
+
+    def test_chat_message_url_does_not_match_chat_thread(self):
+        # /l/message/ path must continue to match chat_message, not chat_thread
+        url = "https://teams.microsoft.com/l/message/19:somechat@unq.gbl.spaces/1234567890.123456"
+        result = resolve_url(url)
+        assert result.url_type == "chat_message"
+
+    def test_endpoint_template_is_chats_chat_id(self):
+        url = "https://teams.microsoft.com/l/chat/19:abc@unq.gbl.spaces/conversations"
+        result = resolve_url(url)
+        assert result.graph_endpoint == "/chats/19:abc@unq.gbl.spaces"
+
+    def test_malformed_chat_url_raises(self):
+        url = "https://teams.microsoft.com/l/chat/not-a-chat-id"
+        with pytest.raises(UrlParseError):
+            resolve_url(url)
