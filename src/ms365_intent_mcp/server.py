@@ -24,8 +24,6 @@ from .resilience import CircuitBreaker
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-_config = Config()
-
 
 @asynccontextmanager
 async def lifespan(server: FastMCP):
@@ -37,20 +35,21 @@ async def lifespan(server: FastMCP):
         logger.addHandler(handler)
         logger.propagate = False
 
-    auth = TokenManager(_config)
+    config = Config()
+    auth = TokenManager(config)
     print("Connecting to Microsoft Graph API...", file=sys.stderr)
     auth.ensure_authenticated()
     print("Connected.", file=sys.stderr)
 
-    permissions = PermissionRegistry.from_token(auth.get_access_token())
+    permissions = PermissionRegistry.from_token_provider(auth.peek_access_token)
     cb = CircuitBreaker(
-        failure_threshold=_config.cb_failure_threshold,
-        recovery_timeout=_config.cb_recovery_timeout,
+        failure_threshold=config.cb_failure_threshold,
+        recovery_timeout=config.cb_recovery_timeout,
     )
 
-    async with GraphClient(_config.graph_base_url, auth.get_access_token, cb=cb) as client:
+    async with GraphClient(config.graph_base_url, auth.get_access_token, cb=cb) as client:
         yield {
-            "config": _config,
+            "config": config,
             "client": client,
             "permissions": permissions,
         }

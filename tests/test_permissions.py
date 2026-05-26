@@ -51,3 +51,60 @@ class TestPermissionRegistry:
     def test_granted_property(self):
         registry = PermissionRegistry(["Mail.Read", "User.Read"])
         assert registry.granted == {"Mail.Read", "User.Read"}
+
+
+def _make_jwt(scopes: str) -> str:
+    payload = {"scp": scopes}
+    encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
+    return f"header.{encoded}.signature"
+
+
+class TestLazyPermissionRegistry:
+    def test_updates_on_token_change(self):
+        tokens = [_make_jwt("Mail.Read")]
+
+        def provider():
+            return tokens[0]
+
+        registry = PermissionRegistry.from_token_provider(provider)
+        assert registry.has("Mail.Read")
+        assert not registry.has("Chat.ReadWrite")
+
+        tokens[0] = _make_jwt("Mail.Read Chat.ReadWrite")
+        assert registry.has("Chat.ReadWrite")
+
+    def test_does_not_reparse_same_token(self):
+        call_count = [0]
+        token = _make_jwt("Mail.Read")
+
+        def provider():
+            call_count[0] += 1
+            return token
+
+        registry = PermissionRegistry.from_token_provider(provider)
+        registry.has("Mail.Read")
+        registry.has("Mail.Read")
+        assert call_count[0] == 2  # provider called, but decode only happens once
+
+    def test_base64_padding_various_lengths(self):
+        for scopes in ["A", "AB", "ABC", "ABCD", "Mail.Read Calendars.ReadWrite User.Read"]:
+            token = _make_jwt(scopes)
+            registry = PermissionRegistry.from_token(token)
+            assert registry.granted  # should not raise
+
+    def test_handles_none_token(self):
+        """Provider returning None (no token cached yet) must not crash."""
+        registry = PermissionRegistry.from_token_provider(lambda: None)
+        assert registry.has("Mail.Read") is False
+        assert registry.granted == set()
+
+    def test_recovers_when_token_becomes_available(self):
+        tokens: list[str | None] = [None]
+
+        def provider():
+            return tokens[0]
+
+        registry = PermissionRegistry.from_token_provider(provider)
+        assert not registry.has("Mail.Read")
+        tokens[0] = _make_jwt("Mail.Read")
+        assert registry.has("Mail.Read")
