@@ -34,6 +34,33 @@ async def compose_resolve(
     return format_resolved_content_markdown(resolved.url_type, data)
 
 
+async def _find_meeting_by_join_url(client: GraphClient, join_url: str) -> dict | None:
+    """Search the user's calendar (±14 days) for an event whose joinUrl contains the given fragment.
+
+    Returns the matched event dict, or None if no match.
+    """
+    if not join_url:
+        return None
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end = (now + timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        result = await client.get("/me/calendarView", params={
+            "startDateTime": start,
+            "endDateTime": end,
+            "$top": "50",
+            "$select": "subject,start,end,organizer,attendees,body,location,isOnlineMeeting,onlineMeeting",
+        })
+    except GraphAPIError:
+        return None
+    events = (result or {}).get("value", [])
+    for event in events:
+        event_join = (event.get("onlineMeeting") or {}).get("joinUrl", "")
+        if join_url in event_join:
+            return event
+    return None
+
+
 async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
     url_type = resolved.url_type
     endpoint = resolved.graph_endpoint
@@ -55,21 +82,10 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
 
     elif url_type == "meeting":
         thread_id = resolved.extra.get("thread_id", "")
-        now = datetime.now(timezone.utc)
-        start = (now - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        end = (now + timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        result = await client.get("/me/calendarView", params={
-            "startDateTime": start,
-            "endDateTime": end,
-            "$top": "50",
-            "$select": "subject,start,end,organizer,attendees,body,location,isOnlineMeeting,onlineMeeting",
-        })
-        events = (result or {}).get("value", [])
-        for event in events:
-            join_url = (event.get("onlineMeeting") or {}).get("joinUrl", "")
-            if thread_id and thread_id in join_url:
-                return event
-        return {"_error": "No matching meeting found for this Teams link."}
+        event = await _find_meeting_by_join_url(client, thread_id)
+        if event is None:
+            return {"_error": "No matching meeting found for this Teams link."}
+        return event
 
     elif url_type in ("onedrive_file", "onedrive_share_link"):
         return await client.get(endpoint, params={
