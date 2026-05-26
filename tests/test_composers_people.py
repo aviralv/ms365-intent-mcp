@@ -84,3 +84,52 @@ def _mock_people_response():
             }
         ]
     }
+
+
+class TestFindChatWithPerson:
+    def test_email_match_wins(self):
+        from ms365_intent_mcp.composers.people import _find_chat_with_person
+        chats = [
+            {"id": "1", "members": [{"displayName": "Bob", "email": "bob@sap.com"}]},
+            {"id": "2", "members": [{"displayName": "Alice Smith", "email": "alice@sap.com"}]},
+        ]
+        result = _find_chat_with_person(chats, "Alice Smith", "alice@sap.com")
+        assert result["id"] == "2"
+
+    def test_email_match_preferred_over_name(self):
+        from ms365_intent_mcp.composers.people import _find_chat_with_person
+        chats = [
+            {"id": "name-match", "members": [{"displayName": "Alice Smith", "email": "other@sap.com"}]},
+            {"id": "email-match", "members": [{"displayName": "AS", "email": "alice@sap.com"}]},
+        ]
+        result = _find_chat_with_person(chats, "Alice Smith", "alice@sap.com")
+        assert result["id"] == "email-match"
+
+    def test_avi_does_not_match_aviral(self):
+        from ms365_intent_mcp.composers.people import _find_chat_with_person
+        chats = [
+            {"id": "1", "members": [{"displayName": "Aviral Patel", "email": ""}]},
+        ]
+        result = _find_chat_with_person(chats, "Avi", "")
+        assert result is None
+
+    def test_full_name_matches_when_no_email(self):
+        from ms365_intent_mcp.composers.people import _find_chat_with_person
+        chats = [
+            {"id": "1", "members": [{"displayName": "Alice Smith", "email": ""}]},
+        ]
+        result = _find_chat_with_person(chats, "Alice Smith", "")
+        assert result["id"] == "1"
+
+    def test_no_match_returns_none(self):
+        from ms365_intent_mcp.composers.people import _find_chat_with_person
+        chats = [
+            {"id": "1", "members": [{"displayName": "Bob Jones", "email": "bob@sap.com"}]},
+        ]
+        result = _find_chat_with_person(chats, "Alice Smith", "alice@sap.com")
+        assert result is None
+
+    def test_empty_target_returns_none(self):
+        from ms365_intent_mcp.composers.people import _find_chat_with_person
+        chats = [{"id": "1", "members": [{"displayName": "Alice", "email": "a@b.com"}]}]
+        assert _find_chat_with_person(chats, "", "") is None

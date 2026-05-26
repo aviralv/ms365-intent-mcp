@@ -73,8 +73,8 @@ def resolve_url(url: str) -> ResolvedUrl:
     for url_type, pattern, scope in _PATTERNS:
         m = pattern.search(url)
         if m:
-            endpoint = _build_endpoint(url_type, url, m)
             extra = _build_extra(url_type, url, m)
+            endpoint = _build_endpoint(url_type, url, m, extra)
             return ResolvedUrl(
                 url_type=url_type,
                 graph_endpoint=endpoint,
@@ -109,18 +109,29 @@ def _parse_onedrive_personal_path(url: str) -> tuple[str, str]:
     return _decode_upn(upn_encoded), relative_path
 
 
+_MULTI_PART_TLDS = {"co.uk", "com.au", "co.jp", "co.nz", "com.br", "co.in", "org.uk", "ac.uk"}
+
+
 def _decode_upn(encoded: str) -> str:
     """Decode a OneDrive personal UPN from URL path segment.
 
-    Convention: last two underscores represent @ and domain separator.
+    SharePoint encodes user@domain as: dots→underscores, @→underscore.
     e.g. aviral_vaid_sap_com → aviral.vaid@sap.com
+         john_smith_company_co_uk → john.smith@company.co.uk
     """
     parts = encoded.split("_")
-    if len(parts) >= 3:
-        domain = ".".join(parts[-2:])
-        username = ".".join(parts[:-2])
-        return f"{username}@{domain}"
-    return encoded
+    if len(parts) < 3:
+        return encoded
+    if len(parts) >= 4:
+        potential_tld = f"{parts[-2]}.{parts[-1]}"
+        if potential_tld in _MULTI_PART_TLDS:
+            domain = ".".join(parts[-3:])
+            username = ".".join(parts[:-3])
+            if username:
+                return f"{username}@{domain}"
+    domain = ".".join(parts[-2:])
+    username = ".".join(parts[:-2])
+    return f"{username}@{domain}"
 
 
 def _build_extra(url_type: str, url: str, match: re.Match) -> dict[str, str]:
@@ -152,20 +163,11 @@ def _build_extra(url_type: str, url: str, match: re.Match) -> dict[str, str]:
     return {}
 
 
-def _build_endpoint(url_type: str, url: str, match: re.Match) -> str:
+def _build_endpoint(url_type: str, url: str, match: re.Match, extra: dict[str, str]) -> str:
     if url_type == "channel_message":
-        channel_id = match.group(1)
-        message_id = match.group(2)
-        parsed = urllib.parse.urlparse(url)
-        qs = urllib.parse.parse_qs(parsed.query)
-        context_raw = qs.get("context", [""])[0]
-        group_id = ""
-        if context_raw:
-            try:
-                ctx = json.loads(context_raw)
-                group_id = ctx.get("groupId", "")
-            except (json.JSONDecodeError, TypeError):
-                pass
+        channel_id = extra.get("channel_id", match.group(1))
+        message_id = extra.get("message_id", match.group(2))
+        group_id = extra.get("group_id", "")
         if group_id:
             return f"/teams/{group_id}/channels/{channel_id}/messages/{message_id}"
         return f"/chats/{channel_id}/messages/{message_id}"

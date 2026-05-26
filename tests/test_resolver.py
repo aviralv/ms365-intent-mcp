@@ -4,7 +4,7 @@ import urllib.parse
 
 import pytest
 
-from ms365_intent_mcp.resolver import resolve_url, UrlParseError
+from ms365_intent_mcp.resolver import resolve_url, UrlParseError, _decode_upn
 
 
 def _ctx(payload: dict) -> str:
@@ -104,3 +104,23 @@ class TestUnknownUrl:
     def test_unknown_url_raises(self):
         with pytest.raises(UrlParseError):
             resolve_url("https://www.google.com/search?q=hello")
+
+
+class TestDecodeUpn:
+    def test_simple_domain(self):
+        assert _decode_upn("aviral_vaid_sap_com") == "aviral.vaid@sap.com"
+
+    def test_multi_part_tld_co_uk(self):
+        assert _decode_upn("john_smith_company_co_uk") == "john.smith@company.co.uk"
+
+    def test_multi_part_tld_com_au(self):
+        assert _decode_upn("user_name_org_com_au") == "user.name@org.com.au"
+
+    def test_short_encoding_unchanged(self):
+        assert _decode_upn("ab") == "ab"
+
+    def test_two_parts_unchanged(self):
+        assert _decode_upn("user_com") == "user_com"
+
+    def test_single_name_with_domain(self):
+        assert _decode_upn("admin_contoso_com") == "admin@contoso.com"
