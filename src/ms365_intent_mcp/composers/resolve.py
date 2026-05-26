@@ -61,6 +61,22 @@ async def _find_meeting_by_join_url(client: GraphClient, join_url: str) -> dict 
     return None
 
 
+async def _get_event_by_id(client: GraphClient, event_id: str) -> dict | None:
+    """Direct calendar event lookup by ID. Returns None on empty ID or any GraphAPIError.
+
+    The calendar fuse is opportunistic — a 404 (event deleted, or on someone else's calendar)
+    is silently swallowed so the chat_thread response still renders.
+    """
+    if not event_id:
+        return None
+    try:
+        return await client.get(f"/me/events/{event_id}", params={
+            "$select": "subject,start,end,organizer,attendees,body,location,isOnlineMeeting,onlineMeeting",
+        })
+    except GraphAPIError:
+        return None
+
+
 async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
     url_type = resolved.url_type
     endpoint = resolved.graph_endpoint

@@ -271,3 +271,44 @@ class TestSharePointPageResolve:
 
         result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "SharePoint Site" in result
+
+
+# ---------------------------------------------------------------------------
+# _get_event_by_id helper
+# ---------------------------------------------------------------------------
+
+class TestGetEventByIdHelper:
+    @pytest.mark.asyncio
+    async def test_returns_event_on_success(self):
+        from ms365_intent_mcp.composers.resolve import _get_event_by_id
+
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "subject": "Project sync",
+            "start": {"dateTime": "2026-05-26T10:00:00"},
+            "end": {"dateTime": "2026-05-26T10:30:00"},
+        })
+        event = await _get_event_by_id(client, "AAMkAGI2event-id")
+        assert event["subject"] == "Project sync"
+        client.get.assert_called_once()
+        called_endpoint = client.get.call_args[0][0]
+        assert called_endpoint == "/me/events/AAMkAGI2event-id"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_404(self):
+        from ms365_intent_mcp.composers.resolve import _get_event_by_id
+
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=GraphAPIError(404, "NotFound", "gone"))
+        event = await _get_event_by_id(client, "missing-id")
+        assert event is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_empty_id(self):
+        from ms365_intent_mcp.composers.resolve import _get_event_by_id
+
+        client = AsyncMock()
+        client.get = AsyncMock()
+        event = await _get_event_by_id(client, "")
+        assert event is None
+        client.get.assert_not_called()
