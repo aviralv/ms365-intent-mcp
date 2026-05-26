@@ -117,6 +117,7 @@ async def compose_whats_new(
                         preview_msgs.append({
                             "from": {"user": {"displayName": _chat_sender(preview)}},
                             "body": preview.get("body", {}),
+                            "_chat_web_url": chat.get("webUrl", ""),
                         })
                 sections.append(format_teams_activity_markdown(preview_msgs))
 

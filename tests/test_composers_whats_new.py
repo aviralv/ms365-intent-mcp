@@ -79,6 +79,41 @@ class TestWhatsNewAll:
         assert "Mail.Read" in result
 
 
+class TestWhatsNewTeamsPermalink:
+    @pytest.mark.asyncio
+    async def test_teams_section_includes_chat_web_url(self, full_permissions):
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if "/me/calendarView" in endpoint:
+                return {"value": []}
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if "/me/chats" in endpoint:
+                return {"value": [{
+                    "id": "19:abc@thread.v2",
+                    "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+                    "lastMessagePreview": {
+                        "from": {"user": {"displayName": "Alice"}},
+                        "body": {"content": "Hello there"},
+                    },
+                }]}
+            return {}
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        result = await compose_whats_new(
+            client=client,
+            permissions=full_permissions,
+            since="2026-05-14T00:00:00",
+            scope="teams",
+            timezone="Europe/Berlin",
+        )
+
+        assert "[open chat]" in result
+        assert "19:abc@thread.v2" in result
+
+
 async def _mock_get(endpoint, params=None, headers=None):
     if "calendarView" in endpoint:
         return {"value": [
