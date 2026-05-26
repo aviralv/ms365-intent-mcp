@@ -32,7 +32,9 @@ def format_event_detail_markdown(event: dict) -> str:
     online = event.get("isOnlineMeeting", False)
 
     lines = [f"## {subject}"]
-    lines.append(f"**When:** {start[:16]} → {end[11:16]}")
+    start_fmt = start[:16] if len(start) >= 16 else start
+    end_fmt = end[11:16] if len(end) >= 16 else end
+    lines.append(f"**When:** {start_fmt} → {end_fmt}")
     lines.append(f"**Organizer:** {organizer}")
     if location:
         lines.append(f"**Location:** {location}")

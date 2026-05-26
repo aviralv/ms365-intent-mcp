@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from ..formatters import format_event_detail_markdown
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
+from ._utils import _escape_odata
 
 
 async def compose_meeting(
@@ -70,9 +71,9 @@ async def _search_by_subject(
         result = await client.get("/me/calendarView", params={
             "startDateTime": start_iso,
             "endDateTime": end_iso,
-            "$orderby": "start/dateTime desc",
+            "$orderby": "start/dateTime asc",
             "$top": "50",
-            "$filter": f"contains(subject, '{subject}')",
+            "$filter": f"contains(subject, '{_escape_odata(subject)}')",
         }, headers=headers)
 
         events = result.get("value", [])
@@ -84,7 +85,7 @@ async def _search_by_subject(
     result = await client.get("/me/calendarView", params={
         "startDateTime": start_iso,
         "endDateTime": end_iso,
-        "$orderby": "start/dateTime desc",
+        "$orderby": "start/dateTime asc",
         "$top": "50",
     }, headers=headers)
 

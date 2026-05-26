@@ -1,8 +1,12 @@
 """Tests for CircuitBreaker state machine."""
 
+import time
+from unittest.mock import patch
+
 import httpx
 import pytest
 
+from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.resilience import CircuitBreaker, CircuitOpenError, CircuitState
 
 
@@ -14,6 +18,10 @@ async def _raise_5xx():
 async def _raise_status(code: int):
     response = httpx.Response(code, request=httpx.Request("GET", "https://example.com"))
     raise httpx.HTTPStatusError(f"HTTP {code}", request=response.request, response=response)
+
+
+async def _raise_graph_api_error(status: int):
+    raise GraphAPIError(status, "Error", "test error")
 
 
 async def _ok():
@@ -62,3 +70,53 @@ class TestCircuitBreakerIgnoresNon5xx:
         with pytest.raises(httpx.HTTPStatusError):
             await cb.call(lambda: _raise_status(404))
         assert cb.state == CircuitState.CLOSED
+
+
+class TestCircuitBreakerGraphAPIError:
+    @pytest.mark.asyncio
+    async def test_graph_api_500_trips_breaker(self):
+        cb = CircuitBreaker(failure_threshold=2)
+        for _ in range(2):
+            with pytest.raises(GraphAPIError):
+                await cb.call(lambda: _raise_graph_api_error(500))
+        assert cb.state == CircuitState.OPEN
+
+    @pytest.mark.asyncio
+    async def test_graph_api_400_does_not_trip(self):
+        cb = CircuitBreaker(failure_threshold=1)
+        with pytest.raises(GraphAPIError):
+            await cb.call(lambda: _raise_graph_api_error(400))
+        assert cb.state == CircuitState.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_graph_api_503_trips_breaker(self):
+        cb = CircuitBreaker(failure_threshold=1)
+        with pytest.raises(GraphAPIError):
+            await cb.call(lambda: _raise_graph_api_error(503))
+        assert cb.state == CircuitState.OPEN
+
+
+class TestCircuitBreakerHalfOpen:
+    @pytest.mark.asyncio
+    async def test_transitions_to_half_open_after_timeout(self):
+        cb = CircuitBreaker(failure_threshold=1, recovery_timeout=0.1)
+        with pytest.raises(GraphAPIError):
+            await cb.call(lambda: _raise_graph_api_error(500))
+        assert cb.state == CircuitState.OPEN
+
+        with patch("time.monotonic", return_value=time.monotonic() + 0.2):
+            result = await cb.call(_ok)
+        assert result == "ok"
+        assert cb.state == CircuitState.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_half_open_failure_reopens(self):
+        cb = CircuitBreaker(failure_threshold=1, recovery_timeout=0.1)
+        with pytest.raises(GraphAPIError):
+            await cb.call(lambda: _raise_graph_api_error(500))
+        assert cb.state == CircuitState.OPEN
+
+        with patch("time.monotonic", return_value=time.monotonic() + 0.2):
+            with pytest.raises(GraphAPIError):
+                await cb.call(lambda: _raise_graph_api_error(500))
+        assert cb.state == CircuitState.OPEN

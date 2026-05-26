@@ -109,13 +109,16 @@ class GraphClient:
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
 
-        auth_headers = {"Authorization": f"Bearer {self._token_provider()}"}
+        token = await asyncio.to_thread(self._token_provider)
+        auth_headers = {"Authorization": f"Bearer {token}"}
         merged = {**auth_headers, **(headers or {})}
         url = f"{self.base_url}{endpoint}"
 
         response = await self._client.get(url, headers=merged, follow_redirects=False)
 
-        if response.status_code in (301, 302, 307, 308):
+        for _ in range(2):
+            if response.status_code not in (301, 302, 307, 308):
+                break
             redirect_url = response.headers.get("location", "")
             if not self._is_allowed_redirect(redirect_url):
                 raise GraphAPIError(
@@ -163,33 +166,34 @@ class GraphClient:
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
 
-        auth_headers = {"Authorization": f"Bearer {self._token_provider()}"}
+        token = await asyncio.to_thread(self._token_provider)
+        auth_headers = {"Authorization": f"Bearer {token}"}
         merged = {**auth_headers, **(headers or {})}
         url = f"{self.base_url}{endpoint}"
 
-        async def _do_request():
+        async def _do_request_with_retry():
             if method == "GET":
-                return await self._client.get(url, params=params, headers=merged)
+                response = await self._client.get(url, params=params, headers=merged)
             elif method == "POST":
-                return await self._client.post(url, json=json_data, headers=merged)
-            raise ValueError(f"Unsupported method: {method}")
+                response = await self._client.post(url, json=json_data, headers=merged)
+            else:
+                raise ValueError(f"Unsupported method: {method}")
+
+            if response.status_code in (429, 503):
+                retry_after = min(int(response.headers.get("Retry-After", "1")), 10)
+                _logger.warning("graph_api retry_after=%d status=%d endpoint=%s", retry_after, response.status_code, endpoint)
+                await asyncio.sleep(retry_after)
+                if method == "GET":
+                    response = await self._client.get(url, params=params, headers=merged)
+                else:
+                    response = await self._client.post(url, json=json_data, headers=merged)
+
+            self._log_request(method, endpoint, response)
+            return self._handle_response(response)
 
         if self._cb is not None:
-            response = await self._cb.call(_do_request)
-        else:
-            response = await _do_request()
-
-        if response.status_code in (429, 503):
-            retry_after = min(int(response.headers.get("Retry-After", "1")), 10)
-            _logger.warning("graph_api retry_after=%d status=%d endpoint=%s", retry_after, response.status_code, endpoint)
-            await asyncio.sleep(retry_after)
-            if self._cb is not None:
-                response = await self._cb.call(_do_request)
-            else:
-                response = await _do_request()
-
-        self._log_request(method, endpoint, response)
-        return self._handle_response(response)
+            return await self._cb.call(_do_request_with_retry)
+        return await _do_request_with_retry()
 
     def _log_request(self, method: str, endpoint: str, response: httpx.Response) -> None:
         size = len(response.content) if response.content else 0

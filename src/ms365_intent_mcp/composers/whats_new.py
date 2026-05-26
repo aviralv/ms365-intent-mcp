@@ -1,7 +1,7 @@
 """whats_new composer — mail/calendar/teams since a given datetime."""
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as _tz
 
 from ..formatters import (
     format_events_markdown,
@@ -11,7 +11,7 @@ from ..formatters import (
 )
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
-from ._utils import _chat_sender, _error_reason, _is_noise, _sender_name
+from ._utils import _build_mail_summary, _chat_sender, _error_reason
 
 _VALID_SCOPES = {"mail", "calendar", "teams", "all"}
 
@@ -27,13 +27,23 @@ async def compose_whats_new(
     if scope not in _VALID_SCOPES:
         scope = "all"
 
+    try:
+        since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return "❌ Invalid 'since' format. Use ISO datetime, e.g. '2026-05-14T00:00:00'."
+    if since_dt.tzinfo is None:
+        since_dt = since_dt.replace(tzinfo=_tz.utc)
+
     tasks = {}
 
     if scope in ("calendar", "all"):
-        now_end = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%dT23:59:59")
+        now = datetime.now(_tz.utc)
+        max_end = since_dt + timedelta(days=14)
+        cal_end = min(now + timedelta(days=7), max_end)
+        cal_end_iso = cal_end.strftime("%Y-%m-%dT23:59:59")
         cal_params = {
             "startDateTime": since,
-            "endDateTime": now_end,
+            "endDateTime": cal_end_iso,
             "$orderby": "start/dateTime",
             "$top": "20",
             "$select": "subject,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting",
@@ -82,21 +92,13 @@ async def compose_whats_new(
                 sections.append(format_section_error("Mail", _error_reason(msgs_result)))
             else:
                 all_msgs = (msgs_result or {}).get("value", [])
-                relevant = [m for m in all_msgs if not _is_noise(m)]
-                high_importance = [
-                    {"subject": m.get("subject", "?"), "from": _sender_name(m)}
-                    for m in relevant if m.get("importance") == "high"
-                ]
-                needs_attention = [
-                    {"subject": m.get("subject", "?"), "from": _sender_name(m)}
-                    for m in relevant[:5]
-                ]
+                summary = _build_mail_summary(all_msgs)
                 sections.append(format_mail_summary_markdown(
-                    unread_count=len(all_msgs),
-                    relevant_count=len(relevant),
+                    unread_count=summary["all_count"],
+                    relevant_count=summary["relevant_count"],
                     flagged_count=0,
-                    high_importance=high_importance[:5],
-                    needs_attention=needs_attention,
+                    high_importance=summary["high_importance"],
+                    needs_attention=summary["needs_attention"],
                 ))
 
     if scope in ("teams", "all"):

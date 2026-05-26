@@ -10,7 +10,7 @@ from ..formatters import (
 )
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
-from ._utils import _chat_sender, _error_reason, _is_noise, _sender_name
+from ._utils import _build_mail_summary, _chat_sender, _error_reason
 
 
 async def compose_my_day(
@@ -80,21 +80,13 @@ async def compose_my_day(
         else:
             unread_count = inbox_result.get("unreadItemCount", 0) if inbox_result else 0
             unread_msgs = unread_result.get("value", []) if unread_result else []
-            relevant = [m for m in unread_msgs if not _is_noise(m)]
-            high_importance = [
-                {"subject": m.get("subject", "?"), "from": _sender_name(m)}
-                for m in relevant if m.get("importance") == "high"
-            ]
-            needs_attention = [
-                {"subject": m.get("subject", "?"), "from": _sender_name(m)}
-                for m in relevant[:5]
-            ]
+            summary = _build_mail_summary(unread_msgs)
             sections.append(format_mail_summary_markdown(
                 unread_count=unread_count,
-                relevant_count=len(relevant),
+                relevant_count=summary["relevant_count"],
                 flagged_count=0,
-                high_importance=high_importance[:5],
-                needs_attention=needs_attention,
+                high_importance=summary["high_importance"],
+                needs_attention=summary["needs_attention"],
             ))
 
     # Teams section

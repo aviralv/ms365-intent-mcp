@@ -6,7 +6,7 @@ from ..formatters import format_resolved_content_markdown, format_section_error
 from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ..resolver import ResolvedUrl, UrlParseError, resolve_url
-from ._utils import _error_reason
+from ._utils import _error_reason, _escape_odata
 
 
 async def compose_resolve(
@@ -108,7 +108,7 @@ async def _fetch_sharepoint_page(client: GraphClient, site_id: str, filename: st
     items_result = await client.get(
         f"/sites/{site_id}/lists/{list_id}/items",
         params={
-            "$filter": f"fields/FileLeafRef eq '{filename}'",
+            "$filter": f"fields/FileLeafRef eq '{_escape_odata(filename)}'",
             "$select": "id,webUrl",
             "$expand": "fields($select=FileLeafRef,Title,Modified)",
             "$top": "1",

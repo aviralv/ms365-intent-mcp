@@ -1,8 +1,6 @@
 """Tests for shared composer utilities."""
 
-import pytest
-
-from ms365_intent_mcp.composers._utils import _error_reason, NOISE_PATTERNS
+from ms365_intent_mcp.composers._utils import _error_reason, _escape_odata, _build_mail_summary, NOISE_PATTERNS
 from ms365_intent_mcp.graph import GraphAPIError
 
 
@@ -29,4 +27,32 @@ class TestErrorReason:
 
     def test_noise_patterns_include_expected(self):
         assert "noreply@" in NOISE_PATTERNS
+        assert "github.com" in NOISE_PATTERNS
+
+
+class TestEscapeOdata:
+    def test_no_quotes_unchanged(self):
+        assert _escape_odata("hello world") == "hello world"
+
+    def test_single_quote_doubled(self):
+        assert _escape_odata("O'Brien") == "O''Brien"
+
+    def test_multiple_quotes(self):
+        assert _escape_odata("it's a 'test'") == "it''s a ''test''"
+
+    def test_empty_string(self):
+        assert _escape_odata("") == ""
+
+
+class TestBuildMailSummary:
+    def test_filters_noise(self):
+        msgs = [
+            {"from": {"emailAddress": {"address": "noreply@github.com", "name": "GitHub"}}, "subject": "PR", "importance": "normal"},
+            {"from": {"emailAddress": {"address": "alice@company.com", "name": "Alice"}}, "subject": "Important", "importance": "high"},
+        ]
+        summary = _build_mail_summary(msgs)
+        assert summary["all_count"] == 2
+        assert summary["relevant_count"] == 1
+        assert len(summary["high_importance"]) == 1
+        assert summary["high_importance"][0]["subject"] == "Important"
         assert "github.com" in NOISE_PATTERNS

@@ -2,6 +2,11 @@
 
 from ..graph import GraphAPIError
 
+
+def _escape_odata(value: str) -> str:
+    """Escape a string for use in OData $filter expressions (doubles single quotes)."""
+    return value.replace("'", "''")
+
 NOISE_PATTERNS = [
     "noreply@", "no-reply@", "notifications@", "mailer@",
     "newsletter@", "digest@", "productboard", "stackoverflow",
@@ -35,3 +40,25 @@ def _chat_sender(preview: dict) -> str:
     from_field = preview.get("from") or {}
     user_field = from_field.get("user") or {}
     return user_field.get("displayName", "Unknown")
+
+
+def _build_mail_summary(all_msgs: list[dict]) -> dict:
+    """Build a structured mail summary from a list of messages.
+
+    Returns dict with keys: all_count, relevant_count, high_importance, needs_attention.
+    """
+    relevant = [m for m in all_msgs if not _is_noise(m)]
+    high_importance = [
+        {"subject": m.get("subject", "?"), "from": _sender_name(m)}
+        for m in relevant if m.get("importance") == "high"
+    ]
+    needs_attention = [
+        {"subject": m.get("subject", "?"), "from": _sender_name(m)}
+        for m in relevant[:5]
+    ]
+    return {
+        "all_count": len(all_msgs),
+        "relevant_count": len(relevant),
+        "high_importance": high_importance[:5],
+        "needs_attention": needs_attention,
+    }

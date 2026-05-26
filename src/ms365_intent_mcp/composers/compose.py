@@ -46,6 +46,12 @@ async def compose_action(
 
 
 async def _create_email_draft(client: GraphClient, params: dict) -> str:
+    if not params.get("to"):
+        return "❌ Missing required field: 'to' (recipients list)"
+    if not params.get("subject"):
+        return "❌ Missing required field: 'subject'"
+    if not params.get("body"):
+        return "❌ Missing required field: 'body'"
     recipients = [
         {"emailAddress": {"address": r["email"], "name": r.get("name", r["email"])}}
         for r in params["to"]
@@ -68,6 +74,10 @@ async def _create_email_draft(client: GraphClient, params: dict) -> str:
 
 
 async def _create_reply_draft(client: GraphClient, params: dict) -> str:
+    if not params.get("message_id"):
+        return "❌ Missing required field: 'message_id'"
+    if not params.get("body"):
+        return "❌ Missing required field: 'body'"
     message_id = params["message_id"]
     reply_all = params.get("reply_all", True)
     endpoint = "createReplyAll" if reply_all else "createReply"
@@ -85,6 +95,12 @@ async def _create_reply_draft(client: GraphClient, params: dict) -> str:
 
 
 async def _create_event(client: GraphClient, params: dict) -> str:
+    if not params.get("subject"):
+        return "❌ Missing required field: 'subject'"
+    if not params.get("start"):
+        return "❌ Missing required field: 'start'"
+    if not params.get("end"):
+        return "❌ Missing required field: 'end'"
     tz = params.get("timezone", "Europe/Berlin")
     payload = {
         "subject": params["subject"],
@@ -111,6 +127,10 @@ async def _create_event(client: GraphClient, params: dict) -> str:
 
 
 async def _send_teams_message(client: GraphClient, params: dict) -> str:
+    if not params.get("chat_id"):
+        return "❌ Missing required field: 'chat_id'"
+    if not params.get("content"):
+        return "❌ Missing required field: 'content'"
     chat_id = params["chat_id"]
     content = params["content"]
     content_type = params.get("content_type", "text")
