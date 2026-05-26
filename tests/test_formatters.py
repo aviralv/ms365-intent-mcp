@@ -354,3 +354,53 @@ class TestFormatResolvedChatThread:
         assert "Hello world" in result
         assert "<p>" not in result
         assert "<b>" not in result
+
+
+class TestFormatTeamsActivityTruncation:
+    def test_short_message_renders_intact(self):
+        msgs = [{
+            "from": {"user": {"displayName": "Alice"}},
+            "body": {"content": "Hello"},
+        }]
+        result = format_teams_activity_markdown(msgs)
+        assert "Hello" in result
+        assert "…" not in result
+
+    def test_message_at_500_chars_no_ellipsis(self):
+        body = "x" * 500
+        msgs = [{
+            "from": {"user": {"displayName": "Alice"}},
+            "body": {"content": body},
+        }]
+        result = format_teams_activity_markdown(msgs)
+        assert body in result
+        assert "…" not in result
+
+    def test_message_above_500_chars_truncated_with_ellipsis(self):
+        body = "x" * 600
+        msgs = [{
+            "from": {"user": {"displayName": "Alice"}},
+            "body": {"content": body},
+        }]
+        result = format_teams_activity_markdown(msgs)
+        assert "x" * 500 in result
+        assert "…" in result
+        assert "x" * 501 not in result
+
+    def test_chat_web_url_renders_as_open_chat_link(self):
+        msgs = [{
+            "from": {"user": {"displayName": "Alice"}},
+            "body": {"content": "Hello"},
+            "_chat_web_url": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+        }]
+        result = format_teams_activity_markdown(msgs)
+        assert "[open chat]" in result
+        assert "19:abc@thread.v2" in result
+
+    def test_no_chat_web_url_no_link_appended(self):
+        msgs = [{
+            "from": {"user": {"displayName": "Alice"}},
+            "body": {"content": "Hello"},
+        }]
+        result = format_teams_activity_markdown(msgs)
+        assert "[open chat]" not in result

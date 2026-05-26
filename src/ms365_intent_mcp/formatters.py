@@ -122,8 +122,12 @@ def format_teams_activity_markdown(messages: list[dict]) -> str:
     for msg in messages[:5]:
         sender = msg.get("from", {}).get("user", {}).get("displayName", "Unknown")
         body = msg.get("body", {}).get("content", "")
-        text = re.sub(r"<[^>]+>", "", body).strip()[:100]
-        lines.append(f"- **{sender}:** {text}")
+        text = re.sub(r"<[^>]+>", "", body).strip()
+        if len(text) > 500:
+            text = text[:500] + "…"
+        web_url = msg.get("_chat_web_url", "")
+        link = f" — [open chat]({web_url})" if web_url else ""
+        lines.append(f"- **{sender}:** {text}{link}")
     return "\n".join(lines)
 
 
