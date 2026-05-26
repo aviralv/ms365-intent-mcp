@@ -233,6 +233,8 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
         return f"### Teams Message\n**From:** {sender}  |  **At:** {created}\n\n{text}"
     elif url_type == "meeting":
         return format_event_detail_markdown(data)
+    elif url_type == "chat_thread":
+        return _format_chat_thread(data)
     elif url_type == "sharepoint_page":
         if data.get("_page_found"):
             title = data.get("title", "") or data.get("name", "?")
@@ -266,3 +268,74 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
         return "\n".join(lines)
     else:
         return f"### Resolved\n```\n{data}\n```"
+
+
+def _format_chat_thread(data: dict) -> str:
+    chat = data.get("chat") or {}
+    messages = data.get("messages") or []
+    meeting = data.get("meeting")
+    chat_error = data.get("_chat_error")
+    messages_error = data.get("_messages_error")
+
+    lines: list[str] = []
+
+    # Header: topic, else fall back to member names, else generic.
+    members = chat.get("members") or []
+    member_names = [m.get("displayName", "?") for m in members if m.get("displayName")]
+    topic = chat.get("topic")
+    if topic:
+        header = topic
+    elif member_names:
+        header = ", ".join(member_names[:3])
+    else:
+        header = "Teams Chat"
+    lines.append(f"### Teams Chat: {header}")
+
+    # Type badge.
+    chat_type = chat.get("chatType")
+    if chat_type:
+        lines.append(f"**Type:** {chat_type}")
+
+    # Members line (cap at 6, then "+ N more").
+    if member_names:
+        shown = member_names[:6]
+        more = len(member_names) - len(shown)
+        members_str = ", ".join(shown)
+        if more > 0:
+            members_str += f" + {more} more"
+        lines.append(f"**Members:** {members_str}")
+
+    # Errors (chat + messages).
+    if chat_error:
+        lines.append(f"⚠️  Chat metadata unavailable — {chat_error}.")
+    if messages_error:
+        lines.append(f"⚠️  Messages unavailable — {messages_error}.")
+
+    # Meeting context (compact 3-line block).
+    if meeting:
+        m_subject = meeting.get("subject", "(no subject)")
+        m_start = (meeting.get("start", {}) or {}).get("dateTime", "")[:16]
+        m_end = (meeting.get("end", {}) or {}).get("dateTime", "")[11:16]
+        m_organizer = ((meeting.get("organizer", {}) or {}).get("emailAddress", {}) or {}).get("name", "Unknown")
+        lines.append("")
+        lines.append("**Meeting context:**")
+        lines.append(f"- {m_subject}")
+        lines.append(f"- {m_start} → {m_end}")
+        lines.append(f"- Organizer: {m_organizer}")
+
+    # Messages (newest first; ≤500 chars + "…" if truncated).
+    if messages:
+        lines.append("")
+        lines.append("**Recent messages:**")
+        for msg in messages:
+            sender = ((msg.get("from") or {}).get("user") or {}).get("displayName", "Unknown")
+            ts = (msg.get("createdDateTime") or "")[:16]
+            body = (msg.get("body") or {}).get("content", "")
+            text = re.sub(r"<[^>]+>", "", body).strip()
+            if not text:
+                text = "(no content)"
+            elif len(text) > 500:
+                text = text[:500] + "…"
+            lines.append(f"- **{sender}** ({ts}): {text}")
+
+    return "\n".join(lines)

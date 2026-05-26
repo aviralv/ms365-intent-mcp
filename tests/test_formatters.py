@@ -231,3 +231,126 @@ class TestFormatResolvedContentMarkdown:
         data = {"name": "report.xlsx", "size": 20480, "webUrl": "https://sap-my.sharepoint.com/files/1"}
         result = format_resolved_content_markdown("onedrive_file", data)
         assert "report.xlsx" in result
+
+
+class TestFormatResolvedChatThread:
+    def _data(self, **overrides):
+        base = {
+            "chat": {
+                "topic": "Project Sync",
+                "chatType": "meeting",
+                "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+                "members": [
+                    {"displayName": "Alice"},
+                    {"displayName": "Bob"},
+                ],
+            },
+            "messages": [
+                {"from": {"user": {"displayName": "Alice"}},
+                 "body": {"content": "Hello world"},
+                 "createdDateTime": "2026-05-26T10:05:00Z"},
+                {"from": {"user": {"displayName": "Bob"}},
+                 "body": {"content": "Hi"},
+                 "createdDateTime": "2026-05-26T10:00:00Z"},
+            ],
+            "meeting": {
+                "subject": "Project Sync",
+                "start": {"dateTime": "2026-05-26T10:00:00"},
+                "end": {"dateTime": "2026-05-26T10:30:00"},
+                "organizer": {"emailAddress": {"name": "Alice"}},
+            },
+            "_chat_error": None,
+            "_messages_error": None,
+        }
+        base.update(overrides)
+        return base
+
+    def test_renders_topic_and_messages(self):
+        result = format_resolved_content_markdown("chat_thread", self._data())
+        assert "Project Sync" in result
+        assert "Alice" in result
+        assert "Hello world" in result
+
+    def test_renders_meeting_block_when_present(self):
+        result = format_resolved_content_markdown("chat_thread", self._data())
+        assert "Meeting" in result
+        assert "10:00" in result
+
+    def test_omits_meeting_block_when_absent(self):
+        result = format_resolved_content_markdown(
+            "chat_thread", self._data(meeting=None)
+        )
+        assert "Meeting" not in result
+
+    def test_falls_back_to_member_names_when_topic_null(self):
+        data = self._data(chat={
+            "topic": None,
+            "chatType": "oneOnOne",
+            "webUrl": "https://teams.microsoft.com/l/chat/19:dm@unq.gbl.spaces/conversations",
+            "members": [
+                {"displayName": "Avi"},
+                {"displayName": "Alice"},
+            ],
+        })
+        result = format_resolved_content_markdown("chat_thread", data)
+        assert "Avi" in result
+        assert "Alice" in result
+
+    def test_caps_member_list_at_six_with_more_indicator(self):
+        members = [{"displayName": f"User{i}"} for i in range(10)]
+        data = self._data(chat={
+            "topic": "Big group",
+            "chatType": "group",
+            "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            "members": members,
+        })
+        result = format_resolved_content_markdown("chat_thread", data)
+        assert "User0" in result
+        assert "User5" in result
+        assert "+ 4 more" in result
+        assert "User6" not in result
+
+    def test_truncates_long_message_with_ellipsis(self):
+        long_body = "x" * 600
+        data = self._data(messages=[
+            {"from": {"user": {"displayName": "Alice"}},
+             "body": {"content": long_body},
+             "createdDateTime": "2026-05-26T10:00:00Z"},
+        ])
+        result = format_resolved_content_markdown("chat_thread", data)
+        assert "x" * 500 in result
+        assert "…" in result
+        assert "x" * 501 not in result
+
+    def test_renders_chat_error_warning(self):
+        data = self._data(chat=None, _chat_error="rate limited")
+        result = format_resolved_content_markdown("chat_thread", data)
+        assert "⚠️" in result
+        assert "rate limited" in result
+
+    def test_renders_messages_error_warning(self):
+        data = self._data(messages=[], _messages_error="Microsoft service error")
+        result = format_resolved_content_markdown("chat_thread", data)
+        assert "⚠️" in result
+        assert "Microsoft service error" in result
+
+    def test_empty_message_body_renders_placeholder(self):
+        data = self._data(messages=[
+            {"from": {"user": {"displayName": "Alice"}},
+             "body": {"content": ""},
+             "createdDateTime": "2026-05-26T10:00:00Z"},
+        ])
+        result = format_resolved_content_markdown("chat_thread", data)
+        assert "Alice" in result
+        assert "(no content)" in result
+
+    def test_html_stripped_from_message_body(self):
+        data = self._data(messages=[
+            {"from": {"user": {"displayName": "Alice"}},
+             "body": {"content": "<p>Hello <b>world</b></p>"},
+             "createdDateTime": "2026-05-26T10:00:00Z"},
+        ])
+        result = format_resolved_content_markdown("chat_thread", data)
+        assert "Hello world" in result
+        assert "<p>" not in result
+        assert "<b>" not in result
