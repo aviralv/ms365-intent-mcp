@@ -44,6 +44,12 @@ class TestChatMessage:
         assert result.url_type == "chat_message"
         assert result.graph_endpoint == "/chats/19:somechat@unq.gbl.spaces/messages/1234567890.123456"
 
+    def test_percent_encoded_chat_message_url_parses(self):
+        url = "https://teams.microsoft.com/l/message/19%3Asomechat%40unq.gbl.spaces/1234567890.123456"
+        result = resolve_url(url)
+        assert result.url_type == "chat_message"
+        assert result.graph_endpoint == "/chats/19:somechat@unq.gbl.spaces/messages/1234567890.123456"
+
 
 class TestMeeting:
     def test_endpoint_is_calendar_view(self):
@@ -165,3 +171,13 @@ class TestChatThread:
         url = "https://teams.microsoft.com/l/chat/not-a-chat-id"
         with pytest.raises(UrlParseError):
             resolve_url(url)
+
+    def test_percent_encoded_chat_url_parses(self):
+        # Graph's /me/chats endpoint can return webUrl with %3A (`:`) and %40 (`@`) encoded
+        url = (
+            "https://teams.microsoft.com/l/chat/"
+            "19%3Ameeting_ZmMxNDhi%40thread.v2/conversations"
+        )
+        result = resolve_url(url)
+        assert result.url_type == "chat_thread"
+        assert result.extra["chat_id"] == "19:meeting_ZmMxNDhi@thread.v2"

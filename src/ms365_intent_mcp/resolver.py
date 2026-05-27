@@ -78,6 +78,7 @@ _PATTERNS: list[tuple[str, re.Pattern, str]] = [
 
 def resolve_url(url: str) -> ResolvedUrl:
     """Parse an M365 URL and return the resolved type + graph endpoint template."""
+    url = urllib.parse.unquote(url)
     for url_type, pattern, scope in _PATTERNS:
         m = pattern.search(url)
         if m:
