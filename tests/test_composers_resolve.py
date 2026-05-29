@@ -747,3 +747,117 @@ class TestBuildMemberNameMap:
     def test_none_chat(self):
         from ms365_intent_mcp.composers.resolve import _build_member_name_map
         assert _build_member_name_map(None) == {}
+
+
+# ---------------------------------------------------------------------------
+# _message_entry
+# ---------------------------------------------------------------------------
+
+class TestMessageEntry:
+    def test_resolves_sender_via_name_map(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"user": {"id": "u1", "displayName": None}},
+            "body": {"content": "Hello"},
+        }
+        entry = _message_entry(msg, {"u1": "Alice"})
+        assert entry["kind"] == "message"
+        assert entry["sender"] == "Alice"
+        assert entry["body"] == "Hello"
+        assert entry["is_body_empty"] is False
+        assert entry["ts"] == "2026-05-29T10:00:00Z"
+
+    def test_falls_back_to_graph_user_displayname(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"user": {"id": "u-unknown", "displayName": "Bob (Graph)"}},
+            "body": {"content": "Hi"},
+        }
+        entry = _message_entry(msg, {})  # empty map
+        assert entry["sender"] == "Bob (Graph)"
+
+    def test_falls_back_to_application_displayname(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"application": {"displayName": "Workflow Bot"}},
+            "body": {"content": "automated"},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["sender"] == "Workflow Bot"
+
+    def test_falls_back_to_unknown(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": None,
+            "body": {"content": "mystery"},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["sender"] == "Unknown"
+
+    def test_truncates_long_body_with_ellipsis(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"user": {"id": "u1", "displayName": "A"}},
+            "body": {"content": "x" * 600},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["body"].endswith("…")
+        assert len(entry["body"]) == 501  # 500 chars + "…"
+
+    def test_at_500_chars_no_ellipsis(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"user": {"id": "u1", "displayName": "A"}},
+            "body": {"content": "x" * 500},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["body"] == "x" * 500
+        assert "…" not in entry["body"]
+
+    def test_html_stripped(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"user": {"id": "u1", "displayName": "A"}},
+            "body": {"content": "<p>Hello <b>world</b></p>"},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["body"] == "Hello world"
+
+    def test_at_mention_only_renders_inner_text(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"user": {"id": "u1", "displayName": "A"}},
+            "body": {"content": '<at id="123">@Avi</at>'},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["body"] == "@Avi"
+        assert entry["is_body_empty"] is False
+
+    def test_empty_body_marked_is_body_empty(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"user": {"id": "u1", "displayName": "A"}},
+            "body": {"content": ""},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["is_body_empty"] is True
+        assert entry["body"] == ""
+
+    def test_html_only_body_marked_is_body_empty(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "from": {"user": {"id": "u1", "displayName": "A"}},
+            "body": {"content": "<systemEventMessage/>"},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["is_body_empty"] is True

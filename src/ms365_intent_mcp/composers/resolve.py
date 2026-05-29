@@ -4,7 +4,7 @@ import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 
-from ..formatters import format_resolved_content_markdown, format_section_error
+from ..formatters import _strip_teams_html, format_resolved_content_markdown, format_section_error
 from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ..resolver import ResolvedUrl, UrlParseError, resolve_url
@@ -50,6 +50,40 @@ def _build_member_name_map(chat: dict | None) -> dict[str, str]:
         if user_id and display_name:
             name_map[user_id] = display_name
     return name_map
+
+
+def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
+    """Classify a real chat message into a typed entry.
+
+    Sender resolution cascades: name_map[user.id] -> user.displayName ->
+    application.displayName -> 'Unknown'. Body is stripped via _strip_teams_html
+    and truncated to 500 chars + '…'. is_body_empty=True if stripped body is empty.
+    """
+    from_field = msg.get("from") or {}
+    user_field = from_field.get("user") or {}
+    app_field = from_field.get("application") or {}
+
+    user_id = user_field.get("id", "")
+    sender = (
+        name_map.get(user_id)
+        or user_field.get("displayName")
+        or app_field.get("displayName")
+        or "Unknown"
+    )
+
+    body_content = (msg.get("body") or {}).get("content", "")
+    text = _strip_teams_html(body_content)
+    is_body_empty = not text
+    if len(text) > 500:
+        text = text[:500] + "…"
+
+    return {
+        "kind": "message",
+        "ts": msg.get("createdDateTime", ""),
+        "sender": sender,
+        "body": text,
+        "is_body_empty": is_body_empty,
+    }
 
 
 async def compose_resolve(
