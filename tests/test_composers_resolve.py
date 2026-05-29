@@ -1114,3 +1114,91 @@ class TestGroupCallEvents:
         assert out[0]["kind"] == "event"
         assert out[0]["event_type"] == "call_unknown"
         assert out[0]["summary"] == "Call event (no callId)"
+
+
+# ---------------------------------------------------------------------------
+# _normalize_chat_entries
+# ---------------------------------------------------------------------------
+
+class TestNormalizeChatEntries:
+    def test_partitions_messages_and_events(self):
+        from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+        messages = [
+            {
+                "createdDateTime": "2026-05-29T10:00:00Z",
+                "from": {"user": {"id": "u1", "displayName": "Alice"}},
+                "body": {"content": "Hi"},
+            },
+            {
+                "createdDateTime": "2026-05-29T10:05:00Z",
+                "from": None,
+                "body": {"content": "<systemEventMessage/>"},
+                "eventDetail": {
+                    "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                    "callId": "c1",
+                    "callRecordingStatus": "success",
+                    "callRecordingUrl": "https://r1",
+                },
+            },
+        ]
+        entries = _normalize_chat_entries(messages, {})
+        kinds = [e["kind"] for e in entries]
+        assert "message" in kinds
+        assert "call" in kinds
+
+    def test_sorts_desc_by_ts(self):
+        from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+        messages = [
+            {
+                "createdDateTime": "2026-05-29T08:00:00Z",
+                "from": {"user": {"id": "u1", "displayName": "A"}},
+                "body": {"content": "OLDEST"},
+            },
+            {
+                "createdDateTime": "2026-05-29T10:00:00Z",
+                "from": {"user": {"id": "u1", "displayName": "A"}},
+                "body": {"content": "NEWEST"},
+            },
+            {
+                "createdDateTime": "2026-05-29T09:00:00Z",
+                "from": {"user": {"id": "u1", "displayName": "A"}},
+                "body": {"content": "MIDDLE"},
+            },
+        ]
+        entries = _normalize_chat_entries(messages, {})
+        assert entries[0]["body"] == "NEWEST"
+        assert entries[1]["body"] == "MIDDLE"
+        assert entries[2]["body"] == "OLDEST"
+
+    def test_caps_at_25_entries(self):
+        from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+        messages = [
+            {
+                "createdDateTime": f"2026-05-29T10:{i:02d}:00Z",
+                "from": {"user": {"id": "u1", "displayName": "A"}},
+                "body": {"content": f"msg{i}"},
+            }
+            for i in range(40)
+        ]
+        entries = _normalize_chat_entries(messages, {})
+        assert len(entries) == 25
+
+    def test_empty_input(self):
+        from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+        assert _normalize_chat_entries([], {}) == []
+
+    def test_classifies_member_event_as_event(self):
+        from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+        messages = [
+            {
+                "createdDateTime": "2026-05-29T10:00:00Z",
+                "eventDetail": {
+                    "@odata.type": "#microsoft.graph.membersAddedEventMessageDetail",
+                    "members": [{"displayName": "Carol"}],
+                },
+            },
+        ]
+        entries = _normalize_chat_entries(messages, {})
+        assert len(entries) == 1
+        assert entries[0]["kind"] == "event"
+        assert entries[0]["event_type"] == "membersAdded"

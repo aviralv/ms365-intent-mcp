@@ -189,6 +189,39 @@ def _group_call_events(call_events: list[dict], name_map: dict[str, str]) -> lis
     return entries + orphans
 
 
+_CALL_RELATED_FRAGMENTS = ("callRecording", "callTranscript", "callStarted", "callEnded")
+
+
+def _is_call_related_event(msg: dict) -> bool:
+    detail = msg.get("eventDetail") or {}
+    odata_type = detail.get("@odata.type", "")
+    return any(frag in odata_type for frag in _CALL_RELATED_FRAGMENTS)
+
+
+def _normalize_chat_entries(messages: list[dict], name_map: dict[str, str]) -> list[dict]:
+    """Classify, group, sort, and cap raw chat messages into typed entries."""
+    real_messages: list[dict] = []
+    call_events: list[dict] = []
+    other_events: list[dict] = []
+
+    for msg in messages:
+        if msg.get("eventDetail"):
+            if _is_call_related_event(msg):
+                call_events.append(msg)
+            else:
+                other_events.append(msg)
+        else:
+            real_messages.append(msg)
+
+    entries: list[dict] = []
+    entries.extend(_message_entry(m, name_map) for m in real_messages)
+    entries.extend(_group_call_events(call_events, name_map))
+    entries.extend(_event_entry(e) for e in other_events)
+
+    entries.sort(key=lambda e: e.get("ts", ""), reverse=True)
+    return entries[:25]
+
+
 async def compose_resolve(
     client: GraphClient,
     permissions: PermissionRegistry,
