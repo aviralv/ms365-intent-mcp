@@ -1202,3 +1202,106 @@ class TestNormalizeChatEntries:
         assert len(entries) == 1
         assert entries[0]["kind"] == "event"
         assert entries[0]["event_type"] == "membersAdded"
+
+
+# ---------------------------------------------------------------------------
+# _paginate_chat_messages
+# ---------------------------------------------------------------------------
+
+class TestPaginateChatMessages:
+    @pytest.mark.asyncio
+    async def test_single_page_no_next_link(self):
+        from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [{"id": "m1"}, {"id": "m2"}],
+        })
+        messages, err = await _paginate_chat_messages(client, "chat1")
+        assert len(messages) == 2
+        assert err is None
+
+    @pytest.mark.asyncio
+    async def test_follows_next_link(self):
+        from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+        client = AsyncMock()
+        responses = [
+            {"value": [{"id": "m1"}, {"id": "m2"}],
+             "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2"},
+            {"value": [{"id": "m3"}, {"id": "m4"}]},
+        ]
+        client.get = AsyncMock(side_effect=responses)
+        messages, err = await _paginate_chat_messages(client, "chat1")
+        assert [m["id"] for m in messages] == ["m1", "m2", "m3", "m4"]
+        assert err is None
+
+    @pytest.mark.asyncio
+    async def test_dedup_by_message_id(self):
+        from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+        client = AsyncMock()
+        responses = [
+            {"value": [{"id": "m1"}, {"id": "m2"}],
+             "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2"},
+            {"value": [{"id": "m2"}, {"id": "m3"}]},  # m2 duplicates
+        ]
+        client.get = AsyncMock(side_effect=responses)
+        messages, err = await _paginate_chat_messages(client, "chat1")
+        assert [m["id"] for m in messages] == ["m1", "m2", "m3"]
+
+    @pytest.mark.asyncio
+    async def test_includes_messages_without_id(self):
+        from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [{"id": "m1"}, {"createdDateTime": "x"}],  # second has no id
+        })
+        messages, err = await _paginate_chat_messages(client, "chat1")
+        assert len(messages) == 2  # both included; id-less NOT silently dropped
+
+    @pytest.mark.asyncio
+    async def test_first_page_failure_raises(self):
+        from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=GraphAPIError(500, "X", "down"))
+        with pytest.raises(GraphAPIError):
+            await _paginate_chat_messages(client, "chat1")
+
+    @pytest.mark.asyncio
+    async def test_mid_stream_failure_returns_partial(self):
+        from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+        client = AsyncMock()
+        responses = [
+            {"value": [{"id": "m1"}, {"id": "m2"}],
+             "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2"},
+            GraphAPIError(500, "X", "page 2 down"),
+        ]
+        client.get = AsyncMock(side_effect=responses)
+        messages, err = await _paginate_chat_messages(client, "chat1")
+        assert [m["id"] for m in messages] == ["m1", "m2"]
+        assert err is not None
+        assert "page 2" in err
+
+    @pytest.mark.asyncio
+    async def test_caps_at_max_messages(self):
+        from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+        client = AsyncMock()
+        page1 = {"value": [{"id": f"m{i}"} for i in range(60)],
+                 "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2"}
+        page2 = {"value": [{"id": f"m{60+i}"} for i in range(60)]}
+        client.get = AsyncMock(side_effect=[page1, page2])
+        messages, err = await _paginate_chat_messages(client, "chat1", max_messages=100)
+        assert len(messages) == 100
+        assert err is None
+
+    @pytest.mark.asyncio
+    async def test_caps_at_max_pages(self):
+        from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+        client = AsyncMock()
+        # Always returns a nextLink; only max_pages stops it
+        always_paginated = {
+            "value": [{"id": f"m{i}"} for i in range(2)],
+            "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=loop",
+        }
+        client.get = AsyncMock(return_value=always_paginated)
+        messages, err = await _paginate_chat_messages(client, "chat1", max_pages=3)
+        assert client.get.call_count == 3
+        assert err is None

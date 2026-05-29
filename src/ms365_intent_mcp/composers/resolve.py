@@ -222,6 +222,48 @@ def _normalize_chat_entries(messages: list[dict], name_map: dict[str, str]) -> l
     return entries[:25]
 
 
+async def _paginate_chat_messages(
+    client,
+    chat_id: str,
+    max_messages: int = 100,
+    max_pages: int = 3,
+) -> tuple[list[dict], str | None]:
+    """Fetch up to max_messages chat messages, following @odata.nextLink.
+
+    Returns (messages, partial_error). partial_error is None on full success
+    or a reason string if a non-first-page request failed (in which case the
+    list contains pages successfully fetched before the failure).
+
+    Raises GraphAPIError on first-page failure (caller surfaces as full error).
+    """
+    messages: list[dict] = []
+    seen_ids: set[str] = set()
+    next_url: str | None = f"/chats/{chat_id}/messages?$top=50"
+    pages = 0
+    partial_error: str | None = None
+
+    while next_url and pages < max_pages and len(messages) < max_messages:
+        try:
+            response = await client.get(next_url)
+        except GraphAPIError as exc:
+            if pages == 0:
+                raise
+            partial_error = f"page {pages + 1} failed: {_error_reason(exc)}"
+            break
+        for msg in response.get("value", []):
+            msg_id = msg.get("id")
+            if msg_id is None:
+                # Defensive: include unidentified messages without dedup.
+                messages.append(msg)
+            elif msg_id not in seen_ids:
+                seen_ids.add(msg_id)
+                messages.append(msg)
+        next_url = response.get("@odata.nextLink") or None
+        pages += 1
+
+    return messages[:max_messages], partial_error
+
+
 async def compose_resolve(
     client: GraphClient,
     permissions: PermissionRegistry,
