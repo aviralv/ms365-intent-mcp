@@ -86,6 +86,30 @@ def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
     }
 
 
+def _event_entry(msg: dict) -> dict:
+    """Classify a non-call system event into a typed entry."""
+    detail = msg.get("eventDetail") or {}
+    odata_type = detail.get("@odata.type", "")
+    ts = msg.get("createdDateTime", "")
+
+    if "membersAdded" in odata_type:
+        names = [m.get("displayName") for m in (detail.get("members") or []) if m.get("displayName")]
+        joined = ", ".join(names) if names else "(someone)"
+        return {"kind": "event", "ts": ts, "event_type": "membersAdded", "summary": f"Member added: {joined}"}
+
+    if "membersDeleted" in odata_type:
+        names = [m.get("displayName") for m in (detail.get("members") or []) if m.get("displayName")]
+        joined = ", ".join(names) if names else "(someone)"
+        return {"kind": "event", "ts": ts, "event_type": "membersDeleted", "summary": f"Member removed: {joined}"}
+
+    if "chatRenamed" in odata_type:
+        new_name = detail.get("chatDisplayName") or ""
+        summary = f'Renamed to "{new_name}"' if new_name else "Chat renamed"
+        return {"kind": "event", "ts": ts, "event_type": "chatRenamed", "summary": summary}
+
+    return {"kind": "event", "ts": ts, "event_type": "unknown", "summary": "system event"}
+
+
 async def compose_resolve(
     client: GraphClient,
     permissions: PermissionRegistry,

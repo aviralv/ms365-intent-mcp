@@ -861,3 +861,88 @@ class TestMessageEntry:
         }
         entry = _message_entry(msg, {})
         assert entry["is_body_empty"] is True
+
+
+# ---------------------------------------------------------------------------
+# _event_entry
+# ---------------------------------------------------------------------------
+
+class TestEventEntry:
+    def test_members_added_with_names(self):
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.membersAddedEventMessageDetail",
+                "members": [
+                    {"displayName": "Carol Smith"},
+                    {"displayName": "Dan Jones"},
+                ],
+            },
+        }
+        entry = _event_entry(msg)
+        assert entry["kind"] == "event"
+        assert entry["event_type"] == "membersAdded"
+        assert entry["summary"] == "Member added: Carol Smith, Dan Jones"
+
+    def test_members_added_empty_falls_back(self):
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.membersAddedEventMessageDetail",
+                "members": [],
+            },
+        }
+        entry = _event_entry(msg)
+        assert entry["summary"] == "Member added: (someone)"
+
+    def test_members_deleted(self):
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.membersDeletedEventMessageDetail",
+                "members": [{"displayName": "Eve"}],
+            },
+        }
+        entry = _event_entry(msg)
+        assert entry["event_type"] == "membersDeleted"
+        assert entry["summary"] == "Member removed: Eve"
+
+    def test_chat_renamed(self):
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.chatRenamedEventMessageDetail",
+                "chatDisplayName": "Project Sync 2026",
+            },
+        }
+        entry = _event_entry(msg)
+        assert entry["event_type"] == "chatRenamed"
+        assert entry["summary"] == 'Renamed to "Project Sync 2026"'
+
+    def test_chat_renamed_empty(self):
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.chatRenamedEventMessageDetail",
+                "chatDisplayName": "",
+            },
+        }
+        entry = _event_entry(msg)
+        assert entry["summary"] == "Chat renamed"
+
+    def test_unknown_type(self):
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.tabUpdatedEventMessageDetail",
+            },
+        }
+        entry = _event_entry(msg)
+        assert entry["event_type"] == "unknown"
+        assert entry["summary"] == "system event"
