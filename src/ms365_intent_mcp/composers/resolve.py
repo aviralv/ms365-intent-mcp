@@ -1,6 +1,7 @@
 """resolve composer — parse M365 URLs and fetch their content via Graph."""
 
 import asyncio
+import re
 from datetime import datetime, timedelta, timezone
 
 from ..formatters import format_resolved_content_markdown, format_section_error
@@ -8,6 +9,34 @@ from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ..resolver import ResolvedUrl, UrlParseError, resolve_url
 from ._utils import _error_reason, _escape_odata
+
+
+_ISO_DURATION_RE = re.compile(
+    r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$"
+)
+
+
+def _parse_iso_duration(iso: str) -> str:
+    """Convert ISO-8601 duration like 'PT25M38.4S' to compact 'h/m/s' form.
+
+    Returns empty string if input is empty or doesn't match.
+    Handles only PT-form durations (Graph call durations always are);
+    day component (P1DT...) and other prefixes return empty.
+    """
+    if not iso:
+        return ""
+    m = _ISO_DURATION_RE.match(iso)
+    if not m:
+        return ""
+    hours, minutes, seconds = m.groups()
+    parts = []
+    if hours:
+        parts.append(f"{int(hours)}h")
+    if minutes:
+        parts.append(f"{int(minutes)}m")
+    if seconds:
+        parts.append(f"{int(seconds)}s")
+    return "".join(parts) if parts else ""
 
 
 async def compose_resolve(

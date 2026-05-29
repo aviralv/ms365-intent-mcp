@@ -661,3 +661,41 @@ class TestResolveChatThread:
         middle_pos = result.find("MIDDLE")
         oldest_pos = result.find("OLDEST")
         assert 0 <= newest_pos < middle_pos < oldest_pos
+
+
+# ---------------------------------------------------------------------------
+# _parse_iso_duration
+# ---------------------------------------------------------------------------
+
+class TestParseIsoDuration:
+    def test_basic(self):
+        from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+        assert _parse_iso_duration("PT25M38.4845646S") == "25m38s"
+
+    def test_only_minutes(self):
+        from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+        assert _parse_iso_duration("PT5M") == "5m"
+
+    def test_only_seconds(self):
+        from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+        assert _parse_iso_duration("PT30S") == "30s"
+
+    def test_with_hours(self):
+        from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+        assert _parse_iso_duration("PT1H30M") == "1h30m"
+
+    def test_zero(self):
+        from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+        assert _parse_iso_duration("PT0S") == "0s"
+
+    def test_fractional_only_seconds(self):
+        from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+        assert _parse_iso_duration("PT1.5S") == "1s"
+
+    def test_empty_returns_empty(self):
+        from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+        assert _parse_iso_duration("") == ""
+
+    def test_malformed_returns_empty(self):
+        from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+        assert _parse_iso_duration("not-a-duration") == ""
