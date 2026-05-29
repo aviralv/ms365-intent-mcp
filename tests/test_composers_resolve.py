@@ -946,3 +946,171 @@ class TestEventEntry:
         entry = _event_entry(msg)
         assert entry["event_type"] == "unknown"
         assert entry["summary"] == "system event"
+
+
+# ---------------------------------------------------------------------------
+# _group_call_events
+# ---------------------------------------------------------------------------
+
+class TestGroupCallEvents:
+    def _recording_event(self, call_id, ts, status, url="", duration=""):
+        return {
+            "createdDateTime": ts,
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                "callId": call_id,
+                "callRecordingStatus": status,
+                "callRecordingUrl": url,
+                "callRecordingDuration": duration,
+                "initiator": {"user": {"id": "u1", "displayName": None}},
+            },
+        }
+
+    def _transcript_event(self, call_id, ts):
+        return {
+            "createdDateTime": ts,
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.callTranscriptEventMessageDetail",
+                "callId": call_id,
+            },
+        }
+
+    def test_single_call(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-29T10:00:00Z", "initial"),
+            self._recording_event("c1", "2026-05-29T10:05:00Z", "chunkFinished"),
+            self._recording_event("c1", "2026-05-29T10:25:00Z", "success",
+                                  url="https://recording.example/c1.mp4",
+                                  duration="PT25M0S"),
+        ]
+        out = _group_call_events(events, {"u1": "Alice"})
+        assert len(out) == 1
+        call = out[0]
+        assert call["kind"] == "call"
+        assert call["ts"] == "2026-05-29T10:00:00Z"
+        assert call["end_ts"] == "2026-05-29T10:25:00Z"
+        assert call["duration"] == "25m0s"
+        assert call["recording_url"] == "https://recording.example/c1.mp4"
+        assert call["initiator"] == "Alice"
+        assert call["transcript_ready"] is False
+
+    def test_multiple_calls_separate_entries(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-29T10:00:00Z", "success",
+                                  url="https://r1", duration="PT5M0S"),
+            self._recording_event("c2", "2026-05-29T11:00:00Z", "success",
+                                  url="https://r2", duration="PT10M0S"),
+        ]
+        out = _group_call_events(events, {})
+        assert len(out) == 2
+        urls = {c["recording_url"] for c in out}
+        assert urls == {"https://r1", "https://r2"}
+
+    def test_recording_url_prefers_success_status(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-29T10:00:00Z", "chunkFinished",
+                                  url="https://chunk.example/temp.mp4"),
+            self._recording_event("c1", "2026-05-29T10:25:00Z", "success",
+                                  url="https://final.example/c1.mp4"),
+        ]
+        out = _group_call_events(events, {})
+        assert out[0]["recording_url"] == "https://final.example/c1.mp4"
+
+    def test_recording_url_pending_no_success(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-29T10:00:00Z", "initial"),
+            self._recording_event("c1", "2026-05-29T10:05:00Z", "chunkFinished",
+                                  url="https://chunk.example/temp.mp4"),
+        ]
+        out = _group_call_events(events, {})
+        assert out[0]["recording_url"] == ""
+
+    def test_status_case_insensitive(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-29T10:00:00Z", "Success",
+                                  url="https://final.example/c1.mp4"),
+        ]
+        out = _group_call_events(events, {})
+        assert out[0]["recording_url"] == "https://final.example/c1.mp4"
+
+    def test_transcript_ready_flag(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-29T10:00:00Z", "success",
+                                  url="https://r1"),
+            self._transcript_event("c1", "2026-05-29T10:30:00Z"),
+        ]
+        out = _group_call_events(events, {})
+        assert out[0]["transcript_ready"] is True
+
+    def test_duration_from_call_ended_event(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            {
+                "createdDateTime": "2026-05-29T10:30:00Z",
+                "eventDetail": {
+                    "@odata.type": "#microsoft.graph.callEndedEventMessageDetail",
+                    "callId": "c1",
+                    "callDuration": "PT45M0S",
+                },
+            },
+        ]
+        out = _group_call_events(events, {})
+        assert out[0]["duration"] == "45m0s"
+
+    def test_initiator_resolved_via_map(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [self._recording_event("c1", "2026-05-29T10:00:00Z", "success",
+                                        url="https://r1")]
+        out = _group_call_events(events, {"u1": "Alice"})
+        assert out[0]["initiator"] == "Alice"
+
+    def test_initiator_falls_back_to_graph_displayname(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        event = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                "callId": "c1",
+                "callRecordingStatus": "success",
+                "callRecordingUrl": "https://r1",
+                "initiator": {"user": {"id": "u-unknown", "displayName": "Bob (Graph)"}},
+            },
+        }
+        out = _group_call_events([event], {})
+        assert out[0]["initiator"] == "Bob (Graph)"
+
+    def test_initiator_none_when_unresolvable(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        event = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                "callId": "c1",
+                "callRecordingStatus": "success",
+                "callRecordingUrl": "https://r1",
+                "initiator": None,
+            },
+        }
+        out = _group_call_events([event], {})
+        assert out[0]["initiator"] is None
+
+    def test_call_unknown_when_no_call_id(self):
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        event = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                "callRecordingStatus": "success",
+            },
+        }
+        out = _group_call_events([event], {})
+        assert len(out) == 1
+        assert out[0]["kind"] == "event"
+        assert out[0]["event_type"] == "call_unknown"
+        assert out[0]["summary"] == "Call event (no callId)"

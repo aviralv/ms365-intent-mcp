@@ -2,6 +2,7 @@
 
 import asyncio
 import re
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from ..formatters import _strip_teams_html, format_resolved_content_markdown, format_section_error
@@ -108,6 +109,84 @@ def _event_entry(msg: dict) -> dict:
         return {"kind": "event", "ts": ts, "event_type": "chatRenamed", "summary": summary}
 
     return {"kind": "event", "ts": ts, "event_type": "unknown", "summary": "system event"}
+
+
+def _group_call_events(call_events: list[dict], name_map: dict[str, str]) -> list[dict]:
+    """Group call-related system events by callId into one entry per call.
+
+    Events lacking callId surface as event_type='call_unknown' instead of being
+    silently dropped.
+    """
+    by_call_id: dict[str, list[dict]] = defaultdict(list)
+    orphans: list[dict] = []
+    for msg in call_events:
+        call_id = (msg.get("eventDetail") or {}).get("callId")
+        if call_id:
+            by_call_id[call_id].append(msg)
+        else:
+            orphans.append({
+                "kind": "event",
+                "ts": msg.get("createdDateTime", ""),
+                "event_type": "call_unknown",
+                "summary": "Call event (no callId)",
+            })
+
+    entries: list[dict] = []
+    for call_id, events in by_call_id.items():
+        events.sort(key=lambda m: m.get("createdDateTime", ""))
+        ts_first = events[0].get("createdDateTime", "")
+        ts_last = events[-1].get("createdDateTime", "")
+
+        duration: str | None = None
+        recording_url = ""
+        transcript_ready = False
+        initiator: str | None = None
+        latest_success_ts = ""
+
+        for event in events:
+            detail = event.get("eventDetail") or {}
+            otype = detail.get("@odata.type", "")
+            event_ts = event.get("createdDateTime", "")
+
+            if "callRecording" in otype:
+                if not duration and detail.get("callRecordingDuration"):
+                    duration = _parse_iso_duration(detail["callRecordingDuration"]) or None
+                if not initiator:
+                    initiator_field = detail.get("initiator") or {}
+                    user_field = initiator_field.get("user") or {}
+                    app_field = initiator_field.get("application") or {}
+                    user_id = user_field.get("id", "")
+                    initiator = (
+                        name_map.get(user_id)
+                        or user_field.get("displayName")
+                        or app_field.get("displayName")
+                        or None
+                    )
+                # recording_url: success-status only, latest wins
+                status = (detail.get("callRecordingStatus") or "").lower()
+                if status == "success" and detail.get("callRecordingUrl"):
+                    if event_ts > latest_success_ts:
+                        latest_success_ts = event_ts
+                        recording_url = detail["callRecordingUrl"]
+
+            elif "callTranscript" in otype:
+                transcript_ready = True
+
+            elif "callEnded" in otype:
+                if not duration and detail.get("callDuration"):
+                    duration = _parse_iso_duration(detail["callDuration"]) or None
+
+        entries.append({
+            "kind": "call",
+            "ts": ts_first,
+            "end_ts": ts_last,
+            "duration": duration,
+            "recording_url": recording_url,
+            "transcript_ready": transcript_ready,
+            "initiator": initiator,
+        })
+
+    return entries + orphans
 
 
 async def compose_resolve(
