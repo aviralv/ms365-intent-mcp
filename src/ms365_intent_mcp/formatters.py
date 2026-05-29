@@ -3,6 +3,19 @@
 import re
 
 
+def _strip_teams_html(body: str) -> str:
+    """Strip Teams HTML for plain-text rendering.
+
+    Replaces <at id="...">@Name</at> mention tags with their inner text so
+    mention-only messages don't render as empty. Then strips all remaining tags.
+    """
+    if not body:
+        return ""
+    body = re.sub(r"<at\b[^>]*>(.*?)</at>", r"\1", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<[^>]+>", "", body)
+    return body.strip()
+
+
 def format_events_markdown(events: list[dict]) -> str:
     if not events:
         return "No events scheduled."
@@ -52,7 +65,7 @@ def format_event_detail_markdown(event: dict) -> str:
             lines.append(f"- {emoji} {name}")
 
     if body:
-        text = re.sub(r"<[^>]+>", "", body).strip()
+        text = _strip_teams_html(body)
         if text:
             excerpt = text[:500]
             lines.append(f"\n**Body:**\n{excerpt}")
@@ -122,7 +135,7 @@ def format_teams_activity_markdown(messages: list[dict]) -> str:
     for msg in messages[:5]:
         sender = msg.get("from", {}).get("user", {}).get("displayName", "Unknown")
         body = msg.get("body", {}).get("content", "")
-        text = re.sub(r"<[^>]+>", "", body).strip()
+        text = _strip_teams_html(body)
         if len(text) > 500:
             text = text[:500] + "…"
         web_url = msg.get("_chat_web_url", "")
@@ -161,7 +174,7 @@ def format_people_markdown(
         preview = (recent_chat.get("lastMessagePreview") or {})
         body = preview.get("body", {}).get("content", "") if preview else ""
         if body:
-            text = re.sub(r"<[^>]+>", "", body).strip()[:80]
+            text = _strip_teams_html(body)[:80]
             lines.append(f"\n**Recent Teams chat:** {text}")
     return "\n".join(lines)
 
@@ -186,7 +199,7 @@ def format_search_results_markdown(query: str, hits: list[dict]) -> str:
             lines.append(f"- **[File]** {name}" + (f" — {web_url}" if web_url else ""))
         elif "chatMessage" in odata_type:
             body = resource.get("body", {}).get("content", "")
-            text = re.sub(r"<[^>]+>", "", body).strip()[:80]
+            text = _strip_teams_html(body)[:80]
             lines.append(f"- **[Teams]** {text}")
         elif "listItem" in odata_type:
             fields = resource.get("fields", {})
@@ -231,7 +244,7 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
         return "\n".join(lines)
     elif url_type in ("channel_message", "chat_message"):
         body = data.get("body", {}).get("content", "")
-        text = re.sub(r"<[^>]+>", "", body).strip()[:300]
+        text = _strip_teams_html(body)[:300]
         sender = data.get("from", {}).get("user", {}).get("displayName", "?")
         created = data.get("createdDateTime", "")[:16]
         return f"### Teams Message\n**From:** {sender}  |  **At:** {created}\n\n{text}"
@@ -335,7 +348,7 @@ def _format_chat_thread(data: dict) -> str:
             sender = ((msg.get("from") or {}).get("user") or {}).get("displayName", "Unknown")
             ts = (msg.get("createdDateTime") or "")[:16]
             body = (msg.get("body") or {}).get("content", "")
-            text = re.sub(r"<[^>]+>", "", body).strip()
+            text = _strip_teams_html(body)
             if not text:
                 text = "(no content)"
             elif len(text) > 500:

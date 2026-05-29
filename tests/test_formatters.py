@@ -404,3 +404,75 @@ class TestFormatTeamsActivityTruncation:
         }]
         result = format_teams_activity_markdown(msgs)
         assert "[open chat]" not in result
+
+
+class TestStripTeamsHtml:
+    def test_strips_generic_html_tags(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        assert _strip_teams_html("<p>Hello <b>world</b></p>") == "Hello world"
+
+    def test_extracts_at_mention_inner_text(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        body = '<at id="b1b7e2b5-...">@Avi</at> please review'
+        assert _strip_teams_html(body) == "@Avi please review"
+
+    def test_at_mention_only_message_preserves_name(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        body = '<at id="123">@Avi</at>'
+        assert _strip_teams_html(body) == "@Avi"
+
+    def test_at_mention_inside_other_tags(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        body = '<p><at id="123">@Avi</at> hi</p>'
+        assert _strip_teams_html(body) == "@Avi hi"
+
+    def test_returns_empty_for_pure_html(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        assert _strip_teams_html("<systemEventMessage/>") == ""
+
+    def test_empty_input(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        assert _strip_teams_html("") == ""
+
+    def test_no_html_passthrough(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        assert _strip_teams_html("plain text") == "plain text"
+
+    def test_strips_surrounding_whitespace(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        assert _strip_teams_html("  <p>hi</p>  ") == "hi"
+
+
+class TestMentionRegressionAcrossFormatters:
+    def test_format_teams_activity_extracts_at_mention(self):
+        msgs = [{
+            "from": {"user": {"displayName": "Alice"}},
+            "body": {"content": '<at id="123">@Avi</at> see this'},
+        }]
+        result = format_teams_activity_markdown(msgs)
+        assert "@Avi see this" in result
+        assert "<at" not in result
+
+    def test_format_event_detail_extracts_at_mention(self):
+        event = {
+            "subject": "Standup",
+            "start": {"dateTime": "2026-05-29T09:00:00"},
+            "end": {"dateTime": "2026-05-29T09:30:00"},
+            "organizer": {"emailAddress": {"name": "Bob"}},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": False,
+            "attendees": [],
+            "body": {"content": 'agenda: <at id="123">@Avi</at> updates'},
+        }
+        result = format_event_detail_markdown(event)
+        assert "@Avi" in result
+
+    def test_format_people_extracts_at_mention_in_recent_chat(self):
+        people = [{"displayName": "Bawa Kulkarni", "emailAddresses": [{"address": "bawa@sap.com"}]}]
+        recent_chat = {
+            "lastMessagePreview": {
+                "body": {"content": '<at id="123">@Avi</at> ping'},
+            }
+        }
+        result = format_people_markdown("bawa", people, [], recent_chat)
+        assert "@Avi" in result
