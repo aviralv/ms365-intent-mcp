@@ -39,6 +39,19 @@ def _parse_iso_duration(iso: str) -> str:
     return "".join(parts) if parts else ""
 
 
+def _build_member_name_map(chat: dict | None) -> dict[str, str]:
+    """Build {userId: displayName} from chat.members. Skip entries lacking either."""
+    if not chat:
+        return {}
+    name_map: dict[str, str] = {}
+    for member in chat.get("members") or []:
+        user_id = member.get("userId")
+        display_name = member.get("displayName")
+        if user_id and display_name:
+            name_map[user_id] = display_name
+    return name_map
+
+
 async def compose_resolve(
     client: GraphClient,
     permissions: PermissionRegistry,

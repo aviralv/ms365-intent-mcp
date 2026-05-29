@@ -699,3 +699,51 @@ class TestParseIsoDuration:
     def test_malformed_returns_empty(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
         assert _parse_iso_duration("not-a-duration") == ""
+
+
+# ---------------------------------------------------------------------------
+# _build_member_name_map
+# ---------------------------------------------------------------------------
+
+class TestBuildMemberNameMap:
+    def test_basic(self):
+        from ms365_intent_mcp.composers.resolve import _build_member_name_map
+        chat = {
+            "members": [
+                {"userId": "u1", "displayName": "Alice"},
+                {"userId": "u2", "displayName": "Bob"},
+            ]
+        }
+        assert _build_member_name_map(chat) == {"u1": "Alice", "u2": "Bob"}
+
+    def test_skips_members_without_user_id(self):
+        from ms365_intent_mcp.composers.resolve import _build_member_name_map
+        chat = {
+            "members": [
+                {"userId": "u1", "displayName": "Alice"},
+                {"displayName": "Anonymous Guest"},  # no userId
+            ]
+        }
+        assert _build_member_name_map(chat) == {"u1": "Alice"}
+
+    def test_skips_members_without_display_name(self):
+        from ms365_intent_mcp.composers.resolve import _build_member_name_map
+        chat = {
+            "members": [
+                {"userId": "u1", "displayName": "Alice"},
+                {"userId": "u2"},  # no displayName
+            ]
+        }
+        assert _build_member_name_map(chat) == {"u1": "Alice"}
+
+    def test_empty_members(self):
+        from ms365_intent_mcp.composers.resolve import _build_member_name_map
+        assert _build_member_name_map({"members": []}) == {}
+
+    def test_missing_members_key(self):
+        from ms365_intent_mcp.composers.resolve import _build_member_name_map
+        assert _build_member_name_map({}) == {}
+
+    def test_none_chat(self):
+        from ms365_intent_mcp.composers.resolve import _build_member_name_map
+        assert _build_member_name_map(None) == {}
