@@ -266,3 +266,41 @@ class TestRetryAfter:
                 with patch("ms365_intent_mcp.graph.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                     await client.get("/me")
         mock_sleep.assert_called_once_with(10)
+
+
+class TestGraphClientAbsoluteURL:
+    @pytest.mark.asyncio
+    async def test_accepts_absolute_graph_url(self):
+        from tests.conftest import make_graph_client, make_graph_response
+        client = make_graph_client()
+        async with client:
+            with patch.object(client._client, "get", AsyncMock(return_value=make_graph_response(200, {"value": []}))) as mock_get:
+                await client.get("https://graph.microsoft.com/v1.0/me/messages")
+            called_url = mock_get.call_args[0][0]
+            assert called_url == "https://graph.microsoft.com/v1.0/me/messages"
+
+    @pytest.mark.asyncio
+    async def test_rejects_non_graph_absolute_url(self):
+        from tests.conftest import make_graph_client
+        client = make_graph_client()
+        async with client:
+            with pytest.raises(ValueError, match="non-Graph host"):
+                await client.get("https://evil.example.com/v1.0/me/messages")
+
+    @pytest.mark.asyncio
+    async def test_rejects_spoofed_subdomain(self):
+        from tests.conftest import make_graph_client
+        client = make_graph_client()
+        async with client:
+            with pytest.raises(ValueError, match="non-Graph host"):
+                await client.get("https://graph.microsoft.com.evil.com/v1.0/me/messages")
+
+    @pytest.mark.asyncio
+    async def test_relative_path_unchanged(self):
+        from tests.conftest import make_graph_client, make_graph_response
+        client = make_graph_client()
+        async with client:
+            with patch.object(client._client, "get", AsyncMock(return_value=make_graph_response(200, {"value": []}))) as mock_get:
+                await client.get("/me/messages")
+            called_url = mock_get.call_args[0][0]
+            assert called_url == "https://graph.microsoft.com/v1.0/me/messages"

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import urllib.parse
 from collections.abc import Callable
 from typing import Any
 
@@ -10,6 +11,8 @@ import httpx
 from .resilience import CircuitBreaker
 
 _logger = logging.getLogger("ms365_intent_mcp")
+
+_ALLOWED_GRAPH_HOSTS = {"graph.microsoft.com"}
 
 
 class GraphAPIError(Exception):
@@ -89,10 +92,8 @@ class GraphClient:
 
             next_link = page.get("@odata.nextLink")
             if next_link:
-                if next_link.startswith(self.base_url):
-                    current_endpoint = next_link[len(self.base_url):]
-                else:
-                    current_endpoint = next_link
+                # Pass through to self.get; it will validate the host.
+                current_endpoint = next_link
                 current_params = None
             else:
                 current_endpoint = None
@@ -169,7 +170,18 @@ class GraphClient:
         token = await asyncio.to_thread(self._token_provider)
         auth_headers = {"Authorization": f"Bearer {token}"}
         merged = {**auth_headers, **(headers or {})}
-        url = f"{self.base_url}{endpoint}"
+
+        if endpoint.startswith("https://"):
+            parsed = urllib.parse.urlparse(endpoint)
+            if parsed.hostname not in _ALLOWED_GRAPH_HOSTS:
+                raise ValueError(
+                    f"Refusing to send authenticated request to non-Graph host: {parsed.hostname}"
+                )
+            url = endpoint
+        elif endpoint.startswith("/"):
+            url = f"{self.base_url}{endpoint}"
+        else:
+            raise ValueError(f"Invalid endpoint (must be absolute Graph URL or path): {endpoint}")
 
         async def _do_request_with_retry():
             if method == "GET":
