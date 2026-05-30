@@ -245,13 +245,17 @@ class TestFormatResolvedChatThread:
                     {"displayName": "Bob"},
                 ],
             },
-            "messages": [
-                {"from": {"user": {"displayName": "Alice"}},
-                 "body": {"content": "Hello world"},
-                 "createdDateTime": "2026-05-26T10:05:00Z"},
-                {"from": {"user": {"displayName": "Bob"}},
-                 "body": {"content": "Hi"},
-                 "createdDateTime": "2026-05-26T10:00:00Z"},
+            "entries": [
+                {"kind": "message",
+                 "ts": "2026-05-26T10:05:00Z",
+                 "sender": "Alice",
+                 "body": "Hello world",
+                 "is_body_empty": False},
+                {"kind": "message",
+                 "ts": "2026-05-26T10:00:00Z",
+                 "sender": "Bob",
+                 "body": "Hi",
+                 "is_body_empty": False},
             ],
             "meeting": {
                 "subject": "Project Sync",
@@ -311,11 +315,13 @@ class TestFormatResolvedChatThread:
         assert "User6" not in result
 
     def test_truncates_long_message_with_ellipsis(self):
-        long_body = "x" * 600
-        data = self._data(messages=[
-            {"from": {"user": {"displayName": "Alice"}},
-             "body": {"content": long_body},
-             "createdDateTime": "2026-05-26T10:00:00Z"},
+        pre_truncated_body = "x" * 500 + "…"
+        data = self._data(entries=[
+            {"kind": "message",
+             "ts": "2026-05-26T10:00:00Z",
+             "sender": "Alice",
+             "body": pre_truncated_body,
+             "is_body_empty": False},
         ])
         result = format_resolved_content_markdown("chat_thread", data)
         assert "x" * 500 in result
@@ -329,31 +335,23 @@ class TestFormatResolvedChatThread:
         assert "rate limited" in result
 
     def test_renders_messages_error_warning(self):
-        data = self._data(messages=[], _messages_error="Microsoft service error")
+        data = self._data(entries=[], _messages_error="Microsoft service error")
         result = format_resolved_content_markdown("chat_thread", data)
         assert "⚠️" in result
         assert "Microsoft service error" in result
 
     def test_empty_message_body_renders_placeholder(self):
-        data = self._data(messages=[
-            {"from": {"user": {"displayName": "Alice"}},
-             "body": {"content": ""},
-             "createdDateTime": "2026-05-26T10:00:00Z"},
+        data = self._data(entries=[
+            {"kind": "message",
+             "ts": "2026-05-26T10:00:00Z",
+             "sender": "Alice",
+             "body": "",
+             "is_body_empty": True},
         ])
         result = format_resolved_content_markdown("chat_thread", data)
         assert "Alice" in result
-        assert "(no content)" in result
+        assert "_(no text)_" in result
 
-    def test_html_stripped_from_message_body(self):
-        data = self._data(messages=[
-            {"from": {"user": {"displayName": "Alice"}},
-             "body": {"content": "<p>Hello <b>world</b></p>"},
-             "createdDateTime": "2026-05-26T10:00:00Z"},
-        ])
-        result = format_resolved_content_markdown("chat_thread", data)
-        assert "Hello world" in result
-        assert "<p>" not in result
-        assert "<b>" not in result
 
 
 class TestFormatTeamsActivityTruncation:

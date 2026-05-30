@@ -367,7 +367,7 @@ class TestResolveChatThread:
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint == "/chats/19:abc@thread.v2":
                 return chat_meta
-            if endpoint == "/chats/19:abc@thread.v2/messages":
+            if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
                 return messages_payload
             if endpoint == "/me/events/AAMkevent123":
                 return event_payload
@@ -412,7 +412,7 @@ class TestResolveChatThread:
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint == "/chats/19:abc@thread.v2":
                 return chat_meta
-            if endpoint == "/chats/19:abc@thread.v2/messages":
+            if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
                 return messages_payload
             if endpoint == "/me/calendarView":
                 return {"value": [{**event_payload,
@@ -453,7 +453,7 @@ class TestResolveChatThread:
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint == "/chats/19:dm@unq.gbl.spaces":
                 return chat_meta
-            if endpoint == "/chats/19:dm@unq.gbl.spaces/messages":
+            if endpoint.startswith("/chats/19:dm@unq.gbl.spaces/messages"):
                 return messages_payload
             raise AssertionError(f"Unexpected endpoint: {endpoint}")
 
@@ -492,7 +492,7 @@ class TestResolveChatThread:
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint == "/chats/19:abc@thread.v2":
                 return chat_meta
-            if endpoint == "/chats/19:abc@thread.v2/messages":
+            if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
                 return messages_payload
             raise AssertionError(f"Unexpected endpoint: {endpoint}")
 
@@ -523,7 +523,7 @@ class TestResolveChatThread:
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint == "/chats/19:abc@thread.v2":
                 return chat_meta
-            if endpoint == "/chats/19:abc@thread.v2/messages":
+            if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
                 raise GraphAPIError(500, "InternalError", "down")
             if endpoint == "/me/events/AAMkevent123":
                 return event_payload
@@ -557,7 +557,7 @@ class TestResolveChatThread:
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint == "/chats/19:abc@thread.v2":
                 raise GraphAPIError(403, "Forbidden", "no access")
-            if endpoint == "/chats/19:abc@thread.v2/messages":
+            if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
                 return messages_payload
             raise AssertionError(f"Unexpected endpoint: {endpoint}")
 
@@ -588,7 +588,7 @@ class TestResolveChatThread:
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint == "/chats/19:abc@thread.v2":
                 return chat_meta
-            if endpoint == "/chats/19:abc@thread.v2/messages":
+            if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
                 return messages_payload
             if endpoint == "/me/events/AAMkevent123":
                 raise GraphAPIError(404, "NotFound", "deleted")
@@ -635,7 +635,7 @@ class TestResolveChatThread:
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint == "/chats/19:abc@thread.v2":
                 return chat_meta
-            if endpoint == "/chats/19:abc@thread.v2/messages":
+            if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
                 return out_of_order
             if endpoint == "/me/events/AAMkevent123":
                 return event_payload
