@@ -62,7 +62,7 @@ async def compose_my_day(
 
     # Calendar section
     cal_result = results.get("calendar")
-    if isinstance(cal_result, Exception):
+    if isinstance(cal_result, BaseException):
         sections.append(format_section_error("Calendar", _error_reason(cal_result)))
     else:
         events = cal_result.get("value", []) if cal_result else []
@@ -74,12 +74,20 @@ async def compose_my_day(
     else:
         inbox_result = results.get("inbox_count")
         unread_result = results.get("unread")
-        if isinstance(inbox_result, Exception) or isinstance(unread_result, Exception):
-            err = inbox_result if isinstance(inbox_result, Exception) else unread_result
-            sections.append(format_section_error("Mail", _error_reason(err)))
+        inbox_err = inbox_result if isinstance(inbox_result, BaseException) else None
+        unread_err = unread_result if isinstance(unread_result, BaseException) else None
+        first_err = inbox_err or unread_err
+        if first_err is not None:
+            sections.append(format_section_error("Mail", _error_reason(first_err)))
         else:
-            unread_count = inbox_result.get("unreadItemCount", 0) if inbox_result else 0
-            unread_msgs = unread_result.get("value", []) if unread_result else []
+            unread_count = (
+                inbox_result.get("unreadItemCount", 0)
+                if isinstance(inbox_result, dict) else 0
+            )
+            unread_msgs = (
+                unread_result.get("value", [])
+                if isinstance(unread_result, dict) else []
+            )
             summary = _build_mail_summary(unread_msgs)
             sections.append(format_mail_summary_markdown(
                 unread_count=unread_count,
@@ -94,7 +102,7 @@ async def compose_my_day(
         sections.append(f"### Teams\n{teams_unavailable}")
     else:
         chats_result = results.get("chats")
-        if isinstance(chats_result, Exception):
+        if isinstance(chats_result, BaseException):
             sections.append(format_section_error("Teams", _error_reason(chats_result)))
         else:
             chats = chats_result.get("value", []) if chats_result else []
