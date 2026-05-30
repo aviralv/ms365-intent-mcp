@@ -8,15 +8,9 @@ from ..formatters import (
     format_section_error,
     format_teams_activity_markdown,
 )
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphClient
 from ..permissions import PermissionRegistry
-
-NOISE_PATTERNS = [
-    "noreply@", "no-reply@", "notifications@", "mailer@",
-    "newsletter@", "digest@", "productboard", "stackoverflow",
-    "github.com", "jira", "confluence", "atlassian", "slack",
-    "successfactors", "concur", "workday",
-]
+from ._utils import _build_mail_summary, _chat_sender, _error_reason
 
 
 async def compose_my_day(
@@ -86,21 +80,13 @@ async def compose_my_day(
         else:
             unread_count = inbox_result.get("unreadItemCount", 0) if inbox_result else 0
             unread_msgs = unread_result.get("value", []) if unread_result else []
-            relevant = [m for m in unread_msgs if not _is_noise(m)]
-            high_importance = [
-                {"subject": m.get("subject", "?"), "from": _sender_name(m)}
-                for m in relevant if m.get("importance") == "high"
-            ]
-            needs_attention = [
-                {"subject": m.get("subject", "?"), "from": _sender_name(m)}
-                for m in relevant[:5]
-            ]
+            summary = _build_mail_summary(unread_msgs)
             sections.append(format_mail_summary_markdown(
                 unread_count=unread_count,
-                relevant_count=len(relevant),
+                relevant_count=summary["relevant_count"],
                 flagged_count=0,
-                high_importance=high_importance[:5],
-                needs_attention=needs_attention,
+                high_importance=summary["high_importance"],
+                needs_attention=summary["needs_attention"],
             ))
 
     # Teams section
@@ -125,28 +111,3 @@ async def compose_my_day(
     return "\n\n".join(sections)
 
 
-def _error_reason(exc: Exception) -> str:
-    if isinstance(exc, GraphAPIError):
-        if exc.status_code == 429:
-            return "rate limited — retry shortly"
-        if exc.status_code >= 500:
-            return "Microsoft service error"
-        return exc.message
-    if "timeout" in str(exc).lower() or "timed out" in str(exc).lower():
-        return "timed out"
-    return str(exc)[:100]
-
-
-def _is_noise(msg: dict) -> bool:
-    from_addr = msg.get("from", {}).get("emailAddress", {}).get("address", "").lower()
-    return any(p in from_addr for p in NOISE_PATTERNS)
-
-
-def _sender_name(msg: dict) -> str:
-    return msg.get("from", {}).get("emailAddress", {}).get("name", "Unknown")
-
-
-def _chat_sender(preview: dict) -> str:
-    from_field = preview.get("from") or {}
-    user_field = from_field.get("user") or {}
-    return user_field.get("displayName", "Unknown")

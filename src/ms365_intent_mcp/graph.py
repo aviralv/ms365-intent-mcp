@@ -1,6 +1,8 @@
 """Async HTTP client for Microsoft Graph API."""
 
+import asyncio
 import logging
+import urllib.parse
 from collections.abc import Callable
 from typing import Any
 
@@ -9,6 +11,8 @@ import httpx
 from .resilience import CircuitBreaker
 
 _logger = logging.getLogger("ms365_intent_mcp")
+
+_ALLOWED_GRAPH_HOSTS = {"graph.microsoft.com"}
 
 
 class GraphAPIError(Exception):
@@ -20,6 +24,8 @@ class GraphAPIError(Exception):
 
 
 class GraphClient:
+    _ALLOWED_REDIRECT_DOMAINS = (".microsoft.com", ".sharepoint.com", ".office.com", ".office365.com")
+
     def __init__(
         self,
         base_url: str,
@@ -63,6 +69,93 @@ class GraphClient:
     ) -> dict:
         return await self._request("POST", endpoint, json_data=json_data, headers=headers)
 
+    async def get_all(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        max_pages: int = 5,
+    ) -> tuple[list[dict], bool]:
+        """Fetch all items from a paginated endpoint, following @odata.nextLink.
+
+        Returns (items, has_more) where has_more indicates truncation.
+        """
+        items: list[dict] = []
+        current_endpoint: str | None = endpoint
+        current_params = params
+        pages_fetched = 0
+
+        while current_endpoint and pages_fetched < max_pages:
+            page = await self.get(current_endpoint, params=current_params, headers=headers)
+            items.extend(page.get("value", []))
+            pages_fetched += 1
+
+            next_link = page.get("@odata.nextLink")
+            if next_link:
+                # Pass through to self.get; it will validate the host.
+                current_endpoint = next_link
+                current_params = None
+            else:
+                current_endpoint = None
+
+        has_more = current_endpoint is not None
+        return items, has_more
+
+    async def get_content(
+        self,
+        endpoint: str,
+        headers: dict[str, str] | None = None,
+    ) -> bytes:
+        """Download raw file content. Validates redirect targets against allowed domains."""
+        if not self._client:
+            raise RuntimeError("Client not initialized. Use async context manager.")
+
+        token = await asyncio.to_thread(self._token_provider)
+        auth_headers = {"Authorization": f"Bearer {token}"}
+        merged = {**auth_headers, **(headers or {})}
+        url = f"{self.base_url}{endpoint}"
+
+        response = await self._client.get(url, headers=merged, follow_redirects=False)
+
+        for _ in range(2):
+            if response.status_code not in (301, 302, 307, 308):
+                break
+            redirect_url = response.headers.get("location", "")
+            if not self._is_allowed_redirect(redirect_url):
+                raise GraphAPIError(
+                    403, "RedirectBlocked",
+                    f"Redirect to disallowed domain: {redirect_url[:100]}"
+                )
+            response = await self._client.get(redirect_url, headers=merged, follow_redirects=False)
+
+        self._log_request("GET", endpoint, response)
+
+        if response.status_code >= 400:
+            raise self._parse_error(response)
+
+        return response.content
+
+    @staticmethod
+    def _is_allowed_redirect(url: str) -> bool:
+        from urllib.parse import urlparse
+        try:
+            hostname = urlparse(url).hostname or ""
+            return any(hostname.endswith(domain) for domain in GraphClient._ALLOWED_REDIRECT_DOMAINS)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _parse_error(response: httpx.Response) -> GraphAPIError:
+        try:
+            error_data = response.json()
+            error = error_data.get("error", {})
+            error_code = error.get("code", "UnknownError")
+            message = error.get("message", response.text)
+        except Exception:
+            error_code = "UnknownError"
+            message = response.text or f"HTTP {response.status_code}"
+        return GraphAPIError(response.status_code, error_code, message)
+
     async def _request(
         self,
         method: str,
@@ -74,24 +167,45 @@ class GraphClient:
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
 
-        auth_headers = {"Authorization": f"Bearer {self._token_provider()}"}
+        token = await asyncio.to_thread(self._token_provider)
+        auth_headers = {"Authorization": f"Bearer {token}"}
         merged = {**auth_headers, **(headers or {})}
-        url = f"{self.base_url}{endpoint}"
 
-        async def _do_request():
+        if endpoint.startswith("https://"):
+            parsed = urllib.parse.urlparse(endpoint)
+            if parsed.hostname not in _ALLOWED_GRAPH_HOSTS:
+                raise ValueError(
+                    f"Refusing to send authenticated request to non-Graph host: {parsed.hostname}"
+                )
+            url = endpoint
+        elif endpoint.startswith("/"):
+            url = f"{self.base_url}{endpoint}"
+        else:
+            raise ValueError(f"Invalid endpoint (must be absolute Graph URL or path): {endpoint}")
+
+        async def _do_request_with_retry():
             if method == "GET":
-                return await self._client.get(url, params=params, headers=merged)
+                response = await self._client.get(url, params=params, headers=merged)
             elif method == "POST":
-                return await self._client.post(url, json=json_data, headers=merged)
-            raise ValueError(f"Unsupported method: {method}")
+                response = await self._client.post(url, json=json_data, headers=merged)
+            else:
+                raise ValueError(f"Unsupported method: {method}")
+
+            if response.status_code in (429, 503):
+                retry_after = min(int(response.headers.get("Retry-After", "1")), 10)
+                _logger.warning("graph_api retry_after=%d status=%d endpoint=%s", retry_after, response.status_code, endpoint)
+                await asyncio.sleep(retry_after)
+                if method == "GET":
+                    response = await self._client.get(url, params=params, headers=merged)
+                else:
+                    response = await self._client.post(url, json=json_data, headers=merged)
+
+            self._log_request(method, endpoint, response)
+            return self._handle_response(response)
 
         if self._cb is not None:
-            response = await self._cb.call(_do_request)
-        else:
-            response = await _do_request()
-
-        self._log_request(method, endpoint, response)
-        return self._handle_response(response)
+            return await self._cb.call(_do_request_with_retry)
+        return await _do_request_with_retry()
 
     def _log_request(self, method: str, endpoint: str, response: httpx.Response) -> None:
         size = len(response.content) if response.content else 0
@@ -102,15 +216,7 @@ class GraphClient:
 
     def _handle_response(self, response: httpx.Response) -> dict:
         if response.status_code >= 400:
-            try:
-                error_data = response.json()
-                error = error_data.get("error", {})
-                error_code = error.get("code", "UnknownError")
-                message = error.get("message", response.text)
-            except Exception:
-                error_code = "UnknownError"
-                message = response.text or f"HTTP {response.status_code}"
-            raise GraphAPIError(response.status_code, error_code, message)
+            raise self._parse_error(response)
 
         if response.status_code == 204 or not response.content:
             return {}

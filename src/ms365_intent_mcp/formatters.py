@@ -3,6 +3,19 @@
 import re
 
 
+def _strip_teams_html(body: str) -> str:
+    """Strip Teams HTML for plain-text rendering.
+
+    Replaces <at id="...">@Name</at> mention tags with their inner text so
+    mention-only messages don't render as empty. Then strips all remaining tags.
+    """
+    if not body:
+        return ""
+    body = re.sub(r"<at\b[^>]*>(.*?)</at>", r"\1", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<[^>]+>", "", body)
+    return body.strip()
+
+
 def format_events_markdown(events: list[dict]) -> str:
     if not events:
         return "No events scheduled."
@@ -32,7 +45,9 @@ def format_event_detail_markdown(event: dict) -> str:
     online = event.get("isOnlineMeeting", False)
 
     lines = [f"## {subject}"]
-    lines.append(f"**When:** {start[:16]} → {end[11:16]}")
+    start_fmt = start[:16] if len(start) >= 16 else start
+    end_fmt = end[11:16] if len(end) >= 16 else end
+    lines.append(f"**When:** {start_fmt} → {end_fmt}")
     lines.append(f"**Organizer:** {organizer}")
     if location:
         lines.append(f"**Location:** {location}")
@@ -50,7 +65,7 @@ def format_event_detail_markdown(event: dict) -> str:
             lines.append(f"- {emoji} {name}")
 
     if body:
-        text = re.sub(r"<[^>]+>", "", body).strip()
+        text = _strip_teams_html(body)
         if text:
             excerpt = text[:500]
             lines.append(f"\n**Body:**\n{excerpt}")
@@ -120,6 +135,261 @@ def format_teams_activity_markdown(messages: list[dict]) -> str:
     for msg in messages[:5]:
         sender = msg.get("from", {}).get("user", {}).get("displayName", "Unknown")
         body = msg.get("body", {}).get("content", "")
-        text = re.sub(r"<[^>]+>", "", body).strip()[:100]
-        lines.append(f"- **{sender}:** {text}")
+        text = _strip_teams_html(body)
+        if len(text) > 500:
+            text = text[:500] + "…"
+        web_url = msg.get("_chat_web_url", "")
+        link = f" — [open chat]({web_url})" if web_url else ""
+        lines.append(f"- **{sender}:** {text}{link}")
     return "\n".join(lines)
+
+
+def format_people_markdown(
+    query: str,
+    people: list[dict],
+    recent_emails: list[dict],
+    recent_chat: dict | None,
+) -> str:
+    if not people:
+        return f"### People\nNo results for '{query}'."
+    lines = [f"### People — {query}"]
+    person = people[0]
+    name = person.get("displayName", "Unknown")
+    emails = person.get("emailAddresses", [])
+    email_addr = emails[0].get("address", "") if emails else ""
+    job_title = person.get("jobTitle", "")
+    lines.append(f"**{name}**" + (f" — {job_title}" if job_title else ""))
+    if email_addr:
+        lines.append(f"📧 {email_addr}")
+    if len(people) > 1:
+        others = [p.get("displayName", "?") for p in people[1:4]]
+        lines.append(f"Also matched: {', '.join(others)}")
+    if recent_emails:
+        lines.append("\n**Recent mail:**")
+        for m in recent_emails[:3]:
+            subject = m.get("subject", "(no subject)")
+            sender = m.get("from", {}).get("emailAddress", {}).get("name", "?")
+            lines.append(f"- {subject} (from {sender})")
+    if recent_chat:
+        preview = (recent_chat.get("lastMessagePreview") or {})
+        body = preview.get("body", {}).get("content", "") if preview else ""
+        if body:
+            text = _strip_teams_html(body)[:80]
+            lines.append(f"\n**Recent Teams chat:** {text}")
+    return "\n".join(lines)
+
+
+def format_search_results_markdown(query: str, hits: list[dict]) -> str:
+    if not hits:
+        return f"### Search — '{query}'\nNo results found."
+    lines = [f"### Search — '{query}' ({len(hits)} result{'s' if len(hits) != 1 else ''})"]
+    for hit in hits[:10]:
+        resource = hit.get("resource", {})
+        odata_type = resource.get("@odata.type", "")
+        if "message" in odata_type:
+            subject = resource.get("subject", "(no subject)")
+            sender = resource.get("from", {}).get("emailAddress", {}).get("name", "?")
+            preview = resource.get("bodyPreview", "")[:80]
+            lines.append(f"- **[Mail]** {subject} — *from {sender}*")
+            if preview:
+                lines.append(f"  {preview}")
+        elif "driveItem" in odata_type:
+            name = resource.get("name", "?")
+            web_url = resource.get("webUrl", "")
+            lines.append(f"- **[File]** {name}" + (f" — {web_url}" if web_url else ""))
+        elif "chatMessage" in odata_type:
+            body = resource.get("body", {}).get("content", "")
+            text = _strip_teams_html(body)[:80]
+            lines.append(f"- **[Teams]** {text}")
+        elif "listItem" in odata_type:
+            fields = resource.get("fields", {})
+            title = fields.get("Title", resource.get("name", "?"))
+            lines.append(f"- **[SharePoint]** {title}")
+        else:
+            lines.append(f"- {resource.get('name', resource.get('subject', '?'))}")
+    return "\n".join(lines)
+
+
+def format_meeting_times_markdown(suggestions: list[dict]) -> str:
+    if not suggestions:
+        return "### Schedule\nNo available time slots found for those constraints."
+    lines = ["### Available Meeting Times"]
+    for i, s in enumerate(suggestions[:5], 1):
+        slot = s.get("meetingTimeSlot", {})
+        start = slot.get("start", {}).get("dateTime", "")
+        end = slot.get("end", {}).get("dateTime", "")
+        confidence = s.get("confidence", 0)
+        start_fmt = start[:16] if start else "?"
+        end_fmt = end[11:16] if end else "?"
+        lines.append(f"{i}. **{start_fmt} – {end_fmt}** ({confidence:.0f}% confidence)")
+        unavailable = [
+            a.get("attendee", {}).get("emailAddress", {}).get("name", "?")
+            for a in s.get("attendeeAvailability", [])
+            if a.get("availability") not in ("free", "unknown")
+        ]
+        if unavailable:
+            lines.append(f"   Conflict: {', '.join(unavailable)}")
+    return "\n".join(lines)
+
+
+def format_resolved_content_markdown(url_type: str, data: dict) -> str:
+    if url_type == "email":
+        subject = data.get("subject", "(no subject)")
+        sender = data.get("from", {}).get("emailAddress", {}).get("name", "?")
+        received = data.get("receivedDateTime", "")[:10]
+        preview = data.get("bodyPreview", "")[:200]
+        lines = [f"### Email: {subject}", f"**From:** {sender}  |  **Received:** {received}"]
+        if preview:
+            lines.append(f"\n{preview}")
+        return "\n".join(lines)
+    elif url_type in ("channel_message", "chat_message"):
+        body = data.get("body", {}).get("content", "")
+        text = _strip_teams_html(body)[:300]
+        sender = data.get("from", {}).get("user", {}).get("displayName", "?")
+        created = data.get("createdDateTime", "")[:16]
+        return f"### Teams Message\n**From:** {sender}  |  **At:** {created}\n\n{text}"
+    elif url_type == "meeting":
+        return format_event_detail_markdown(data)
+    elif url_type == "chat_thread":
+        return _format_chat_thread(data)
+    elif url_type == "sharepoint_page":
+        if data.get("_page_found"):
+            title = data.get("title", "") or data.get("name", "?")
+            site_name = data.get("_site_name", "")
+            url = data.get("webUrl", "")
+            modified = data.get("lastModifiedDateTime", "")[:10]
+            lines = [f"### SharePoint Page: {title}"]
+            if site_name:
+                lines.append(f"**Site:** {site_name}")
+            if modified:
+                lines.append(f"**Modified:** {modified}")
+            if url:
+                lines.append(f"**URL:** {url}")
+            return "\n".join(lines)
+        else:
+            name = data.get("displayName", data.get("name", "?"))
+            url = data.get("webUrl", "")
+            lines = [f"### SharePoint Site: {name}"]
+            if url:
+                lines.append(f"**URL:** {url}")
+            lines.append("_(Page content unavailable — showing site info)_")
+            return "\n".join(lines)
+    elif url_type in ("onedrive_file", "onedrive_share_link"):
+        name = data.get("name", "?")
+        size = data.get("size", 0)
+        url = data.get("webUrl", "")
+        size_kb = size // 1024 if size else 0
+        lines = [f"### File: {name}", f"**Size:** {size_kb} KB"]
+        if url:
+            lines.append(f"**URL:** {url}")
+        return "\n".join(lines)
+    else:
+        return f"### Resolved\n```\n{data}\n```"
+
+
+def _format_chat_thread(data: dict) -> str:
+    chat = data.get("chat") or {}
+    entries = data.get("entries") or []
+    meeting = data.get("meeting")
+    chat_error = data.get("_chat_error")
+    messages_error = data.get("_messages_error")
+
+    lines: list[str] = []
+
+    # Header: topic, else fall back to member names, else generic.
+    members = chat.get("members") or []
+    member_names = [m.get("displayName", "?") for m in members if m.get("displayName")]
+    topic = chat.get("topic")
+    if topic:
+        header = topic
+    elif member_names:
+        header = ", ".join(member_names[:3])
+    else:
+        header = "Teams Chat"
+    lines.append(f"### Teams Chat: {header}")
+
+    chat_type = chat.get("chatType")
+    if chat_type:
+        lines.append(f"**Type:** {chat_type}")
+
+    if member_names:
+        shown = member_names[:6]
+        more = len(member_names) - len(shown)
+        members_str = ", ".join(shown)
+        if more > 0:
+            members_str += f" + {more} more"
+        lines.append(f"**Members:** {members_str}")
+
+    if chat_error:
+        lines.append(f"⚠️  Chat metadata unavailable — {chat_error}.")
+    if messages_error:
+        lines.append(f"⚠️  Messages unavailable — {messages_error}.")
+
+    if meeting:
+        m_subject = meeting.get("subject", "(no subject)")
+        m_start = (meeting.get("start", {}) or {}).get("dateTime", "")[:16]
+        m_end = (meeting.get("end", {}) or {}).get("dateTime", "")[11:16]
+        m_organizer = ((meeting.get("organizer", {}) or {}).get("emailAddress", {}) or {}).get("name", "Unknown")
+        lines.append("")
+        lines.append("**Meeting context:**")
+        lines.append(f"- {m_subject}")
+        lines.append(f"- {m_start} → {m_end}")
+        lines.append(f"- Organizer: {m_organizer}")
+
+    if entries:
+        lines.append("")
+        lines.append("**Recent activity:**")
+        for entry in entries[:25]:
+            lines.append(_format_chat_entry(entry))
+
+    return "\n".join(lines)
+
+
+def _format_chat_entry(entry: dict) -> str:
+    """Render one entry from the chat_thread `entries` list.
+
+    Timestamps are rendered as 'YYYY-MM-DD HH:MM' for full clarity (chats can
+    span months/years). Calls show date once + time range when same day; both
+    dates when crossing midnight.
+    """
+    raw_ts = (entry.get("ts") or "")[:16]  # 'YYYY-MM-DDTHH:MM'
+    ts_display = raw_ts.replace("T", " ")  # 'YYYY-MM-DD HH:MM'
+    kind = entry.get("kind")
+
+    if kind == "message":
+        sender = entry.get("sender") or "Unknown"
+        if entry.get("is_body_empty"):
+            return f"- **{sender}** ({ts_display}): _(no text)_"
+        return f"- **{sender}** ({ts_display}): {entry.get('body', '')}"
+
+    if kind == "call":
+        raw_end = (entry.get("end_ts") or "")[:16]
+        start_date, start_time = raw_ts[:10], raw_ts[11:16]
+        end_date, end_time = raw_end[:10], raw_end[11:16]
+        if not raw_end or raw_end == raw_ts:
+            # Single-event call: just the start
+            time_range = f"{start_date} {start_time}"
+        elif start_date == end_date:
+            # Same-day: date once, time range
+            time_range = f"{start_date} {start_time}–{end_time}"
+        else:
+            # Cross-day: full both ends
+            time_range = f"{start_date} {start_time} → {end_date} {end_time}"
+        duration = entry.get("duration")
+        if duration:
+            time_range += f", {duration}"
+        initiator = entry.get("initiator")
+        header = "📞 **Call**"
+        if initiator:
+            header = f"📞 **Call started by {initiator}**"
+        parts = [f"{header} ({time_range})"]
+        if entry.get("recording_url"):
+            parts.append(f"[recording]({entry['recording_url']})")
+        if entry.get("transcript_ready"):
+            parts.append("transcript ready")
+        return "- " + " — ".join(parts)
+
+    if kind == "event":
+        return f"- ⚙️ {entry.get('summary', 'system event')} ({ts_display})"
+
+    return f"- _(unknown entry: {kind})_"

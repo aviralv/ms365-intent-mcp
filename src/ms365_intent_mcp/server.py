@@ -10,16 +10,19 @@ from fastmcp import Context, FastMCP
 
 from .auth import TokenManager
 from .composers.compose import ComposeType, compose_action
+from .composers.find import compose_find
 from .composers.meeting import compose_meeting
 from .composers.my_day import compose_my_day
+from .composers.people import compose_people
+from .composers.resolve import compose_resolve
+from .composers.schedule import compose_schedule
+from .composers.whats_new import compose_whats_new
 from .config import Config
 from .graph import GraphClient
 from .permissions import PermissionRegistry
 from .resilience import CircuitBreaker
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
-
-_config = Config()
 
 
 @asynccontextmanager
@@ -32,20 +35,21 @@ async def lifespan(server: FastMCP):
         logger.addHandler(handler)
         logger.propagate = False
 
-    auth = TokenManager(_config)
+    config = Config()
+    auth = TokenManager(config)
     print("Connecting to Microsoft Graph API...", file=sys.stderr)
     auth.ensure_authenticated()
     print("Connected.", file=sys.stderr)
 
-    permissions = PermissionRegistry.from_token(auth.get_access_token())
+    permissions = PermissionRegistry.from_token_provider(auth.peek_access_token)
     cb = CircuitBreaker(
-        failure_threshold=_config.cb_failure_threshold,
-        recovery_timeout=_config.cb_recovery_timeout,
+        failure_threshold=config.cb_failure_threshold,
+        recovery_timeout=config.cb_recovery_timeout,
     )
 
-    async with GraphClient(_config.graph_base_url, auth.get_access_token, cb=cb) as client:
+    async with GraphClient(config.graph_base_url, auth.get_access_token, cb=cb) as client:
         yield {
-            "config": _config,
+            "config": config,
             "client": client,
             "permissions": permissions,
         }
@@ -56,9 +60,14 @@ mcp = FastMCP(
     instructions=(
         "Intent-oriented Microsoft 365 MCP server.\n\n"
         "Tools:\n"
-        "- my_day: What does my day look like? Calendar + mail + teams overview.\n"
-        "- meeting: Tell me about this meeting. Full context by ID, subject, or 'next'.\n"
-        "- compose: Create something — email drafts, reply drafts, events, Teams messages.\n\n"
+        "- my_day: Daily overview — calendar, mail, Teams.\n"
+        "- meeting: Full context for a meeting by ID, subject, or 'next'.\n"
+        "- compose: Create email drafts, reply drafts, calendar events, Teams messages.\n"
+        "- schedule: Find available meeting times for a set of attendees.\n"
+        "- people: Look up a person and see recent context.\n"
+        "- whats_new: What happened since a given time across mail/calendar/Teams.\n"
+        "- find: Search across mail, files, Teams messages, and SharePoint.\n"
+        "- resolve: Resolve any M365 URL (Teams link, Outlook deep link, SharePoint page, OneDrive file).\n\n"
         "Email drafts are saved to Drafts, never auto-sent.\n"
         "Teams messages require confirmation before sending."
     ),
@@ -151,6 +160,78 @@ async def compose(
         action_type=type,
         params=params,
     )
+
+
+@mcp.tool()
+async def schedule(
+    ctx: Context,
+    attendees: Annotated[list[dict], "Attendees: [{'email': '...', 'name': '...'}]"],
+    duration_minutes: Annotated[int, "Meeting duration in minutes (default 30)"] = 30,
+    constraints: Annotated[dict | None, "Optional time constraints: {'start': 'ISO', 'end': 'ISO'}"] = None,
+) -> str:
+    """Find available meeting times. Returns ranked time slots with confidence scores."""
+    client: GraphClient = ctx.request_context.lifespan_context["client"]
+    permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
+    return await compose_schedule(
+        client=client,
+        permissions=permissions,
+        attendees=attendees,
+        duration_minutes=duration_minutes,
+        constraints=constraints,
+    )
+
+
+@mcp.tool()
+async def people(
+    ctx: Context,
+    query: Annotated[str, "Name or email to search for"],
+) -> str:
+    """Look up a person and see recent email and Teams context."""
+    client: GraphClient = ctx.request_context.lifespan_context["client"]
+    permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
+    return await compose_people(client=client, permissions=permissions, query=query)
+
+
+@mcp.tool()
+async def whats_new(
+    ctx: Context,
+    since: Annotated[str, "ISO datetime to look back from, e.g. '2026-05-14T00:00:00'"],
+    scope: Annotated[str | None, "Filter to: 'mail', 'calendar', 'teams', or 'all' (default)"] = None,
+) -> str:
+    """What happened since a given time? Returns new mail, events, and Teams messages."""
+    config: Config = ctx.request_context.lifespan_context["config"]
+    client: GraphClient = ctx.request_context.lifespan_context["client"]
+    permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
+    return await compose_whats_new(
+        client=client,
+        permissions=permissions,
+        since=since,
+        scope=scope,
+        timezone=config.default_timezone,
+    )
+
+
+@mcp.tool()
+async def find(
+    ctx: Context,
+    query: Annotated[str, "Search query text"],
+    type: Annotated[str | None, "Optional filter: 'email', 'file', 'message' (Teams), 'page' (SharePoint)"] = None,
+) -> str:
+    """Search across mail, files, Teams messages, and SharePoint pages."""
+    client: GraphClient = ctx.request_context.lifespan_context["client"]
+    permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
+    return await compose_find(client=client, permissions=permissions, query=query, search_type=type)
+
+
+@mcp.tool()
+async def resolve(
+    ctx: Context,
+    url: Annotated[str, "An M365 URL: Teams message/meeting link, Outlook deep link, SharePoint page, or OneDrive file"],
+) -> str:
+    """Resolve any Microsoft 365 URL and return its content."""
+    client: GraphClient = ctx.request_context.lifespan_context["client"]
+    permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
+    return await compose_resolve(client=client, permissions=permissions, url=url)
 
 
 def main():

@@ -1,0 +1,88 @@
+"""Tests for schedule composer."""
+
+from unittest.mock import AsyncMock
+
+import pytest
+
+from ms365_intent_mcp.composers.schedule import compose_schedule
+from ms365_intent_mcp.graph import GraphAPIError
+from ms365_intent_mcp.permissions import PermissionRegistry
+
+
+@pytest.fixture
+def full_permissions():
+    return PermissionRegistry(["Calendars.ReadWrite"])
+
+
+class TestScheduleBasic:
+    @pytest.mark.asyncio
+    async def test_returns_suggestions(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value=_mock_find_meeting_times_response())
+
+        result = await compose_schedule(
+            client=client,
+            permissions=full_permissions,
+            attendees=[{"email": "bob@sap.com", "name": "Bob"}],
+            duration_minutes=30,
+            constraints=None,
+        )
+        assert "10:00" in result
+        assert "100" in result
+
+    @pytest.mark.asyncio
+    async def test_no_suggestions_returns_helpful_message(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={"meetingTimeSuggestions": [], "emptySuggestionsReason": "AttendeesUnavailable"})
+
+        result = await compose_schedule(
+            client=client,
+            permissions=full_permissions,
+            attendees=[{"email": "bob@sap.com"}],
+            duration_minutes=30,
+            constraints=None,
+        )
+        assert "No available" in result or "unavailable" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_missing_calendar_scope_returns_message(self):
+        client = AsyncMock()
+        permissions = PermissionRegistry([])
+
+        result = await compose_schedule(
+            client=client,
+            permissions=permissions,
+            attendees=[{"email": "x@x.com"}],
+            duration_minutes=30,
+            constraints=None,
+        )
+        assert "Calendars.ReadWrite" in result
+
+    @pytest.mark.asyncio
+    async def test_graph_error_returns_error_section(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=GraphAPIError(400, "InvalidRequest", "bad attendees"))
+
+        result = await compose_schedule(
+            client=client,
+            permissions=full_permissions,
+            attendees=[{"email": "bad"}],
+            duration_minutes=30,
+            constraints=None,
+        )
+        assert "⚠️" in result or "bad attendees" in result
+
+
+def _mock_find_meeting_times_response():
+    return {
+        "meetingTimeSuggestions": [
+            {
+                "meetingTimeSlot": {
+                    "start": {"dateTime": "2026-05-20T10:00:00", "timeZone": "UTC"},
+                    "end": {"dateTime": "2026-05-20T10:30:00", "timeZone": "UTC"},
+                },
+                "confidence": 100.0,
+                "attendeeAvailability": [],
+            }
+        ]
+    }

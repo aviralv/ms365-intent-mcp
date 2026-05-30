@@ -29,7 +29,12 @@ class CircuitOpenError(Exception):
 
 
 def _is_server_error(exc: BaseException) -> bool:
-    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500
+    from .graph import GraphAPIError
+    if isinstance(exc, GraphAPIError):
+        return exc.status_code >= 500
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    return False
 
 
 class CircuitBreaker:

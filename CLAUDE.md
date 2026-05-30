@@ -1,11 +1,5 @@
 # ms365-intent-mcp
 
-Intent-oriented MCP server for Microsoft 365. Tools match how you think about your work day, not how Microsoft organizes its Graph API.
-
-## Project Intent
-
-Replace 76 API-mirroring tools with ~8 composed intent tools. Eliminate the need for separate email/teams-chat/onedrive routing agents. Schema lean enough to load in the base Claude session.
-
 ## Tech Stack
 
 - Python 3.11+
@@ -17,7 +11,7 @@ Replace 76 API-mirroring tools with ~8 composed intent tools. Eliminate the need
 ## Architecture
 
 ```
-Tool Layer (8 intent tools) → thin validation + formatting
+Tool Layer (intent tools) → thin validation + formatting
 Composer Layer → orchestrates parallel Graph calls, fuses results
 Graph Client → httpx with retry/backoff, rate limit awareness
 Auth Layer → device code flow, silent token refresh
@@ -49,23 +43,19 @@ uv run python -m ms365_intent_mcp.server
 - Partial success: if one subsystem fails, others still return
 - Decision-ready responses: include enough content to decide whether to engage
 - No raw IDs in markdown responses — names, subjects, links only
+- Markdown output only (no JSON format unless a consumer emerges)
 - MVP scopes (SAP-verified): Calendars.ReadWrite, Mail.Read/ReadWrite, Files.Read, Sites.Read.All, Chat.ReadWrite, ChatMessage.Send, Channel.ReadBasic.All, Team.ReadBasic.All, Tasks.Read, Contacts.Read, User.Read
 
-## Tool Surface
+## Coding Discipline
 
-| Tool | Intent |
-|------|--------|
-| `resolve(url)` | "What is this link?" — any M365 URL → content |
-| `my_day(date?)` | "What does my day look like?" — calendar + mail + teams |
-| `meeting(identifier)` | "Tell me about this meeting" — full context |
-| `compose(type, params)` | "Create something" — drafts, events, messages |
-| `whats_new(since, scope?)` | "What happened?" — unified activity |
-| `find(query, type?)` | "Find me X" — cross-domain search |
-| `people(query)` | "Who is this?" — person + interaction context |
-| `schedule(attendees, duration)` | "Find a time" — scheduling assistant |
+- State assumptions before implementing. If multiple interpretations exist, surface them — don't pick silently.
+- Minimum code that solves the problem. No speculative features, no premature abstractions, no "flexibility" that wasn't requested.
+- Surgical changes: every changed line traces to the task. Don't "improve" adjacent code, comments, or formatting.
+- Your mess → clean up (imports/variables your changes made unused). Pre-existing mess → mention it, don't touch it.
+- Multi-step tasks: state a brief plan with verification at each step before starting.
+- The overcomplicated version isn't wrong — it's premature. Solve today's problem simply; refactor when complexity is actually needed.
 
-## Phasing
+## Session Notes
 
-- **Phase 1 (MVP)**: resolve, my_day, meeting, compose
-- **Phase 2**: whats_new, find, people, schedule
-- **Phase 3**: Knowledge layer (MCP resources), generalization (multi-tenant)
+Session notes live in the orchestration directory, not here:
+`the-product-kitchen/session-notes/ms365-intent-mcp-YYYY-MM-DD-theme.md`

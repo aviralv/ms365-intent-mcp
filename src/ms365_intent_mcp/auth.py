@@ -3,8 +3,8 @@
 import json
 import logging
 import time
-import urllib.parse
-import urllib.request
+
+import httpx
 
 from .config import Config
 
@@ -38,9 +38,11 @@ class TokenManager:
         token = self._try_refresh()
         if token:
             return token
-        if self._access_token:
-            return self._access_token
         raise AuthenticationError("No valid token available. Run: ms365-intent-mcp auth")
+
+    def peek_access_token(self) -> str | None:
+        """Return the cached token without triggering refresh. Safe to call from async contexts."""
+        return self._access_token
 
     def _try_refresh(self) -> str | None:
         if not self.config.token_path.exists():
@@ -58,22 +60,22 @@ class TokenManager:
             _logger.warning("No refresh_token in token file")
             return None
 
-        data = urllib.parse.urlencode({
+        data = {
             "client_id": self.config.client_id,
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
             "scope": " ".join(self.config.scopes),
-        }).encode()
-
-        req = urllib.request.Request(
-            self.TOKEN_URL,
-            data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+        }
 
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                result = json.loads(resp.read().decode())
+            resp = httpx.post(
+                self.TOKEN_URL,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            result = resp.json()
         except Exception as e:
             _logger.warning("Token refresh failed: %s", e)
             return None
