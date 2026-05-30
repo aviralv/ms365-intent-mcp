@@ -1,6 +1,7 @@
 """resolve composer — parse M365 URLs and fetch their content via Graph."""
 
 import asyncio
+import json
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -53,12 +54,38 @@ def _build_member_name_map(chat: dict | None) -> dict[str, str]:
     return name_map
 
 
+def _extract_forwarded_message_text(msg: dict) -> str:
+    """Extract the inner text of a forwarded-message attachment.
+
+    Teams forwarded messages have body=`<attachment id=...>` and the actual
+    content lives in attachments[0].content as a JSON string with key
+    `originalMessageContent`. Returns stripped text or '' if not extractable.
+    """
+    attachments = msg.get("attachments") or []
+    for att in attachments:
+        if att.get("contentType") != "forwardedMessageReference":
+            continue
+        raw = att.get("content") or ""
+        if not raw:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        inner = parsed.get("originalMessageContent") or ""
+        if inner:
+            return _strip_teams_html(inner)
+    return ""
+
+
 def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
     """Classify a real chat message into a typed entry.
 
     Sender resolution cascades: name_map[user.id] -> user.displayName ->
     application.displayName -> 'Unknown'. Body is stripped via _strip_teams_html
     and truncated to 500 chars + '…'. is_body_empty=True if stripped body is empty.
+    Forwarded-message attachments (body=`<attachment id=...>`) have their inner
+    text extracted from attachments[0].content as a fallback.
     """
     from_field = msg.get("from") or {}
     user_field = from_field.get("user") or {}
@@ -74,6 +101,8 @@ def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
 
     body_content = (msg.get("body") or {}).get("content", "")
     text = _strip_teams_html(body_content)
+    if not text:
+        text = _extract_forwarded_message_text(msg)
     is_body_empty = not text
     if len(text) > 500:
         text = text[:500] + "…"

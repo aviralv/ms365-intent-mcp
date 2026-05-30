@@ -863,6 +863,93 @@ class TestMessageEntry:
         assert entry["is_body_empty"] is True
 
 
+class TestForwardedMessageExtraction:
+    """Bug 3: messages with body=<attachment id=...> hide the real content
+    in attachments[0].content.originalMessageContent (JSON string)."""
+
+    def test_forwarded_message_extracts_inner_text(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2025-06-05T09:52:38Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": '<attachment id="123"></attachment>'},
+            "attachments": [
+                {
+                    "id": "123",
+                    "contentType": "forwardedMessageReference",
+                    "content": '{"originalMessageContent": "<p>Hello <b>world</b></p>"}',
+                }
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["body"] == "Hello world"
+        assert entry["is_body_empty"] is False
+
+    def test_forwarded_message_truncates_long_inner_text(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        long_text = "x" * 600
+        msg = {
+            "createdDateTime": "2025-06-05T09:52:38Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": '<attachment id="123"></attachment>'},
+            "attachments": [
+                {
+                    "contentType": "forwardedMessageReference",
+                    "content": '{"originalMessageContent": "%s"}' % long_text,
+                }
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["body"].endswith("…")
+        assert len(entry["body"]) == 501
+
+    def test_attachment_with_unparseable_content_falls_through(self):
+        """Malformed JSON in attachment content must not crash; entry stays empty."""
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2025-06-05T09:52:38Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": '<attachment id="123"></attachment>'},
+            "attachments": [
+                {"contentType": "forwardedMessageReference", "content": "{not json"}
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["is_body_empty"] is True
+
+    def test_non_forwarded_attachment_does_not_inject_body(self):
+        """An image/file attachment without 'forwardedMessageReference' should
+        not be misread as a forwarded message — body stays empty."""
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2025-06-05T09:52:38Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": '<attachment id="123"></attachment>'},
+            "attachments": [
+                {"contentType": "image/png", "name": "foo.png"}
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["is_body_empty"] is True
+
+    def test_real_body_takes_precedence_over_attachment(self):
+        """If body has stripped text, use that — don't override with attachment content."""
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2025-06-05T09:52:38Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<p>Real body</p>"},
+            "attachments": [
+                {
+                    "contentType": "forwardedMessageReference",
+                    "content": '{"originalMessageContent": "<p>Forwarded</p>"}',
+                }
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["body"] == "Real body"
+
+
 # ---------------------------------------------------------------------------
 # _event_entry
 # ---------------------------------------------------------------------------
