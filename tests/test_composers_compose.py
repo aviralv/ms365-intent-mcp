@@ -20,7 +20,7 @@ class TestComposeEmailDraft:
         client.post = AsyncMock(return_value={
             "subject": "Hello",
             "id": "draft-1",
-            "toRecipients": [{"emailAddress": {"name": "Bob", "address": "bob@sap.com"}}],
+            "toRecipients": [{"emailAddress": {"name": "Bob", "address": "bob@example.com"}}],
         })
 
         result = await compose_action(
@@ -30,7 +30,7 @@ class TestComposeEmailDraft:
             params={
                 "subject": "Hello",
                 "body": "Hi Bob",
-                "to": [{"email": "bob@sap.com", "name": "Bob"}],
+                "to": [{"email": "bob@example.com", "name": "Bob"}],
             },
         )
         assert "Draft created" in result or "✅" in result
@@ -44,7 +44,7 @@ class TestComposeReplyDraft:
         client.post = AsyncMock(return_value={
             "subject": "Re: Hello",
             "id": "draft-2",
-            "toRecipients": [{"emailAddress": {"name": "Alice", "address": "alice@sap.com"}}],
+            "toRecipients": [{"emailAddress": {"name": "Alice", "address": "alice@example.com"}}],
         })
 
         result = await compose_action(

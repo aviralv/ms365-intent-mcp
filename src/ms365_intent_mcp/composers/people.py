@@ -65,7 +65,8 @@ def _find_chat_with_person(
     """Find the most recent chat that includes the target person.
 
     Prefers email match (authoritative). Falls back to all-words-match on
-    displayName so 'Avi' doesn't accidentally match 'Aviral Patel'.
+    displayName so a short query ('Alice') doesn't match longer names
+    that happen to contain those characters ('Alice Patel-Smith').
     """
     email_lower = email.lower()
     if email_lower:

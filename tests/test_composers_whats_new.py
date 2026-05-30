@@ -131,7 +131,7 @@ async def _mock_get(endpoint, params=None, headers=None):
         return {"value": [
             {
                 "subject": "Budget update",
-                "from": {"emailAddress": {"name": "Finance", "address": "finance@sap.com"}},
+                "from": {"emailAddress": {"name": "Finance", "address": "finance@example.com"}},
                 "receivedDateTime": "2026-05-15T10:00:00Z",
                 "importance": "normal",
             }

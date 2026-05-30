@@ -14,7 +14,7 @@ class TestConfigDefaults:
 
     def test_default_timezone(self):
         config = Config()
-        assert config.default_timezone == "Europe/Berlin"
+        assert config.default_timezone == "UTC"
 
     def test_default_graph_url(self):
         config = Config()

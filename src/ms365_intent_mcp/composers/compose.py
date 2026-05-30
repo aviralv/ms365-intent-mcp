@@ -101,7 +101,7 @@ async def _create_event(client: GraphClient, params: dict) -> str:
         return "❌ Missing required field: 'start'"
     if not params.get("end"):
         return "❌ Missing required field: 'end'"
-    tz = params.get("timezone", "Europe/Berlin")
+    tz = params.get("timezone", "UTC")
     payload = {
         "subject": params["subject"],
         "start": {"dateTime": params["start"], "timeZone": tz},

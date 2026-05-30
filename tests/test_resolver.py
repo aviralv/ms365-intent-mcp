@@ -78,20 +78,20 @@ class TestEmail:
 
 class TestSharePointPage:
     def test_site_endpoint(self):
-        url = "https://sap.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
+        url = "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
         result = resolve_url(url)
         assert result.url_type == "sharepoint_page"
         assert result.graph_endpoint.startswith("/sites/")
 
     def test_extra_contains_page_filename(self):
-        url = "https://sap.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
+        url = "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
         result = resolve_url(url)
         assert result.extra["page_filename"] == "Overview.aspx"
 
 
 class TestOneDriveFile:
     def test_personal_file_endpoint(self):
-        url = "https://sap-my.sharepoint.com/personal/user_sap_com/Documents/report.xlsx"
+        url = "https://contoso-my.sharepoint.com/personal/user_example_com/Documents/report.xlsx"
         result = resolve_url(url)
         assert result.url_type == "onedrive_file"
         assert result.graph_endpoint.startswith("/users/")
@@ -100,7 +100,7 @@ class TestOneDriveFile:
 
 class TestOneDriveShareLink:
     def test_shares_api_endpoint(self):
-        url = "https://sap-my.sharepoint.com/:x:/r/personal/user_sap_com/_layouts/15/Doc.aspx?sourcedoc=%7Babc%7D"
+        url = "https://contoso-my.sharepoint.com/:x:/r/personal/user_example_com/_layouts/15/Doc.aspx?sourcedoc=%7Babc%7D"
         result = resolve_url(url)
         assert result.url_type == "onedrive_share_link"
         assert result.graph_endpoint.startswith("/shares/u!")
@@ -114,7 +114,7 @@ class TestUnknownUrl:
 
 class TestDecodeUpn:
     def test_simple_domain(self):
-        assert _decode_upn("aviral_vaid_sap_com") == "aviral.vaid@sap.com"
+        assert _decode_upn("alice_smith_example_com") == "alice.smith@example.com"
 
     def test_multi_part_tld_co_uk(self):
         assert _decode_upn("john_smith_company_co_uk") == "john.smith@company.co.uk"

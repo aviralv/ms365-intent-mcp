@@ -74,9 +74,9 @@ def _full_event():
         "location": {"displayName": "Room B"},
         "isOnlineMeeting": True,
         "onlineMeeting": {"joinUrl": "https://teams.microsoft.com/l/meetup-join/123"},
-        "organizer": {"emailAddress": {"name": "Alice", "address": "alice@sap.com"}},
+        "organizer": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
         "attendees": [
-            {"emailAddress": {"name": "Bob", "address": "bob@sap.com"}, "status": {"response": "accepted"}},
+            {"emailAddress": {"name": "Bob", "address": "bob@example.com"}, "status": {"response": "accepted"}},
         ],
         "body": {"content": "<p>Agenda: review Q2 progress</p>", "contentType": "html"},
     }

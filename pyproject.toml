@@ -1,6 +1,6 @@
 [project]
 name = "ms365-intent-mcp"
-version = "0.3.2"
+version = "0.4.0"
 description = "Intent-oriented MCP server for Microsoft 365"
 readme = "README.md"
 requires-python = ">=3.11"

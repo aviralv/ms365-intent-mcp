@@ -43,7 +43,7 @@ class TestPeopleBasic:
 
         async def _get(endpoint, params=None, headers=None):
             if "/me/contacts" in endpoint:
-                return {"value": [{"displayName": "Alice Contact", "emailAddresses": [{"address": "alice@sap.com"}]}]}
+                return {"value": [{"displayName": "Alice Contact", "emailAddresses": [{"address": "alice@example.com"}]}]}
             return {"value": []}
 
         client.get = AsyncMock(side_effect=_get)
@@ -80,7 +80,7 @@ def _mock_people_response():
             {
                 "displayName": "Alice Smith",
                 "jobTitle": "Engineer",
-                "emailAddresses": [{"address": "alice@sap.com"}],
+                "emailAddresses": [{"address": "alice@example.com"}],
             }
         ]
     }
@@ -90,19 +90,19 @@ class TestFindChatWithPerson:
     def test_email_match_wins(self):
         from ms365_intent_mcp.composers.people import _find_chat_with_person
         chats = [
-            {"id": "1", "members": [{"displayName": "Bob", "email": "bob@sap.com"}]},
-            {"id": "2", "members": [{"displayName": "Alice Smith", "email": "alice@sap.com"}]},
+            {"id": "1", "members": [{"displayName": "Bob", "email": "bob@example.com"}]},
+            {"id": "2", "members": [{"displayName": "Alice Smith", "email": "alice@example.com"}]},
         ]
-        result = _find_chat_with_person(chats, "Alice Smith", "alice@sap.com")
+        result = _find_chat_with_person(chats, "Alice Smith", "alice@example.com")
         assert result["id"] == "2"
 
     def test_email_match_preferred_over_name(self):
         from ms365_intent_mcp.composers.people import _find_chat_with_person
         chats = [
-            {"id": "name-match", "members": [{"displayName": "Alice Smith", "email": "other@sap.com"}]},
-            {"id": "email-match", "members": [{"displayName": "AS", "email": "alice@sap.com"}]},
+            {"id": "name-match", "members": [{"displayName": "Alice Smith", "email": "other@example.com"}]},
+            {"id": "email-match", "members": [{"displayName": "AS", "email": "alice@example.com"}]},
         ]
-        result = _find_chat_with_person(chats, "Alice Smith", "alice@sap.com")
+        result = _find_chat_with_person(chats, "Alice Smith", "alice@example.com")
         assert result["id"] == "email-match"
 
     def test_avi_does_not_match_aviral(self):
@@ -124,9 +124,9 @@ class TestFindChatWithPerson:
     def test_no_match_returns_none(self):
         from ms365_intent_mcp.composers.people import _find_chat_with_person
         chats = [
-            {"id": "1", "members": [{"displayName": "Bob Jones", "email": "bob@sap.com"}]},
+            {"id": "1", "members": [{"displayName": "Bob Jones", "email": "bob@example.com"}]},
         ]
-        result = _find_chat_with_person(chats, "Alice Smith", "alice@sap.com")
+        result = _find_chat_with_person(chats, "Alice Smith", "alice@example.com")
         assert result is None
 
     def test_empty_target_returns_none(self):

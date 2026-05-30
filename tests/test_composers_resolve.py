@@ -33,7 +33,7 @@ class TestResolveEmail:
         client = AsyncMock()
         client.get = AsyncMock(return_value={
             "subject": "Budget Review",
-            "from": {"emailAddress": {"name": "Alice", "address": "alice@sap.com"}},
+            "from": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
             "receivedDateTime": "2026-05-15T08:00:00Z",
             "bodyPreview": "Please review attached.",
         })
@@ -196,13 +196,13 @@ class TestMeetingResolve:
 class TestOneDriveFileResolve:
     @pytest.mark.asyncio
     async def test_onedrive_file_resolve(self, full_permissions):
-        url = "https://sap-my.sharepoint.com/personal/user_sap_com/Documents/report.xlsx"
+        url = "https://contoso-my.sharepoint.com/personal/user_example_com/Documents/report.xlsx"
 
         client = AsyncMock()
         client.get = AsyncMock(return_value={
             "name": "report.xlsx",
             "size": 1024,
-            "webUrl": "https://sap-my.sharepoint.com/personal/user_sap_com/Documents/report.xlsx",
+            "webUrl": "https://contoso-my.sharepoint.com/personal/user_example_com/Documents/report.xlsx",
         })
 
         result = await compose_resolve(client=client, permissions=full_permissions, url=url)
@@ -216,13 +216,13 @@ class TestOneDriveFileResolve:
 class TestOneDriveShareLinkResolve:
     @pytest.mark.asyncio
     async def test_onedrive_share_link_resolve(self, full_permissions):
-        url = "https://sap-my.sharepoint.com/:x:/r/personal/user_sap_com/_layouts/15/Doc.aspx?sourcedoc=%7Babc%7D"
+        url = "https://contoso-my.sharepoint.com/:x:/r/personal/user_example_com/_layouts/15/Doc.aspx?sourcedoc=%7Babc%7D"
 
         client = AsyncMock()
         client.get = AsyncMock(return_value={
             "name": "Roadmap.xlsx",
             "size": 2048,
-            "webUrl": "https://sap-my.sharepoint.com/personal/user_sap_com/Shared%20Documents/Roadmap.xlsx",
+            "webUrl": "https://contoso-my.sharepoint.com/personal/user_example_com/Shared%20Documents/Roadmap.xlsx",
         })
 
         result = await compose_resolve(client=client, permissions=full_permissions, url=url)
@@ -236,13 +236,13 @@ class TestOneDriveShareLinkResolve:
 class TestSharePointPageResolve:
     @pytest.mark.asyncio
     async def test_sharepoint_page_found(self, full_permissions):
-        url = "https://sap.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
+        url = "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
 
-        site_response = {"id": "site-id-123", "displayName": "My Project", "webUrl": "https://sap.sharepoint.com/sites/MyProject"}
+        site_response = {"id": "site-id-123", "displayName": "My Project", "webUrl": "https://contoso.sharepoint.com/sites/MyProject"}
         lists_response = {"value": [{"id": "list-id-456"}]}
         items_response = {"value": [{
             "id": "42",
-            "webUrl": "https://sap.sharepoint.com/sites/MyProject/SitePages/Overview.aspx",
+            "webUrl": "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx",
             "fields": {
                 "FileLeafRef": "Overview.aspx",
                 "Title": "Project Overview",
@@ -259,9 +259,9 @@ class TestSharePointPageResolve:
 
     @pytest.mark.asyncio
     async def test_sharepoint_page_fallback(self, full_permissions):
-        url = "https://sap.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
+        url = "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
 
-        site_response = {"id": "site-id-123", "displayName": "My Project", "webUrl": "https://sap.sharepoint.com/sites/MyProject"}
+        site_response = {"id": "site-id-123", "displayName": "My Project", "webUrl": "https://contoso.sharepoint.com/sites/MyProject"}
 
         client = AsyncMock()
         client.get = AsyncMock(side_effect=[

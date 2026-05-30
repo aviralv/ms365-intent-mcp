@@ -154,14 +154,14 @@ class TestFormatPeopleMarkdown:
         assert "alice" in result.lower() or "No results" in result
 
     def test_with_person_and_mail(self):
-        people = [{"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@sap.com"}]}]
+        people = [{"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@example.com"}]}]
         emails = [{"subject": "Project update", "from": {"emailAddress": {"name": "Bob"}}, "receivedDateTime": "2026-05-15T10:00:00Z"}]
         result = format_people_markdown("alice", people, emails, None)
         assert "Alice Smith" in result
         assert "Project update" in result
 
     def test_with_teams_chat(self):
-        people = [{"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@sap.com"}]}]
+        people = [{"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@example.com"}]}]
         chat = {"id": "19:abc", "chatType": "oneOnOne", "lastMessagePreview": {"body": {"content": "Hey!"}}}
         result = format_people_markdown("alice", people, [], chat)
         assert "Alice Smith" in result
@@ -178,7 +178,7 @@ class TestFormatSearchResultsMarkdown:
                 "resource": {
                     "@odata.type": "#microsoft.graph.message",
                     "subject": "Q2 Budget Review",
-                    "from": {"emailAddress": {"name": "Finance", "address": "finance@sap.com"}},
+                    "from": {"emailAddress": {"name": "Finance", "address": "finance@example.com"}},
                     "receivedDateTime": "2026-05-10T09:00:00Z",
                     "bodyPreview": "Please find attached the Q2 budget...",
                 }
@@ -214,7 +214,7 @@ class TestFormatResolvedContentMarkdown:
     def test_email_type(self):
         data = {
             "subject": "Hello",
-            "from": {"emailAddress": {"name": "Bob", "address": "bob@sap.com"}},
+            "from": {"emailAddress": {"name": "Bob", "address": "bob@example.com"}},
             "receivedDateTime": "2026-05-15T08:00:00Z",
             "bodyPreview": "Hi there",
         }
@@ -223,12 +223,12 @@ class TestFormatResolvedContentMarkdown:
         assert "Bob" in result
 
     def test_sharepoint_page_type(self):
-        data = {"displayName": "Project Overview", "webUrl": "https://sap.sharepoint.com/sites/proj"}
+        data = {"displayName": "Project Overview", "webUrl": "https://contoso.sharepoint.com/sites/proj"}
         result = format_resolved_content_markdown("sharepoint_page", data)
         assert "Project Overview" in result
 
     def test_onedrive_file_type(self):
-        data = {"name": "report.xlsx", "size": 20480, "webUrl": "https://sap-my.sharepoint.com/files/1"}
+        data = {"name": "report.xlsx", "size": 20480, "webUrl": "https://contoso-my.sharepoint.com/files/1"}
         result = format_resolved_content_markdown("onedrive_file", data)
         assert "report.xlsx" in result
 
@@ -609,7 +609,7 @@ class TestMentionRegressionAcrossFormatters:
         assert "@Avi" in result
 
     def test_format_people_extracts_at_mention_in_recent_chat(self):
-        people = [{"displayName": "Bawa Kulkarni", "emailAddresses": [{"address": "bawa@sap.com"}]}]
+        people = [{"displayName": "Bawa Kulkarni", "emailAddresses": [{"address": "bawa@example.com"}]}]
         recent_chat = {
             "lastMessagePreview": {
                 "body": {"content": '<at id="123">@Avi</at> ping'},
