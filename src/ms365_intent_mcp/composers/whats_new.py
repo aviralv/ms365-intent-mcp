@@ -77,7 +77,7 @@ async def compose_whats_new(
 
     if "calendar" in results:
         cal_result = results["calendar"]
-        if isinstance(cal_result, Exception):
+        if isinstance(cal_result, BaseException):
             sections.append(format_section_error("Calendar", _error_reason(cal_result)))
         else:
             events = (cal_result or {}).get("value", [])
@@ -88,7 +88,7 @@ async def compose_whats_new(
             sections.append(f"### Mail\n{mail_unavailable}")
         elif "messages" in results:
             msgs_result = results["messages"]
-            if isinstance(msgs_result, Exception):
+            if isinstance(msgs_result, BaseException):
                 sections.append(format_section_error("Mail", _error_reason(msgs_result)))
             else:
                 all_msgs = (msgs_result or {}).get("value", [])
@@ -106,7 +106,7 @@ async def compose_whats_new(
             sections.append(f"### Teams\n{teams_unavailable}")
         elif "chats" in results:
             chats_result = results["chats"]
-            if isinstance(chats_result, Exception):
+            if isinstance(chats_result, BaseException):
                 sections.append(format_section_error("Teams", _error_reason(chats_result)))
             else:
                 chats = (chats_result or {}).get("value", [])

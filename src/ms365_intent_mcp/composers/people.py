@@ -48,11 +48,11 @@ async def compose_people(
         results = dict(zip(keys, results_list))
 
         emails_result = results.get("emails")
-        if emails_result and not isinstance(emails_result, Exception):
+        if emails_result and not isinstance(emails_result, BaseException):
             recent_emails = (emails_result or {}).get("value", [])
 
         chats_result = results.get("chats")
-        if chats_result and not isinstance(chats_result, Exception):
+        if chats_result and not isinstance(chats_result, BaseException):
             chats = (chats_result or {}).get("value", [])
             recent_chat = _find_chat_with_person(chats, display_name, email_addr)
 
