@@ -357,23 +357,22 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
             "$select": "id,topic,chatType,webUrl,onlineMeetingInfo",
             "$expand": "members",
         })
-        msgs_task = client.get(f"/chats/{chat_id}/messages", params={
-            "$top": "20",
-        })
+        msgs_task = _paginate_chat_messages(client, chat_id)
         chat_result, msgs_result = await asyncio.gather(
             chat_task, msgs_task, return_exceptions=True
         )
 
         chat = chat_result if not isinstance(chat_result, BaseException) else None
-        messages_raw = (
-            msgs_result.get("value", [])
-            if isinstance(msgs_result, dict) else []
-        )
-        messages = sorted(
-            messages_raw,
-            key=lambda m: m.get("createdDateTime", ""),
-            reverse=True,
-        )[:20]
+
+        if isinstance(msgs_result, BaseException):
+            messages: list[dict] = []
+            msgs_error_reason: str | None = _error_reason(msgs_result)
+        else:
+            messages, partial_error = msgs_result
+            msgs_error_reason = partial_error
+
+        name_map = _build_member_name_map(chat) if chat else {}
+        entries = _normalize_chat_entries(messages, name_map)
 
         meeting_event = None
         if chat:
@@ -387,10 +386,10 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
 
         return {
             "chat": chat,
-            "messages": messages,
+            "entries": entries,
             "meeting": meeting_event,
             "_chat_error": _error_reason(chat_result) if isinstance(chat_result, BaseException) else None,
-            "_messages_error": _error_reason(msgs_result) if isinstance(msgs_result, BaseException) else None,
+            "_messages_error": msgs_error_reason,
             "_url_type": "chat_thread",
         }
 
