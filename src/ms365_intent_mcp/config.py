@@ -27,8 +27,8 @@ class Config(BaseSettings):
         description="Microsoft Graph API base URL",
     )
     default_timezone: str = Field(
-        default="Europe/Berlin",
-        description="Default timezone for calendar operations",
+        default="UTC",
+        description="Default timezone for calendar operations. Override with MS365_INTENT_DEFAULT_TIMEZONE.",
     )
     scopes: list[str] = Field(
         default=[

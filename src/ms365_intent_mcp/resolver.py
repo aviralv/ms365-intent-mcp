@@ -125,8 +125,8 @@ def _decode_upn(encoded: str) -> str:
     """Decode a OneDrive personal UPN from URL path segment.
 
     SharePoint encodes user@domain as: dots→underscores, @→underscore.
-    e.g. aviral_vaid_sap_com → aviral.vaid@sap.com
-         john_smith_company_co_uk → john.smith@company.co.uk
+    e.g. alice_smith_example_com → alice.smith@example.com
+         alice_smith_example_co_uk → alice.smith@example.co.uk
     """
     parts = encoded.split("_")
     if len(parts) < 3:

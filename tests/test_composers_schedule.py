@@ -23,7 +23,7 @@ class TestScheduleBasic:
         result = await compose_schedule(
             client=client,
             permissions=full_permissions,
-            attendees=[{"email": "bob@sap.com", "name": "Bob"}],
+            attendees=[{"email": "bob@example.com", "name": "Bob"}],
             duration_minutes=30,
             constraints=None,
         )
@@ -38,7 +38,7 @@ class TestScheduleBasic:
         result = await compose_schedule(
             client=client,
             permissions=full_permissions,
-            attendees=[{"email": "bob@sap.com"}],
+            attendees=[{"email": "bob@example.com"}],
             duration_minutes=30,
             constraints=None,
         )

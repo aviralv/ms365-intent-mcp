@@ -90,7 +90,7 @@ def _mock_search_response(query: str) -> dict:
                                 "resource": {
                                     "@odata.type": "#microsoft.graph.message",
                                     "subject": f"{query} Review",
-                                    "from": {"emailAddress": {"name": "Alice", "address": "alice@sap.com"}},
+                                    "from": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
                                     "receivedDateTime": "2026-05-10T09:00:00Z",
                                     "bodyPreview": f"Please review the {query} document attached.",
                                 },
