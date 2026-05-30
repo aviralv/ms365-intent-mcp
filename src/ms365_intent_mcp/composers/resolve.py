@@ -87,21 +87,30 @@ def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
     }
 
 
-def _event_entry(msg: dict) -> dict:
-    """Classify a non-call system event into a typed entry."""
+def _event_entry(msg: dict, name_map: dict[str, str] | None = None) -> dict:
+    """Classify a non-call system event into a typed entry.
+
+    For member-added/removed events, members[] entries from Graph carry only
+    `id` (AAD user object ID) with `displayName: null`. Resolve via name_map
+    (built from the chat's expanded members list) before falling back to the
+    member's own displayName field.
+    """
     detail = msg.get("eventDetail") or {}
     odata_type = detail.get("@odata.type", "")
     ts = msg.get("createdDateTime", "")
+    name_map = name_map or {}
 
-    if "membersAdded" in odata_type:
-        names = [m.get("displayName") for m in (detail.get("members") or []) if m.get("displayName")]
+    if "membersAdded" in odata_type or "membersDeleted" in odata_type:
+        verb = "added" if "membersAdded" in odata_type else "removed"
+        event_type = "membersAdded" if "membersAdded" in odata_type else "membersDeleted"
+        names: list[str] = []
+        for m in detail.get("members") or []:
+            user_id = m.get("id") or m.get("userId") or ""
+            resolved = name_map.get(user_id) or m.get("displayName")
+            if resolved:
+                names.append(resolved)
         joined = ", ".join(names) if names else "(someone)"
-        return {"kind": "event", "ts": ts, "event_type": "membersAdded", "summary": f"Member added: {joined}"}
-
-    if "membersDeleted" in odata_type:
-        names = [m.get("displayName") for m in (detail.get("members") or []) if m.get("displayName")]
-        joined = ", ".join(names) if names else "(someone)"
-        return {"kind": "event", "ts": ts, "event_type": "membersDeleted", "summary": f"Member removed: {joined}"}
+        return {"kind": "event", "ts": ts, "event_type": event_type, "summary": f"Member {verb}: {joined}"}
 
     if "chatRenamed" in odata_type:
         new_name = detail.get("chatDisplayName") or ""
@@ -232,7 +241,7 @@ def _normalize_chat_entries(messages: list[dict], name_map: dict[str, str]) -> l
     entries: list[dict] = []
     entries.extend(_message_entry(m, name_map) for m in real_messages)
     entries.extend(_group_call_events(call_events, name_map))
-    entries.extend(_event_entry(e) for e in other_events)
+    entries.extend(_event_entry(e, name_map) for e in other_events)
 
     entries.sort(key=lambda e: e.get("ts", ""), reverse=True)
     return entries[:25]

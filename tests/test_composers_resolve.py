@@ -947,6 +947,51 @@ class TestEventEntry:
         assert entry["event_type"] == "unknown"
         assert entry["summary"] == "system event"
 
+    def test_members_added_resolves_ids_via_name_map(self):
+        """Bug 2: Graph returns id-only members with displayName=null.
+        Use name_map to resolve via the chat's member list."""
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.membersAddedEventMessageDetail",
+                "members": [
+                    {"id": "u1", "displayName": None, "userIdentityType": "aadUser"},
+                    {"id": "u2", "displayName": None, "userIdentityType": "aadUser"},
+                ],
+            },
+        }
+        entry = _event_entry(msg, {"u1": "Alice", "u2": "Bob"})
+        assert entry["summary"] == "Member added: Alice, Bob"
+
+    def test_members_added_falls_back_to_displayname_when_id_missing_from_map(self):
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.membersAddedEventMessageDetail",
+                "members": [
+                    {"id": "u-unknown", "displayName": "Carol"},
+                ],
+            },
+        }
+        entry = _event_entry(msg, {})
+        assert entry["summary"] == "Member added: Carol"
+
+    def test_members_added_someone_when_ids_unresolvable(self):
+        from ms365_intent_mcp.composers.resolve import _event_entry
+        msg = {
+            "createdDateTime": "2026-05-29T10:00:00Z",
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.membersAddedEventMessageDetail",
+                "members": [
+                    {"id": "u-unknown", "displayName": None},
+                ],
+            },
+        }
+        entry = _event_entry(msg, {})
+        assert entry["summary"] == "Member added: (someone)"
+
 
 # ---------------------------------------------------------------------------
 # _group_call_events
