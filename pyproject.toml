@@ -3,6 +3,9 @@ name = "ms365-intent-mcp"
 version = "0.4.0"
 description = "Intent-oriented MCP server for Microsoft 365"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Aviral Vaid" }]
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=2.0.0",
