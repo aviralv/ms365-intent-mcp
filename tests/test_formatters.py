@@ -454,7 +454,8 @@ class TestFormatChatEntry:
         line = _format_chat_entry(entry)
         assert "Alice" in line
         assert "Hello" in line
-        assert "2026-05-29T10:00" in line
+        # Bug 4: render full date+time with space (not 'T') for readability
+        assert "2026-05-29 10:00" in line
         assert "_(no text)_" not in line
 
     def test_message_empty_body_renders_no_text(self):
@@ -483,7 +484,8 @@ class TestFormatChatEntry:
         }
         line = _format_chat_entry(entry)
         assert "Call started by Bawa" in line
-        assert "10:00–10:25" in line
+        # Bug 4: same-day call shows date once + time range
+        assert "2026-05-29 10:00–10:25" in line
         assert "25m0s" in line
         assert "[recording](https://r.example/c.mp4)" in line
         assert "transcript ready" in line
@@ -534,6 +536,23 @@ class TestFormatChatEntry:
         time_range_part = line.split("(", 1)[1].split(")", 1)[0]
         assert "–" not in time_range_part
 
+    def test_call_spanning_dates_renders_both(self):
+        """Bug 4: a call that spans midnight (rare) shows both dates."""
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "call",
+            "ts": "2026-05-29T23:30:00Z",
+            "end_ts": "2026-05-30T00:15:00Z",
+            "duration": "45m0s",
+            "recording_url": "",
+            "transcript_ready": False,
+            "initiator": None,
+        }
+        line = _format_chat_entry(entry)
+        # When dates differ, render both end-points fully
+        assert "2026-05-29 23:30" in line
+        assert "2026-05-30 00:15" in line
+
     def test_event_member_added(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
         entry = {
@@ -545,6 +564,8 @@ class TestFormatChatEntry:
         line = _format_chat_entry(entry)
         assert "⚙️" in line
         assert "Member added: Carol" in line
+        # Bug 4
+        assert "2026-05-29 10:00" in line
 
     def test_event_call_unknown(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
