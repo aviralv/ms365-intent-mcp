@@ -143,14 +143,18 @@ def _group_call_events(call_events: list[dict], name_map: dict[str, str]) -> lis
         initiator: str | None = None
         latest_success_ts = ""
 
+        # Duration resolution: prefer (1) callEnded event's callDuration, then
+        # (2) success-status callRecording event, then (3) latest non-zero chunk.
+        # PT0S is treated as "no duration yet" (initial event before recording starts).
+        recording_durations: list[tuple[str, str, str]] = []  # (ts, status, raw_duration)
+        ended_duration: str = ""
+
         for event in events:
             detail = event.get("eventDetail") or {}
             otype = detail.get("@odata.type", "")
             event_ts = event.get("createdDateTime", "")
 
             if "callRecording" in otype:
-                if not duration and detail.get("callRecordingDuration"):
-                    duration = _parse_iso_duration(detail["callRecordingDuration"]) or None
                 if not initiator:
                     initiator_field = detail.get("initiator") or {}
                     user_field = initiator_field.get("user") or {}
@@ -168,13 +172,25 @@ def _group_call_events(call_events: list[dict], name_map: dict[str, str]) -> lis
                     if event_ts > latest_success_ts:
                         latest_success_ts = event_ts
                         recording_url = detail["callRecordingUrl"]
+                # Track all recording durations for later resolution
+                raw_dur = detail.get("callRecordingDuration") or ""
+                if raw_dur and raw_dur != "PT0S":
+                    recording_durations.append((event_ts, status, raw_dur))
 
             elif "callTranscript" in otype:
                 transcript_ready = True
 
             elif "callEnded" in otype:
-                if not duration and detail.get("callDuration"):
-                    duration = _parse_iso_duration(detail["callDuration"]) or None
+                if detail.get("callDuration"):
+                    ended_duration = detail["callDuration"]
+
+        # Apply duration precedence after iterating all events.
+        if ended_duration:
+            duration = _parse_iso_duration(ended_duration) or None
+        elif recording_durations:
+            success_durations = [(ts, raw) for ts, status, raw in recording_durations if status == "success"]
+            chosen = max(success_durations, key=lambda x: x[0])[1] if success_durations else max(recording_durations, key=lambda x: x[0])[2]
+            duration = _parse_iso_duration(chosen) or None
 
         entries.append({
             "kind": "call",

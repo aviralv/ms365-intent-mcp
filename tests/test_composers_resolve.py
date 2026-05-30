@@ -1115,6 +1115,48 @@ class TestGroupCallEvents:
         assert out[0]["event_type"] == "call_unknown"
         assert out[0]["summary"] == "Call event (no callId)"
 
+    def test_duration_prefers_success_event_over_initial_pt0s(self):
+        """Bug 1 regression: PT0S on initial event must not lock in duration."""
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-27T11:46:27Z", "initial", duration="PT0S"),
+            self._recording_event("c1", "2026-05-27T12:12:05Z", "chunkFinished",
+                                  duration="PT25M38S"),
+            self._recording_event("c1", "2026-05-27T12:12:26Z", "success",
+                                  url="https://r1", duration="PT25M38S"),
+        ]
+        out = _group_call_events(events, {})
+        assert out[0]["duration"] == "25m38s"
+
+    def test_duration_falls_back_to_chunk_when_no_success(self):
+        """Recording in progress: success event hasn't fired yet. Use the
+        latest non-zero chunk duration instead of the initial PT0S."""
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-27T11:46:27Z", "initial", duration="PT0S"),
+            self._recording_event("c1", "2026-05-27T12:12:05Z", "chunkFinished",
+                                  duration="PT25M38S"),
+        ]
+        out = _group_call_events(events, {})
+        assert out[0]["duration"] == "25m38s"
+
+    def test_duration_from_call_ended_overrides_recording_pt0s(self):
+        """If call recording fires first with PT0S but callEnded has real duration."""
+        from ms365_intent_mcp.composers.resolve import _group_call_events
+        events = [
+            self._recording_event("c1", "2026-05-27T10:00:00Z", "initial", duration="PT0S"),
+            {
+                "createdDateTime": "2026-05-27T10:30:00Z",
+                "eventDetail": {
+                    "@odata.type": "#microsoft.graph.callEndedEventMessageDetail",
+                    "callId": "c1",
+                    "callDuration": "PT30M0S",
+                },
+            },
+        ]
+        out = _group_call_events(events, {})
+        assert out[0]["duration"] == "30m0s"
+
 
 # ---------------------------------------------------------------------------
 # _normalize_chat_entries
