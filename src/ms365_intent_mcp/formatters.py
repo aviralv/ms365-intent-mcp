@@ -289,7 +289,7 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
 
 def _format_chat_thread(data: dict) -> str:
     chat = data.get("chat") or {}
-    messages = data.get("messages") or []
+    entries = data.get("entries") or []
     meeting = data.get("meeting")
     chat_error = data.get("_chat_error")
     messages_error = data.get("_messages_error")
@@ -308,12 +308,10 @@ def _format_chat_thread(data: dict) -> str:
         header = "Teams Chat"
     lines.append(f"### Teams Chat: {header}")
 
-    # Type badge.
     chat_type = chat.get("chatType")
     if chat_type:
         lines.append(f"**Type:** {chat_type}")
 
-    # Members line (cap at 6, then "+ N more").
     if member_names:
         shown = member_names[:6]
         more = len(member_names) - len(shown)
@@ -322,13 +320,11 @@ def _format_chat_thread(data: dict) -> str:
             members_str += f" + {more} more"
         lines.append(f"**Members:** {members_str}")
 
-    # Errors (chat + messages).
     if chat_error:
         lines.append(f"⚠️  Chat metadata unavailable — {chat_error}.")
     if messages_error:
         lines.append(f"⚠️  Messages unavailable — {messages_error}.")
 
-    # Meeting context (compact 3-line block).
     if meeting:
         m_subject = meeting.get("subject", "(no subject)")
         m_start = (meeting.get("start", {}) or {}).get("dateTime", "")[:16]
@@ -340,19 +336,46 @@ def _format_chat_thread(data: dict) -> str:
         lines.append(f"- {m_start} → {m_end}")
         lines.append(f"- Organizer: {m_organizer}")
 
-    # Messages (newest first; ≤500 chars + "…" if truncated).
-    if messages:
+    if entries:
         lines.append("")
-        lines.append("**Recent messages:**")
-        for msg in messages:
-            sender = ((msg.get("from") or {}).get("user") or {}).get("displayName", "Unknown")
-            ts = (msg.get("createdDateTime") or "")[:16]
-            body = (msg.get("body") or {}).get("content", "")
-            text = _strip_teams_html(body)
-            if not text:
-                text = "(no content)"
-            elif len(text) > 500:
-                text = text[:500] + "…"
-            lines.append(f"- **{sender}** ({ts}): {text}")
+        lines.append("**Recent activity:**")
+        for entry in entries[:25]:
+            lines.append(_format_chat_entry(entry))
 
     return "\n".join(lines)
+
+
+def _format_chat_entry(entry: dict) -> str:
+    kind = entry.get("kind")
+    ts = (entry.get("ts") or "")[:16]
+
+    if kind == "message":
+        sender = entry.get("sender") or "Unknown"
+        if entry.get("is_body_empty"):
+            return f"- **{sender}** ({ts}): _(no text)_"
+        return f"- **{sender}** ({ts}): {entry.get('body', '')}"
+
+    if kind == "call":
+        start = ts[11:16]
+        end = (entry.get("end_ts") or "")[11:16]
+        time_range = start
+        if end and end != start:
+            time_range = f"{start}–{end}"
+        duration = entry.get("duration")
+        if duration:
+            time_range += f", {duration}"
+        initiator = entry.get("initiator")
+        header = "📞 **Call**"
+        if initiator:
+            header = f"📞 **Call started by {initiator}**"
+        parts = [f"{header} ({time_range})"]
+        if entry.get("recording_url"):
+            parts.append(f"[recording]({entry['recording_url']})")
+        if entry.get("transcript_ready"):
+            parts.append("transcript ready")
+        return "- " + " — ".join(parts)
+
+    if kind == "event":
+        return f"- ⚙️ {entry.get('summary', 'system event')} ({ts})"
+
+    return f"- _(unknown entry: {kind})_"
