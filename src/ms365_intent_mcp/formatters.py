@@ -16,6 +16,27 @@ def _strip_teams_html(body: str) -> str:
     return body.strip()
 
 
+def _format_event_time_range(start: dict, end: dict) -> str:
+    """Format a Graph dateTimeTimeZone pair as 'HH:MM–HH:MM TZ'.
+
+    Graph returns event times as {dateTime: "...", timeZone: "..."} pairs (e.g.
+    `{"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "UTC"}`). With
+    `Prefer: outlook.timezone` set, the dateTime is a naive string with no Z;
+    the timezone lives in the sibling field. Always include it so consumers
+    can't mistake UTC for local time.
+
+    Falls back to bare 'HH:MM–HH:MM' if no timeZone is present (defensive —
+    Graph always sends one).
+    """
+    s = start.get("dateTime", "")
+    e = end.get("dateTime", "")
+    tz = start.get("timeZone") or end.get("timeZone") or ""
+    s_hm = s[11:16] if len(s) > 16 else s
+    e_hm = e[11:16] if len(e) > 16 else e
+    suffix = f" {tz}" if tz else ""
+    return f"{s_hm}–{e_hm}{suffix}"
+
+
 def format_events_markdown(events: list[dict]) -> str:
     if not events:
         return "No events scheduled."

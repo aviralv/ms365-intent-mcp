@@ -584,6 +584,47 @@ class TestFormatChatEntry:
         assert "unknown entry: alien" in line
 
 
+class TestFormatEventTimeRange:
+    def test_basic_utc_range(self):
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "UTC"}
+        end = {"dateTime": "2026-06-02T08:00:00.0000000", "timeZone": "UTC"}
+        assert _format_event_time_range(start, end) == "07:45–08:00 UTC"
+
+    def test_named_iana_timezone(self):
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "2026-06-02T09:45:00.0000000", "timeZone": "Europe/Berlin"}
+        end = {"dateTime": "2026-06-02T10:00:00.0000000", "timeZone": "Europe/Berlin"}
+        assert _format_event_time_range(start, end) == "09:45–10:00 Europe/Berlin"
+
+    def test_falls_back_to_end_timezone_if_start_missing(self):
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "2026-06-02T07:45:00.0000000"}
+        end = {"dateTime": "2026-06-02T08:00:00.0000000", "timeZone": "UTC"}
+        assert _format_event_time_range(start, end) == "07:45–08:00 UTC"
+
+    def test_no_timezone_no_suffix(self):
+        """Defensive: if Graph somehow omits timeZone, render bare times — no ' None' artifact."""
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "2026-06-02T07:45:00.0000000"}
+        end = {"dateTime": "2026-06-02T08:00:00.0000000"}
+        result = _format_event_time_range(start, end)
+        assert result == "07:45–08:00"
+        assert "None" not in result
+
+    def test_empty_inputs(self):
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        assert _format_event_time_range({}, {}) == "–"
+
+    def test_short_datetime_string_passes_through(self):
+        """Defensive: if dateTime is shorter than 16 chars, don't crash — render as-is."""
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "?", "timeZone": "UTC"}
+        end = {"dateTime": "?", "timeZone": "UTC"}
+        result = _format_event_time_range(start, end)
+        assert "UTC" in result
+
+
 class TestMentionRegressionAcrossFormatters:
     def test_format_teams_activity_extracts_at_mention(self):
         msgs = [{
