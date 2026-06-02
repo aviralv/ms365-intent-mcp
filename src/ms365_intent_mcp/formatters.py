@@ -31,8 +31,8 @@ def _format_event_time_range(start: dict, end: dict) -> str:
     s = start.get("dateTime", "")
     e = end.get("dateTime", "")
     tz = start.get("timeZone") or end.get("timeZone") or ""
-    s_hm = s[11:16] if len(s) > 16 else s
-    e_hm = e[11:16] if len(e) > 16 else e
+    s_hm = s[11:16] if len(s) >= 16 else s
+    e_hm = e[11:16] if len(e) >= 16 else e
     suffix = f" {tz}" if tz else ""
     return f"{s_hm}–{e_hm}{suffix}"
 
