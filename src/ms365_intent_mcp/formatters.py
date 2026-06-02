@@ -59,17 +59,14 @@ def format_events_markdown(events: list[dict]) -> str:
         return "No events scheduled."
     lines = []
     for e in events:
-        start = e.get("start", {}).get("dateTime", "")
-        end = e.get("end", {}).get("dateTime", "")
-        start_time = start[11:16] if len(start) > 16 else start
-        end_time = end[11:16] if len(end) > 16 else end
+        time_range = _format_event_time_range(e.get("start", {}), e.get("end", {}))
         subject = e.get("subject", "(no subject)")
         location = e.get("location", {}).get("displayName", "")
         online = " 📹" if e.get("isOnlineMeeting") else ""
         attendee_names = [a["emailAddress"]["name"] for a in e.get("attendees", [])]
         attendees_str = f" — {', '.join(attendee_names[:5])}" if attendee_names else ""
         loc_str = f" | {location}" if location else ""
-        lines.append(f"- **{start_time}–{end_time}** {subject}{online}{loc_str}{attendees_str}")
+        lines.append(f"- **{time_range}** {subject}{online}{loc_str}{attendees_str}")
     return "\n".join(lines)
 
 

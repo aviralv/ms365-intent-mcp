@@ -23,8 +23,8 @@ class TestFormatEventsMarkdown:
     def test_single_event(self):
         events = [{
             "subject": "Standup",
-            "start": {"dateTime": "2026-05-15T09:00:00"},
-            "end": {"dateTime": "2026-05-15T09:30:00"},
+            "start": {"dateTime": "2026-05-15T09:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-15T09:30:00", "timeZone": "UTC"},
             "location": {"displayName": "Room A"},
             "isOnlineMeeting": True,
             "attendees": [{"emailAddress": {"name": "Bob"}}],
@@ -32,8 +32,36 @@ class TestFormatEventsMarkdown:
         }]
         result = format_events_markdown(events)
         assert "Standup" in result
-        assert "09:00" in result
+        assert "09:00–09:30 UTC" in result
         assert "Room A" in result
+
+    def test_named_iana_timezone_appears_in_output(self):
+        events = [{
+            "subject": "Standup",
+            "start": {"dateTime": "2026-05-15T09:00:00", "timeZone": "Europe/Berlin"},
+            "end": {"dateTime": "2026-05-15T09:30:00", "timeZone": "Europe/Berlin"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": False,
+            "attendees": [],
+            "organizer": {"emailAddress": {"name": "X"}},
+        }]
+        result = format_events_markdown(events)
+        assert "Europe/Berlin" in result
+
+    def test_event_no_timezone_falls_back_gracefully(self):
+        events = [{
+            "subject": "Standup",
+            "start": {"dateTime": "2026-05-15T09:00:00"},
+            "end": {"dateTime": "2026-05-15T09:30:00"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": False,
+            "attendees": [],
+            "organizer": {"emailAddress": {"name": "X"}},
+        }]
+        result = format_events_markdown(events)
+        assert "Standup" in result
+        assert "09:00–09:30" in result
+        assert "None" not in result
 
     def test_multiple_events_ordered(self):
         events = [
