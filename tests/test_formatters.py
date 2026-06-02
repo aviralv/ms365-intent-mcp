@@ -92,8 +92,8 @@ class TestFormatEventDetailMarkdown:
     def test_includes_all_fields(self):
         event = {
             "subject": "Team Sync",
-            "start": {"dateTime": "2026-05-15T14:00:00"},
-            "end": {"dateTime": "2026-05-15T14:30:00"},
+            "start": {"dateTime": "2026-05-15T14:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-15T14:30:00", "timeZone": "UTC"},
             "location": {"displayName": "Room B"},
             "isOnlineMeeting": True,
             "onlineMeeting": {"joinUrl": "https://teams.microsoft.com/l/meetup-join/123"},
@@ -111,6 +111,8 @@ class TestFormatEventDetailMarkdown:
         assert "teams.microsoft.com" in result
         assert "Bob" in result
         assert "Agenda" in result or "Q2 review" in result
+        assert "2026-05-15T14:00 UTC" in result
+        assert "14:30 UTC" in result
 
 
 class TestFormatSectionError:

@@ -72,16 +72,19 @@ def format_events_markdown(events: list[dict]) -> str:
 
 def format_event_detail_markdown(event: dict) -> str:
     subject = event.get("subject", "(no subject)")
-    start = event.get("start", {}).get("dateTime", "")
-    end = event.get("end", {}).get("dateTime", "")
+    start = event.get("start", {})
+    end = event.get("end", {})
     organizer = event.get("organizer", {}).get("emailAddress", {}).get("name", "Unknown")
     location = event.get("location", {}).get("displayName", "")
     body = event.get("body", {}).get("content", "")
     online = event.get("isOnlineMeeting", False)
 
     lines = [f"## {subject}"]
-    start_fmt = start[:16] if len(start) >= 16 else start
-    end_fmt = end[11:16] if len(end) >= 16 else end
+    start_fmt = _format_event_datetime(start)
+    end_dt = end.get("dateTime", "")
+    end_tz = end.get("timeZone") or start.get("timeZone") or ""
+    end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt
+    end_fmt = f"{end_hm} {end_tz}".strip()
     lines.append(f"**When:** {start_fmt} → {end_fmt}")
     lines.append(f"**Organizer:** {organizer}")
     if location:
