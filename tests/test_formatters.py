@@ -658,3 +658,31 @@ class TestMentionRegressionAcrossFormatters:
         }
         result = format_people_markdown("bawa", people, [], recent_chat)
         assert "@Avi" in result
+
+
+class TestFormatEventDatetime:
+    def test_basic_utc(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        dt = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "UTC"}
+        assert _format_event_datetime(dt) == "2026-06-02T07:45 UTC"
+
+    def test_named_timezone(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        dt = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "Europe/Berlin"}
+        assert _format_event_datetime(dt) == "2026-06-02T07:45 Europe/Berlin"
+
+    def test_no_timezone_no_suffix(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        dt = {"dateTime": "2026-06-02T07:45:00.0000000"}
+        result = _format_event_datetime(dt)
+        assert result == "2026-06-02T07:45"
+        assert "None" not in result
+
+    def test_empty_input(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        assert _format_event_datetime({}) == ""
+
+    def test_missing_datetime_key(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        dt = {"timeZone": "UTC"}
+        assert _format_event_datetime(dt) == " UTC"

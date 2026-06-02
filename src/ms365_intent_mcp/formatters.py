@@ -37,6 +37,23 @@ def _format_event_time_range(start: dict, end: dict) -> str:
     return f"{s_hm}–{e_hm}{suffix}"
 
 
+def _format_event_datetime(dt: dict) -> str:
+    """Format a single Graph dateTimeTimeZone object as 'YYYY-MM-DDTHH:MM TZ'.
+
+    Used in single-event detail views where the date matters (a meeting can
+    span dates, and the detail view shows only one timestamp at a time).
+
+    Returns empty string for {} so call sites can pass through naturally.
+    """
+    s = dt.get("dateTime", "")
+    tz = dt.get("timeZone") or ""
+    s_fmt = s[:16] if len(s) >= 16 else s
+    suffix = f" {tz}" if tz else ""
+    if not s_fmt and not suffix:
+        return ""
+    return f"{s_fmt}{suffix}"
+
+
 def format_events_markdown(events: list[dict]) -> str:
     if not events:
         return "No events scheduled."
