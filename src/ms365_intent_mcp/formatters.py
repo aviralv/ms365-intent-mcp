@@ -16,37 +16,100 @@ def _strip_teams_html(body: str) -> str:
     return body.strip()
 
 
+def _format_event_time_range(start: dict, end: dict) -> str:
+    """Format a Graph dateTimeTimeZone pair as 'HH:MM–HH:MM TZ'.
+
+    Graph returns event times as {dateTime: "...", timeZone: "..."} pairs (e.g.
+    `{"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "UTC"}`). With
+    `Prefer: outlook.timezone` set, the dateTime is a naive string with no Z;
+    the timezone lives in the sibling field. Always include it so consumers
+    can't mistake UTC for local time.
+
+    Falls back to bare 'HH:MM–HH:MM' if no timeZone is present (defensive —
+    Graph always sends one).
+    """
+    s = start.get("dateTime", "")
+    e = end.get("dateTime", "")
+    tz = start.get("timeZone") or end.get("timeZone") or ""
+    s_hm = s[11:16] if len(s) >= 16 else s
+    e_hm = e[11:16] if len(e) >= 16 else e
+    suffix = f" {tz}" if tz else ""
+    return f"{s_hm}–{e_hm}{suffix}"
+
+
+def _format_event_datetime(dt: dict) -> str:
+    """Format a single Graph dateTimeTimeZone object as 'YYYY-MM-DDTHH:MM TZ'.
+
+    Used in single-event detail views where the date matters (a meeting can
+    span dates, and the detail view shows only one timestamp at a time).
+
+    Returns empty string for {} so call sites can pass through naturally.
+    """
+    s = dt.get("dateTime", "")
+    tz = dt.get("timeZone") or ""
+    s_fmt = s[:16] if len(s) >= 16 else s
+    suffix = f" {tz}" if tz else ""
+    if not s_fmt and not suffix:
+        return ""
+    return f"{s_fmt}{suffix}"
+
+
+def _format_offset_datetime(ts: str | None) -> str:
+    """Format a Graph dateTimeOffset ISO string as 'YYYY-MM-DDTHH:MM UTC'.
+
+    Graph dateTimeOffset fields (chatMessage.createdDateTime,
+    message.receivedDateTime, driveItem.lastModifiedDateTime, etc.) are always
+    UTC and always end in Z, sometimes with milliseconds (e.g.
+    '2026-05-29T10:00:00.035Z'). The Prefer: outlook.timezone header does NOT
+    apply to these fields — they are always UTC.
+
+    Slicing to [:16] takes 'YYYY-MM-DDTHH:MM' regardless of millisecond
+    presence, then we append the literal ' UTC' so callers can't mistake the
+    naive-looking string for local time.
+
+    Accepts None for callers passing `data.get("createdDateTime")` without
+    a default. Returns empty string for None / empty input. Returns the
+    value untouched (without UTC suffix) for strings shorter than 16 chars
+    to avoid mislabelling junk.
+    """
+    if not ts:
+        return ""
+    if len(ts) < 16:
+        return ts
+    return f"{ts[:16]} UTC"
+
+
 def format_events_markdown(events: list[dict]) -> str:
     if not events:
         return "No events scheduled."
     lines = []
     for e in events:
-        start = e.get("start", {}).get("dateTime", "")
-        end = e.get("end", {}).get("dateTime", "")
-        start_time = start[11:16] if len(start) > 16 else start
-        end_time = end[11:16] if len(end) > 16 else end
+        time_range = _format_event_time_range(e.get("start", {}), e.get("end", {}))
         subject = e.get("subject", "(no subject)")
         location = e.get("location", {}).get("displayName", "")
         online = " 📹" if e.get("isOnlineMeeting") else ""
         attendee_names = [a["emailAddress"]["name"] for a in e.get("attendees", [])]
         attendees_str = f" — {', '.join(attendee_names[:5])}" if attendee_names else ""
         loc_str = f" | {location}" if location else ""
-        lines.append(f"- **{start_time}–{end_time}** {subject}{online}{loc_str}{attendees_str}")
+        lines.append(f"- **{time_range}** {subject}{online}{loc_str}{attendees_str}")
     return "\n".join(lines)
 
 
 def format_event_detail_markdown(event: dict) -> str:
     subject = event.get("subject", "(no subject)")
-    start = event.get("start", {}).get("dateTime", "")
-    end = event.get("end", {}).get("dateTime", "")
+    start = event.get("start", {})
+    end = event.get("end", {})
     organizer = event.get("organizer", {}).get("emailAddress", {}).get("name", "Unknown")
     location = event.get("location", {}).get("displayName", "")
     body = event.get("body", {}).get("content", "")
     online = event.get("isOnlineMeeting", False)
 
     lines = [f"## {subject}"]
-    start_fmt = start[:16] if len(start) >= 16 else start
-    end_fmt = end[11:16] if len(end) >= 16 else end
+    start_fmt = _format_event_datetime(start)
+    end_dt = end.get("dateTime", "")
+    end_tz = end.get("timeZone") or start.get("timeZone") or ""
+    end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt
+    end_fmt = f"{end_hm} {end_tz}".strip()
     lines.append(f"**When:** {start_fmt} → {end_fmt}")
     lines.append(f"**Organizer:** {organizer}")
     if location:
@@ -111,11 +174,11 @@ def format_draft_created_markdown(draft: dict) -> str:
 
 def format_event_created_markdown(event: dict) -> str:
     subject = event.get("subject", "(no subject)")
-    start = event.get("start", {}).get("dateTime", "")[:16]
+    when = _format_event_datetime(event.get("start", {}))
     lines = [
         "✅ Event created",
         f"**Subject:** {subject}",
-        f"**When:** {start}",
+        f"**When:** {when}",
     ]
     if event.get("isOnlineMeeting"):
         join_url = (event.get("onlineMeeting") or {}).get("joinUrl", "")
@@ -216,11 +279,14 @@ def format_meeting_times_markdown(suggestions: list[dict]) -> str:
     lines = ["### Available Meeting Times"]
     for i, s in enumerate(suggestions[:5], 1):
         slot = s.get("meetingTimeSlot", {})
-        start = slot.get("start", {}).get("dateTime", "")
-        end = slot.get("end", {}).get("dateTime", "")
+        start = slot.get("start", {})
+        end = slot.get("end", {})
         confidence = s.get("confidence", 0)
-        start_fmt = start[:16] if start else "?"
-        end_fmt = end[11:16] if end else "?"
+        start_fmt = _format_event_datetime(start) or "?"
+        end_dt = end.get("dateTime", "")
+        end_tz = end.get("timeZone") or start.get("timeZone") or ""
+        end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt or "?"
+        end_fmt = f"{end_hm} {end_tz}".strip()
         lines.append(f"{i}. **{start_fmt} – {end_fmt}** ({confidence:.0f}% confidence)")
         unavailable = [
             a.get("attendee", {}).get("emailAddress", {}).get("name", "?")
@@ -246,7 +312,7 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
         body = data.get("body", {}).get("content", "")
         text = _strip_teams_html(body)[:300]
         sender = data.get("from", {}).get("user", {}).get("displayName", "?")
-        created = data.get("createdDateTime", "")[:16]
+        created = _format_offset_datetime(data.get("createdDateTime", ""))
         return f"### Teams Message\n**From:** {sender}  |  **At:** {created}\n\n{text}"
     elif url_type == "meeting":
         return format_event_detail_markdown(data)
@@ -327,8 +393,12 @@ def _format_chat_thread(data: dict) -> str:
 
     if meeting:
         m_subject = meeting.get("subject", "(no subject)")
-        m_start = (meeting.get("start", {}) or {}).get("dateTime", "")[:16]
-        m_end = (meeting.get("end", {}) or {}).get("dateTime", "")[11:16]
+        m_start = _format_event_datetime(meeting.get("start", {}) or {})
+        end_dt_obj = meeting.get("end", {}) or {}
+        end_dt = end_dt_obj.get("dateTime", "")
+        end_tz = end_dt_obj.get("timeZone") or (meeting.get("start", {}) or {}).get("timeZone") or ""
+        end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt
+        m_end = f"{end_hm} {end_tz}".strip()
         m_organizer = ((meeting.get("organizer", {}) or {}).get("emailAddress", {}) or {}).get("name", "Unknown")
         lines.append("")
         lines.append("**Meeting context:**")
@@ -348,33 +418,34 @@ def _format_chat_thread(data: dict) -> str:
 def _format_chat_entry(entry: dict) -> str:
     """Render one entry from the chat_thread `entries` list.
 
-    Timestamps are rendered as 'YYYY-MM-DD HH:MM' for full clarity (chats can
-    span months/years). Calls show date once + time range when same day; both
-    dates when crossing midnight.
+    Timestamps are rendered as 'YYYY-MM-DD HH:MM UTC' for full clarity (chats
+    can span months/years; UTC label avoids timezone confusion). Calls show
+    date once + time range when same day; both dates when crossing midnight.
     """
     raw_ts = (entry.get("ts") or "")[:16]  # 'YYYY-MM-DDTHH:MM'
     ts_display = raw_ts.replace("T", " ")  # 'YYYY-MM-DD HH:MM'
+    ts_with_tz = f"{ts_display} UTC" if ts_display else ts_display
     kind = entry.get("kind")
 
     if kind == "message":
         sender = entry.get("sender") or "Unknown"
         if entry.get("is_body_empty"):
-            return f"- **{sender}** ({ts_display}): _(no text)_"
-        return f"- **{sender}** ({ts_display}): {entry.get('body', '')}"
+            return f"- **{sender}** ({ts_with_tz}): _(no text)_"
+        return f"- **{sender}** ({ts_with_tz}): {entry.get('body', '')}"
 
     if kind == "call":
         raw_end = (entry.get("end_ts") or "")[:16]
         start_date, start_time = raw_ts[:10], raw_ts[11:16]
         end_date, end_time = raw_end[:10], raw_end[11:16]
         if not raw_end or raw_end == raw_ts:
-            # Single-event call: just the start
-            time_range = f"{start_date} {start_time}"
+            # Single-event call: just the start, with UTC
+            time_range = f"{start_date} {start_time} UTC"
         elif start_date == end_date:
-            # Same-day: date once, time range
-            time_range = f"{start_date} {start_time}–{end_time}"
+            # Same-day: date once, time range, UTC on both sides
+            time_range = f"{start_date} {start_time} UTC–{end_time} UTC"
         else:
-            # Cross-day: full both ends
-            time_range = f"{start_date} {start_time} → {end_date} {end_time}"
+            # Cross-day: full both ends, UTC on both
+            time_range = f"{start_date} {start_time} UTC → {end_date} {end_time} UTC"
         duration = entry.get("duration")
         if duration:
             time_range += f", {duration}"
@@ -390,6 +461,6 @@ def _format_chat_entry(entry: dict) -> str:
         return "- " + " — ".join(parts)
 
     if kind == "event":
-        return f"- ⚙️ {entry.get('summary', 'system event')} ({ts_display})"
+        return f"- ⚙️ {entry.get('summary', 'system event')} ({ts_with_tz})"
 
     return f"- _(unknown entry: {kind})_"

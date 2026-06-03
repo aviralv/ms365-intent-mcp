@@ -23,8 +23,8 @@ class TestFormatEventsMarkdown:
     def test_single_event(self):
         events = [{
             "subject": "Standup",
-            "start": {"dateTime": "2026-05-15T09:00:00"},
-            "end": {"dateTime": "2026-05-15T09:30:00"},
+            "start": {"dateTime": "2026-05-15T09:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-15T09:30:00", "timeZone": "UTC"},
             "location": {"displayName": "Room A"},
             "isOnlineMeeting": True,
             "attendees": [{"emailAddress": {"name": "Bob"}}],
@@ -32,8 +32,36 @@ class TestFormatEventsMarkdown:
         }]
         result = format_events_markdown(events)
         assert "Standup" in result
-        assert "09:00" in result
+        assert "09:00–09:30 UTC" in result
         assert "Room A" in result
+
+    def test_named_iana_timezone_appears_in_output(self):
+        events = [{
+            "subject": "Standup",
+            "start": {"dateTime": "2026-05-15T09:00:00", "timeZone": "Europe/Berlin"},
+            "end": {"dateTime": "2026-05-15T09:30:00", "timeZone": "Europe/Berlin"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": False,
+            "attendees": [],
+            "organizer": {"emailAddress": {"name": "X"}},
+        }]
+        result = format_events_markdown(events)
+        assert "Europe/Berlin" in result
+
+    def test_event_no_timezone_falls_back_gracefully(self):
+        events = [{
+            "subject": "Standup",
+            "start": {"dateTime": "2026-05-15T09:00:00"},
+            "end": {"dateTime": "2026-05-15T09:30:00"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": False,
+            "attendees": [],
+            "organizer": {"emailAddress": {"name": "X"}},
+        }]
+        result = format_events_markdown(events)
+        assert "Standup" in result
+        assert "09:00–09:30" in result
+        assert "None" not in result
 
     def test_multiple_events_ordered(self):
         events = [
@@ -64,8 +92,8 @@ class TestFormatEventDetailMarkdown:
     def test_includes_all_fields(self):
         event = {
             "subject": "Team Sync",
-            "start": {"dateTime": "2026-05-15T14:00:00"},
-            "end": {"dateTime": "2026-05-15T14:30:00"},
+            "start": {"dateTime": "2026-05-15T14:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-15T14:30:00", "timeZone": "UTC"},
             "location": {"displayName": "Room B"},
             "isOnlineMeeting": True,
             "onlineMeeting": {"joinUrl": "https://teams.microsoft.com/l/meetup-join/123"},
@@ -83,6 +111,8 @@ class TestFormatEventDetailMarkdown:
         assert "teams.microsoft.com" in result
         assert "Bob" in result
         assert "Agenda" in result or "Q2 review" in result
+        assert "2026-05-15T14:00 UTC" in result
+        assert "14:30 UTC" in result
 
 
 class TestFormatSectionError:
@@ -109,14 +139,14 @@ class TestFormatEventCreated:
     def test_includes_subject_and_time(self):
         event = {
             "subject": "New Meeting",
-            "start": {"dateTime": "2026-05-16T10:00:00"},
-            "end": {"dateTime": "2026-05-16T10:30:00"},
+            "start": {"dateTime": "2026-05-16T10:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-16T10:30:00", "timeZone": "UTC"},
             "isOnlineMeeting": False,
             "onlineMeeting": None,
         }
         result = format_event_created_markdown(event)
         assert "New Meeting" in result
-        assert "2026-05-16" in result
+        assert "2026-05-16T10:00 UTC" in result
 
 
 class TestFormatTeamsActivity:
@@ -206,7 +236,8 @@ class TestFormatMeetingTimesMarkdown:
             }
         ]
         result = format_meeting_times_markdown(suggestions)
-        assert "10:00" in result
+        assert "2026-05-20T10:00 UTC" in result
+        assert "10:30 UTC" in result
         assert "100" in result
 
 
@@ -231,6 +262,17 @@ class TestFormatResolvedContentMarkdown:
         data = {"name": "report.xlsx", "size": 20480, "webUrl": "https://contoso-my.sharepoint.com/files/1"}
         result = format_resolved_content_markdown("onedrive_file", data)
         assert "report.xlsx" in result
+
+    def test_chat_message_type_includes_utc_label(self):
+        data = {
+            "body": {"content": "Hello team"},
+            "from": {"user": {"displayName": "Alice"}},
+            "createdDateTime": "2026-05-29T10:00:00.035Z",
+        }
+        result = format_resolved_content_markdown("chat_message", data)
+        assert "Alice" in result
+        assert "Hello team" in result
+        assert "2026-05-29T10:00 UTC" in result
 
 
 class TestFormatResolvedChatThread:
@@ -259,8 +301,8 @@ class TestFormatResolvedChatThread:
             ],
             "meeting": {
                 "subject": "Project Sync",
-                "start": {"dateTime": "2026-05-26T10:00:00"},
-                "end": {"dateTime": "2026-05-26T10:30:00"},
+                "start": {"dateTime": "2026-05-26T10:00:00", "timeZone": "UTC"},
+                "end": {"dateTime": "2026-05-26T10:30:00", "timeZone": "UTC"},
                 "organizer": {"emailAddress": {"name": "Alice"}},
             },
             "_chat_error": None,
@@ -279,6 +321,7 @@ class TestFormatResolvedChatThread:
         result = format_resolved_content_markdown("chat_thread", self._data())
         assert "Meeting" in result
         assert "10:00" in result
+        assert "UTC" in result
 
     def test_omits_meeting_block_when_absent(self):
         result = format_resolved_content_markdown(
@@ -454,8 +497,8 @@ class TestFormatChatEntry:
         line = _format_chat_entry(entry)
         assert "Alice" in line
         assert "Hello" in line
-        # Bug 4: render full date+time with space (not 'T') for readability
-        assert "2026-05-29 10:00" in line
+        # Bug 4: render full date+time with space (not 'T') for readability; UTC label for clarity
+        assert "2026-05-29 10:00 UTC" in line
         assert "_(no text)_" not in line
 
     def test_message_empty_body_renders_no_text(self):
@@ -484,8 +527,8 @@ class TestFormatChatEntry:
         }
         line = _format_chat_entry(entry)
         assert "Call started by Bawa" in line
-        # Bug 4: same-day call shows date once + time range
-        assert "2026-05-29 10:00–10:25" in line
+        # Bug 4: same-day call shows date once + time range; UTC label on both sides
+        assert "2026-05-29 10:00 UTC–10:25 UTC" in line
         assert "25m0s" in line
         assert "[recording](https://r.example/c.mp4)" in line
         assert "transcript ready" in line
@@ -549,9 +592,9 @@ class TestFormatChatEntry:
             "initiator": None,
         }
         line = _format_chat_entry(entry)
-        # When dates differ, render both end-points fully
-        assert "2026-05-29 23:30" in line
-        assert "2026-05-30 00:15" in line
+        # When dates differ, render both end-points fully; UTC label on both
+        assert "2026-05-29 23:30 UTC" in line
+        assert "2026-05-30 00:15 UTC" in line
 
     def test_event_member_added(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
@@ -564,8 +607,8 @@ class TestFormatChatEntry:
         line = _format_chat_entry(entry)
         assert "⚙️" in line
         assert "Member added: Carol" in line
-        # Bug 4
-        assert "2026-05-29 10:00" in line
+        # Bug 4; UTC label for clarity
+        assert "2026-05-29 10:00 UTC" in line
 
     def test_event_call_unknown(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
@@ -582,6 +625,60 @@ class TestFormatChatEntry:
         from ms365_intent_mcp.formatters import _format_chat_entry
         line = _format_chat_entry({"kind": "alien"})
         assert "unknown entry: alien" in line
+
+    def test_call_single_event_includes_utc(self):
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "call",
+            "ts": "2026-05-29T10:00:00Z",
+            "end_ts": "2026-05-29T10:00:00Z",
+            "duration": None,
+            "recording_url": "",
+            "transcript_ready": False,
+            "initiator": None,
+        }
+        line = _format_chat_entry(entry)
+        assert "2026-05-29 10:00 UTC" in line
+
+class TestFormatEventTimeRange:
+    def test_basic_utc_range(self):
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "UTC"}
+        end = {"dateTime": "2026-06-02T08:00:00.0000000", "timeZone": "UTC"}
+        assert _format_event_time_range(start, end) == "07:45–08:00 UTC"
+
+    def test_named_iana_timezone(self):
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "2026-06-02T09:45:00.0000000", "timeZone": "Europe/Berlin"}
+        end = {"dateTime": "2026-06-02T10:00:00.0000000", "timeZone": "Europe/Berlin"}
+        assert _format_event_time_range(start, end) == "09:45–10:00 Europe/Berlin"
+
+    def test_falls_back_to_end_timezone_if_start_missing(self):
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "2026-06-02T07:45:00.0000000"}
+        end = {"dateTime": "2026-06-02T08:00:00.0000000", "timeZone": "UTC"}
+        assert _format_event_time_range(start, end) == "07:45–08:00 UTC"
+
+    def test_no_timezone_no_suffix(self):
+        """Defensive: if Graph somehow omits timeZone, render bare times — no ' None' artifact."""
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "2026-06-02T07:45:00.0000000"}
+        end = {"dateTime": "2026-06-02T08:00:00.0000000"}
+        result = _format_event_time_range(start, end)
+        assert result == "07:45–08:00"
+        assert "None" not in result
+
+    def test_empty_inputs(self):
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        assert _format_event_time_range({}, {}) == "–"
+
+    def test_short_datetime_string_passes_through(self):
+        """Defensive: if dateTime is shorter than 16 chars, don't crash — render as-is."""
+        from ms365_intent_mcp.formatters import _format_event_time_range
+        start = {"dateTime": "?", "timeZone": "UTC"}
+        end = {"dateTime": "?", "timeZone": "UTC"}
+        result = _format_event_time_range(start, end)
+        assert "UTC" in result
 
 
 class TestMentionRegressionAcrossFormatters:
@@ -617,3 +714,56 @@ class TestMentionRegressionAcrossFormatters:
         }
         result = format_people_markdown("bawa", people, [], recent_chat)
         assert "@Avi" in result
+
+
+class TestFormatOffsetDatetime:
+    def test_basic_z_suffix(self):
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        assert _format_offset_datetime("2026-05-29T10:00:00Z") == "2026-05-29T10:00 UTC"
+
+    def test_with_milliseconds(self):
+        """Graph dateTimeOffset can include ms: '2026-05-29T10:00:00.035Z'."""
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        assert _format_offset_datetime("2026-05-29T10:00:00.035Z") == "2026-05-29T10:00 UTC"
+
+    def test_empty_string(self):
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        assert _format_offset_datetime("") == ""
+
+    def test_none_input(self):
+        """Callers may pass `data.get('createdDateTime')` directly (no default)."""
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        assert _format_offset_datetime(None) == ""
+
+    def test_short_string_passes_through(self):
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        result = _format_offset_datetime("???")
+        assert "UTC" not in result  # don't slap UTC on garbage
+
+
+class TestFormatEventDatetime:
+    def test_basic_utc(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        dt = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "UTC"}
+        assert _format_event_datetime(dt) == "2026-06-02T07:45 UTC"
+
+    def test_named_timezone(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        dt = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "Europe/Berlin"}
+        assert _format_event_datetime(dt) == "2026-06-02T07:45 Europe/Berlin"
+
+    def test_no_timezone_no_suffix(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        dt = {"dateTime": "2026-06-02T07:45:00.0000000"}
+        result = _format_event_datetime(dt)
+        assert result == "2026-06-02T07:45"
+        assert "None" not in result
+
+    def test_empty_input(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        assert _format_event_datetime({}) == ""
+
+    def test_missing_datetime_key(self):
+        from ms365_intent_mcp.formatters import _format_event_datetime
+        dt = {"timeZone": "UTC"}
+        assert _format_event_datetime(dt) == " UTC"
