@@ -706,6 +706,11 @@ class TestFormatOffsetDatetime:
         from ms365_intent_mcp.formatters import _format_offset_datetime
         assert _format_offset_datetime("") == ""
 
+    def test_none_input(self):
+        """Callers may pass `data.get('createdDateTime')` directly (no default)."""
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        assert _format_offset_datetime(None) == ""
+
     def test_short_string_passes_through(self):
         from ms365_intent_mcp.formatters import _format_offset_datetime
         result = _format_offset_datetime("???")

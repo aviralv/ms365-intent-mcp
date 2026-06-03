@@ -54,7 +54,7 @@ def _format_event_datetime(dt: dict) -> str:
     return f"{s_fmt}{suffix}"
 
 
-def _format_offset_datetime(ts: str) -> str:
+def _format_offset_datetime(ts: str | None) -> str:
     """Format a Graph dateTimeOffset ISO string as 'YYYY-MM-DDTHH:MM UTC'.
 
     Graph dateTimeOffset fields (chatMessage.createdDateTime,
@@ -67,8 +67,10 @@ def _format_offset_datetime(ts: str) -> str:
     presence, then we append the literal ' UTC' so callers can't mistake the
     naive-looking string for local time.
 
-    Returns empty string for empty input. Returns the value untouched (without
-    UTC suffix) for strings shorter than 16 chars to avoid mislabelling junk.
+    Accepts None for callers passing `data.get("createdDateTime")` without
+    a default. Returns empty string for None / empty input. Returns the
+    value untouched (without UTC suffix) for strings shorter than 16 chars
+    to avoid mislabelling junk.
     """
     if not ts:
         return ""
