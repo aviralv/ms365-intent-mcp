@@ -368,8 +368,12 @@ def _format_chat_thread(data: dict) -> str:
 
     if meeting:
         m_subject = meeting.get("subject", "(no subject)")
-        m_start = (meeting.get("start", {}) or {}).get("dateTime", "")[:16]
-        m_end = (meeting.get("end", {}) or {}).get("dateTime", "")[11:16]
+        m_start = _format_event_datetime(meeting.get("start", {}) or {})
+        end_dt_obj = meeting.get("end", {}) or {}
+        end_dt = end_dt_obj.get("dateTime", "")
+        end_tz = end_dt_obj.get("timeZone") or (meeting.get("start", {}) or {}).get("timeZone") or ""
+        end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt
+        m_end = f"{end_hm} {end_tz}".strip()
         m_organizer = ((meeting.get("organizer", {}) or {}).get("emailAddress", {}) or {}).get("name", "Unknown")
         lines.append("")
         lines.append("**Meeting context:**")

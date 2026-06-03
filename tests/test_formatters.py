@@ -290,8 +290,8 @@ class TestFormatResolvedChatThread:
             ],
             "meeting": {
                 "subject": "Project Sync",
-                "start": {"dateTime": "2026-05-26T10:00:00"},
-                "end": {"dateTime": "2026-05-26T10:30:00"},
+                "start": {"dateTime": "2026-05-26T10:00:00", "timeZone": "UTC"},
+                "end": {"dateTime": "2026-05-26T10:30:00", "timeZone": "UTC"},
                 "organizer": {"emailAddress": {"name": "Alice"}},
             },
             "_chat_error": None,
@@ -310,6 +310,7 @@ class TestFormatResolvedChatThread:
         result = format_resolved_content_markdown("chat_thread", self._data())
         assert "Meeting" in result
         assert "10:00" in result
+        assert "UTC" in result
 
     def test_omits_meeting_block_when_absent(self):
         result = format_resolved_content_markdown(
