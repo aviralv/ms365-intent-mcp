@@ -236,7 +236,8 @@ class TestFormatMeetingTimesMarkdown:
             }
         ]
         result = format_meeting_times_markdown(suggestions)
-        assert "10:00" in result
+        assert "2026-05-20T10:00 UTC" in result
+        assert "10:30 UTC" in result
         assert "100" in result
 
 

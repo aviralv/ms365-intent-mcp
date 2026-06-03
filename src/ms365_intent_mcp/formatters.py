@@ -254,11 +254,14 @@ def format_meeting_times_markdown(suggestions: list[dict]) -> str:
     lines = ["### Available Meeting Times"]
     for i, s in enumerate(suggestions[:5], 1):
         slot = s.get("meetingTimeSlot", {})
-        start = slot.get("start", {}).get("dateTime", "")
-        end = slot.get("end", {}).get("dateTime", "")
+        start = slot.get("start", {})
+        end = slot.get("end", {})
         confidence = s.get("confidence", 0)
-        start_fmt = start[:16] if start else "?"
-        end_fmt = end[11:16] if end else "?"
+        start_fmt = _format_event_datetime(start) or "?"
+        end_dt = end.get("dateTime", "")
+        end_tz = end.get("timeZone") or start.get("timeZone") or ""
+        end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt or "?"
+        end_fmt = f"{end_hm} {end_tz}".strip()
         lines.append(f"{i}. **{start_fmt} – {end_fmt}** ({confidence:.0f}% confidence)")
         unavailable = [
             a.get("attendee", {}).get("emailAddress", {}).get("name", "?")
