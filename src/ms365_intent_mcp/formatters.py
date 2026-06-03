@@ -312,7 +312,7 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
         body = data.get("body", {}).get("content", "")
         text = _strip_teams_html(body)[:300]
         sender = data.get("from", {}).get("user", {}).get("displayName", "?")
-        created = data.get("createdDateTime", "")[:16]
+        created = _format_offset_datetime(data.get("createdDateTime", ""))
         return f"### Teams Message\n**From:** {sender}  |  **At:** {created}\n\n{text}"
     elif url_type == "meeting":
         return format_event_detail_markdown(data)

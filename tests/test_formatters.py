@@ -263,6 +263,17 @@ class TestFormatResolvedContentMarkdown:
         result = format_resolved_content_markdown("onedrive_file", data)
         assert "report.xlsx" in result
 
+    def test_chat_message_type_includes_utc_label(self):
+        data = {
+            "body": {"content": "Hello team"},
+            "from": {"user": {"displayName": "Alice"}},
+            "createdDateTime": "2026-05-29T10:00:00.035Z",
+        }
+        result = format_resolved_content_markdown("chat_message", data)
+        assert "Alice" in result
+        assert "Hello team" in result
+        assert "2026-05-29T10:00 UTC" in result
+
 
 class TestFormatResolvedChatThread:
     def _data(self, **overrides):
