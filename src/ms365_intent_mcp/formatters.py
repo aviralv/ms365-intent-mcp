@@ -149,11 +149,11 @@ def format_draft_created_markdown(draft: dict) -> str:
 
 def format_event_created_markdown(event: dict) -> str:
     subject = event.get("subject", "(no subject)")
-    start = event.get("start", {}).get("dateTime", "")[:16]
+    when = _format_event_datetime(event.get("start", {}))
     lines = [
         "✅ Event created",
         f"**Subject:** {subject}",
-        f"**When:** {start}",
+        f"**When:** {when}",
     ]
     if event.get("isOnlineMeeting"):
         join_url = (event.get("onlineMeeting") or {}).get("joinUrl", "")

@@ -139,14 +139,14 @@ class TestFormatEventCreated:
     def test_includes_subject_and_time(self):
         event = {
             "subject": "New Meeting",
-            "start": {"dateTime": "2026-05-16T10:00:00"},
-            "end": {"dateTime": "2026-05-16T10:30:00"},
+            "start": {"dateTime": "2026-05-16T10:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-16T10:30:00", "timeZone": "UTC"},
             "isOnlineMeeting": False,
             "onlineMeeting": None,
         }
         result = format_event_created_markdown(event)
         assert "New Meeting" in result
-        assert "2026-05-16" in result
+        assert "2026-05-16T10:00 UTC" in result
 
 
 class TestFormatTeamsActivity:
