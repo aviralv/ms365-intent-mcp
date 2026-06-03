@@ -418,33 +418,34 @@ def _format_chat_thread(data: dict) -> str:
 def _format_chat_entry(entry: dict) -> str:
     """Render one entry from the chat_thread `entries` list.
 
-    Timestamps are rendered as 'YYYY-MM-DD HH:MM' for full clarity (chats can
-    span months/years). Calls show date once + time range when same day; both
-    dates when crossing midnight.
+    Timestamps are rendered as 'YYYY-MM-DD HH:MM UTC' for full clarity (chats
+    can span months/years; UTC label avoids timezone confusion). Calls show
+    date once + time range when same day; both dates when crossing midnight.
     """
     raw_ts = (entry.get("ts") or "")[:16]  # 'YYYY-MM-DDTHH:MM'
     ts_display = raw_ts.replace("T", " ")  # 'YYYY-MM-DD HH:MM'
+    ts_with_tz = f"{ts_display} UTC" if ts_display else ts_display
     kind = entry.get("kind")
 
     if kind == "message":
         sender = entry.get("sender") or "Unknown"
         if entry.get("is_body_empty"):
-            return f"- **{sender}** ({ts_display}): _(no text)_"
-        return f"- **{sender}** ({ts_display}): {entry.get('body', '')}"
+            return f"- **{sender}** ({ts_with_tz}): _(no text)_"
+        return f"- **{sender}** ({ts_with_tz}): {entry.get('body', '')}"
 
     if kind == "call":
         raw_end = (entry.get("end_ts") or "")[:16]
         start_date, start_time = raw_ts[:10], raw_ts[11:16]
         end_date, end_time = raw_end[:10], raw_end[11:16]
         if not raw_end or raw_end == raw_ts:
-            # Single-event call: just the start
-            time_range = f"{start_date} {start_time}"
+            # Single-event call: just the start, with UTC
+            time_range = f"{start_date} {start_time} UTC"
         elif start_date == end_date:
-            # Same-day: date once, time range
-            time_range = f"{start_date} {start_time}–{end_time}"
+            # Same-day: date once, time range, UTC on both sides
+            time_range = f"{start_date} {start_time} UTC–{end_time} UTC"
         else:
-            # Cross-day: full both ends
-            time_range = f"{start_date} {start_time} → {end_date} {end_time}"
+            # Cross-day: full both ends, UTC on both
+            time_range = f"{start_date} {start_time} UTC → {end_date} {end_time} UTC"
         duration = entry.get("duration")
         if duration:
             time_range += f", {duration}"
@@ -460,6 +461,6 @@ def _format_chat_entry(entry: dict) -> str:
         return "- " + " — ".join(parts)
 
     if kind == "event":
-        return f"- ⚙️ {entry.get('summary', 'system event')} ({ts_display})"
+        return f"- ⚙️ {entry.get('summary', 'system event')} ({ts_with_tz})"
 
     return f"- _(unknown entry: {kind})_"
