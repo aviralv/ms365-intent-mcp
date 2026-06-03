@@ -54,6 +54,29 @@ def _format_event_datetime(dt: dict) -> str:
     return f"{s_fmt}{suffix}"
 
 
+def _format_offset_datetime(ts: str) -> str:
+    """Format a Graph dateTimeOffset ISO string as 'YYYY-MM-DDTHH:MM UTC'.
+
+    Graph dateTimeOffset fields (chatMessage.createdDateTime,
+    message.receivedDateTime, driveItem.lastModifiedDateTime, etc.) are always
+    UTC and always end in Z, sometimes with milliseconds (e.g.
+    '2026-05-29T10:00:00.035Z'). The Prefer: outlook.timezone header does NOT
+    apply to these fields — they are always UTC.
+
+    Slicing to [:16] takes 'YYYY-MM-DDTHH:MM' regardless of millisecond
+    presence, then we append the literal ' UTC' so callers can't mistake the
+    naive-looking string for local time.
+
+    Returns empty string for empty input. Returns the value untouched (without
+    UTC suffix) for strings shorter than 16 chars to avoid mislabelling junk.
+    """
+    if not ts:
+        return ""
+    if len(ts) < 16:
+        return ts
+    return f"{ts[:16]} UTC"
+
+
 def format_events_markdown(events: list[dict]) -> str:
     if not events:
         return "No events scheduled."

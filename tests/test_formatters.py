@@ -692,6 +692,26 @@ class TestMentionRegressionAcrossFormatters:
         assert "@Avi" in result
 
 
+class TestFormatOffsetDatetime:
+    def test_basic_z_suffix(self):
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        assert _format_offset_datetime("2026-05-29T10:00:00Z") == "2026-05-29T10:00 UTC"
+
+    def test_with_milliseconds(self):
+        """Graph dateTimeOffset can include ms: '2026-05-29T10:00:00.035Z'."""
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        assert _format_offset_datetime("2026-05-29T10:00:00.035Z") == "2026-05-29T10:00 UTC"
+
+    def test_empty_string(self):
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        assert _format_offset_datetime("") == ""
+
+    def test_short_string_passes_through(self):
+        from ms365_intent_mcp.formatters import _format_offset_datetime
+        result = _format_offset_datetime("???")
+        assert "UTC" not in result  # don't slap UTC on garbage
+
+
 class TestFormatEventDatetime:
     def test_basic_utc(self):
         from ms365_intent_mcp.formatters import _format_event_datetime
