@@ -106,10 +106,7 @@ def format_event_detail_markdown(event: dict) -> str:
 
     lines = [f"## {subject}"]
     start_fmt = _format_event_datetime(start)
-    end_dt = end.get("dateTime", "")
-    end_tz = end.get("timeZone") or start.get("timeZone") or ""
-    end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt
-    end_fmt = f"{end_hm} {end_tz}".strip()
+    end_fmt = _format_event_datetime(end)
     lines.append(f"**When:** {start_fmt} → {end_fmt}")
     lines.append(f"**Organizer:** {organizer}")
     if location:

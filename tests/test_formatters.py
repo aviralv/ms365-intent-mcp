@@ -112,7 +112,49 @@ class TestFormatEventDetailMarkdown:
         assert "Bob" in result
         assert "Agenda" in result or "Q2 review" in result
         assert "2026-05-15T14:00 UTC" in result
-        assert "14:30 UTC" in result
+        assert "2026-05-15T14:30 UTC" in result
+
+
+    def test_cross_date_event_renders_both_dates(self):
+        event = {
+            "subject": "Late-night ops",
+            "start": {"dateTime": "2026-05-15T23:30:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-16T00:15:00", "timeZone": "UTC"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": False,
+            "onlineMeeting": None,
+            "organizer": {"emailAddress": {"name": "Alice"}},
+            "attendees": [],
+            "body": {"content": ""},
+        }
+        result = format_event_detail_markdown(event)
+        assert "Late-night ops" in result
+        assert "2026-05-15T23:30 UTC" in result
+        assert "2026-05-16T00:15 UTC" in result
+
+    def test_end_missing_timezone_renders_gracefully(self):
+        """The new code drops the end.tz → start.tz fallback. Verify the
+        helper handles missing end.timeZone without crashing or producing
+        a 'None' artifact in the output. With Prefer: outlook.timezone set,
+        Graph always returns matching tz on both sides — but this test
+        guards the regression path explicitly."""
+        event = {
+            "subject": "Standup",
+            "start": {"dateTime": "2026-05-15T14:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-15T14:30:00"},  # no timeZone
+            "location": {"displayName": ""},
+            "isOnlineMeeting": False,
+            "onlineMeeting": None,
+            "organizer": {"emailAddress": {"name": "Alice"}},
+            "attendees": [],
+            "body": {"content": ""},
+        }
+        result = format_event_detail_markdown(event)
+        # Start side has UTC; end side renders bare date+time without UTC.
+        assert "2026-05-15T14:00 UTC" in result
+        assert "2026-05-15T14:30" in result
+        # No crash; no orphan "None" artifact.
+        assert "None" not in result
 
 
 class TestFormatSectionError:
