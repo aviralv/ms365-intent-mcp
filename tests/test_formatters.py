@@ -682,6 +682,27 @@ class TestFormatChatEntry:
         line = _format_chat_entry(entry)
         assert "2026-05-29 10:00 UTC" in line
 
+    def test_call_with_null_ts_renders_empty_parens(self):
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "call",
+            "ts": "",
+            "end_ts": "",
+            "duration": None,
+            "recording_url": "",
+            "transcript_ready": False,
+            "initiator": None,
+        }
+        line = _format_chat_entry(entry)
+        # Sanity: function returns a call line, doesn't crash.
+        assert "📞" in line
+        # No orphan UTC label when there's no timestamp.
+        assert "UTC" not in line
+        # Empty parens (matching how the message and event branches
+        # render null ts via ts_with_tz).
+        assert "()" in line
+
+
 class TestFormatEventTimeRange:
     def test_basic_utc_range(self):
         from ms365_intent_mcp.formatters import _format_event_time_range
