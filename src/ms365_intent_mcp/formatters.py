@@ -106,10 +106,7 @@ def format_event_detail_markdown(event: dict) -> str:
 
     lines = [f"## {subject}"]
     start_fmt = _format_event_datetime(start)
-    end_dt = end.get("dateTime", "")
-    end_tz = end.get("timeZone") or start.get("timeZone") or ""
-    end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt
-    end_fmt = f"{end_hm} {end_tz}".strip()
+    end_fmt = _format_event_datetime(end)
     lines.append(f"**When:** {start_fmt} → {end_fmt}")
     lines.append(f"**Organizer:** {organizer}")
     if location:
@@ -437,7 +434,10 @@ def _format_chat_entry(entry: dict) -> str:
         raw_end = (entry.get("end_ts") or "")[:16]
         start_date, start_time = raw_ts[:10], raw_ts[11:16]
         end_date, end_time = raw_end[:10], raw_end[11:16]
-        if not raw_end or raw_end == raw_ts:
+        if not raw_ts:
+            # No timestamp: empty time_range, no orphan UTC, no double space
+            time_range = ""
+        elif not raw_end or raw_end == raw_ts:
             # Single-event call: just the start, with UTC
             time_range = f"{start_date} {start_time} UTC"
         elif start_date == end_date:
