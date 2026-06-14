@@ -2,6 +2,8 @@
 
 import json
 import logging
+import os
+import tempfile
 import time
 
 import httpx
@@ -97,5 +99,21 @@ class TokenManager:
             "scope": response.get("scope", ""),
             "token_type": response.get("token_type", "Bearer"),
         }
-        self.config.token_path.write_text(json.dumps(token_data, indent=2))
-        self.config.token_path.chmod(0o600)
+        # Atomic write: temp file in the same directory + os.replace.
+        # Two writers (e.g. parallel server instances) racing on a plain
+        # write_text() can produce concatenated JSON ("Extra data: line N").
+        # os.replace is atomic across files on the same filesystem, so a
+        # reader sees either the old or the new file, never a partial one.
+        parent = self.config.token_path.parent
+        fd, tmp_path = tempfile.mkstemp(prefix=".token.", suffix=".tmp", dir=parent)
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(token_data, f, indent=2)
+            os.chmod(tmp_path, 0o600)
+            os.replace(tmp_path, self.config.token_path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise

@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 import webbrowser
 from pathlib import Path
 
@@ -72,8 +73,20 @@ def main():
         "scope": result.get("scope", ""),
         "token_type": result.get("token_type", "Bearer"),
     }
-    TOKEN_PATH.write_text(json.dumps(token_data, indent=2))
-    TOKEN_PATH.chmod(0o600)
+    # Atomic write: temp file in the same directory + os.replace, so a
+    # concurrent server-side refresh can't tear this write.
+    fd, tmp_path = tempfile.mkstemp(prefix=".token.", suffix=".tmp", dir=TOKEN_PATH.parent)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(token_data, f, indent=2)
+        os.chmod(tmp_path, 0o600)
+        os.replace(tmp_path, TOKEN_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
     print(f"\n✓ Authentication successful!")
     print(f"✓ Token saved to: {TOKEN_PATH}")
