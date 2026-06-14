@@ -26,7 +26,9 @@ tokens/
 
 # Design specs (local reference, not shipped)
 docs/specs/
+docs/superpowers/
 
 # OS
 .DS_Store
 Thumbs.db
+CLAUDE.md
