@@ -1,6 +1,6 @@
 [project]
 name = "ms365-intent-mcp"
-version = "0.4.3"
+version = "0.4.4"
 description = "Intent-oriented MCP server for Microsoft 365"
 readme = "README.md"
 license = "MIT"
@@ -8,7 +8,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Aviral Vaid" }]
 requires-python = ">=3.11"
 dependencies = [
-    "fastmcp>=2.0.0",
+    "fastmcp>=3.4.2",
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
