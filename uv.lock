@@ -755,7 +755,7 @@ wheels = [
 
 [[package]]
 name = "ms365-intent-mcp"
-version = "0.4.4"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
