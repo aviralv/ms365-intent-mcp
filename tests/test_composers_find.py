@@ -138,8 +138,32 @@ class TestFetchChatMessages:
         hits = await _fetch_chat_messages(client, "chat-1", "Diana found")
         assert len(hits) == 1
 
+    @pytest.mark.asyncio
+    async def test_empty_query_returns_empty(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [
+                {"id": "m1", "body": {"content": "<p>anything</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+            ]
+        })
+        hits = await _fetch_chat_messages(client, "chat-1", "   ")
+        assert hits == []
+        client.get.assert_not_called()
 
-def _mock_search_response(query: str) -> dict:    return {
+    @pytest.mark.asyncio
+    async def test_decodes_html_entities_before_matching(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [
+                {"id": "m1", "body": {"content": "<p>Q&amp;A session</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+            ]
+        })
+        hits = await _fetch_chat_messages(client, "chat-1", "Q&A")
+        assert len(hits) == 1
+
+
+def _mock_search_response(query: str) -> dict:
+    return {
         "value": [
             {
                 "hitsContainers": [
