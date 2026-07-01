@@ -61,6 +61,9 @@ async def _search_chat_messages(client: GraphClient, query: str) -> str:
     Content matching uses each significant word (3+ chars) as an independent
     needle so that "Diana second brain" matches messages containing "second brain"
     even when "diana" matches the chat member name rather than message content.
+    Words that already matched a chat member's displayName are dropped from
+    the needle set so a person-only query like "Diana" returns her recent
+    messages instead of demanding her name appear in message bodies.
     """
     chats = await _list_user_chats(client)
     if not chats:
@@ -68,14 +71,26 @@ async def _search_chat_messages(client: GraphClient, query: str) -> str:
 
     chats = _prefilter_chats_by_query(chats, query)[:_MAX_CHATS_TO_SEARCH]
 
-    needles = [w for w in query.split() if len(w) >= 3]
-    if not needles:
+    all_words = [w for w in query.split() if len(w) >= 3]
+    member_words: set[str] = set()
+    for chat in chats:
+        member_names = " ".join(
+            (m.get("displayName") or "").lower()
+            for m in chat.get("members") or []
+        )
+        for word in all_words:
+            if word.lower() in member_names:
+                member_words.add(word)
+    needles = [w for w in all_words if w not in member_words]
+    if not all_words and not needles:
         needles = [query.strip()]
 
     semaphore = asyncio.Semaphore(_MESSAGE_SEMAPHORE_LIMIT)
 
     async def _bounded_fetch(chat_id: str) -> list[dict]:
         async with semaphore:
+            if not needles:
+                return await _recent_chat_messages(client, chat_id)
             seen_ids: set[str] = set()
             merged: list[dict] = []
             for needle in needles:
@@ -250,4 +265,31 @@ async def _fetch_chat_messages(
         text = _strip_teams_html(body_html)
         if needle in html.unescape(text).lower():
             hits.append({**msg, "_chat_id": chat_id})
+    return hits
+
+
+async def _recent_chat_messages(
+    client: GraphClient,
+    chat_id: str,
+    limit: int = 5,
+) -> list[dict]:
+    """Return the N most recent messages from a chat, unfiltered.
+
+    Used when the query resolves entirely to person-name words that already
+    matched via the member prefilter — the intent then becomes "recent
+    messages with this person", not substring search.
+    """
+    try:
+        response = await client.get(f"/chats/{chat_id}/messages", params={
+            "$top": str(limit),
+        })
+    except GraphAPIError:
+        return []
+
+    hits: list[dict] = []
+    for msg in (response or {}).get("value", []):
+        body_html = (msg.get("body") or {}).get("content", "")
+        if not _strip_teams_html(body_html):
+            continue
+        hits.append({**msg, "_chat_id": chat_id})
     return hits

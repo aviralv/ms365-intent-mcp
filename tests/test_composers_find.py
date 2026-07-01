@@ -302,3 +302,38 @@ class TestSearchChatMessages:
             search_type="message",
         )
         assert "No results" in result
+
+    @pytest.mark.asyncio
+    async def test_person_only_query_returns_recent_messages(self, full_permissions):
+        client = AsyncMock()
+
+        chats_response = {
+            "value": [
+                {
+                    "id": "chat-diana",
+                    "members": [{"displayName": "Diana Veit"}, {"displayName": "Me"}],
+                    "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"},
+                },
+            ]
+        }
+
+        async def _get(path, params=None):
+            if path == "/me/chats":
+                return chats_response
+            if path == "/chats/chat-diana/messages":
+                return {
+                    "value": [
+                        {"id": "m1", "body": {"content": "<p>quick note</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+                    ]
+                }
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+
+        result = await compose_find(
+            client=client,
+            permissions=full_permissions,
+            query="Diana",
+            search_type="message",
+        )
+        assert "quick note" in result
