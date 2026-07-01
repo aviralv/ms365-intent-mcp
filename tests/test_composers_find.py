@@ -189,3 +189,36 @@ def _mock_search_response(query: str) -> dict:
             }
         ]
     }
+
+
+from ms365_intent_mcp.composers.find import _prefilter_chats_by_query
+
+
+class TestPrefilterChatsByQuery:
+    def test_filters_when_query_matches_member_name(self):
+        chats = [
+            {"id": "c1", "members": [{"displayName": "Diana Veit"}, {"displayName": "Me"}]},
+            {"id": "c2", "members": [{"displayName": "Bob"}, {"displayName": "Me"}]},
+            {"id": "c3", "members": [{"displayName": "diana smith"}, {"displayName": "Me"}]},
+        ]
+        result = _prefilter_chats_by_query(chats, "Diana second brain")
+        assert [c["id"] for c in result] == ["c1", "c3"]
+
+    def test_passthrough_when_no_match(self):
+        chats = [
+            {"id": "c1", "members": [{"displayName": "Bob"}]},
+            {"id": "c2", "members": [{"displayName": "Alice"}]},
+        ]
+        result = _prefilter_chats_by_query(chats, "roadmap plan")
+        assert [c["id"] for c in result] == ["c1", "c2"]
+
+    def test_ignores_short_words(self):
+        chats = [
+            {"id": "c1", "members": [{"displayName": "Ai team"}]},
+            {"id": "c2", "members": [{"displayName": "Bob"}]},
+        ]
+        result = _prefilter_chats_by_query(chats, "ai plan")
+        assert [c["id"] for c in result] == ["c1", "c2"]
+
+    def test_empty_chats_returns_empty(self):
+        assert _prefilter_chats_by_query([], "anything") == []

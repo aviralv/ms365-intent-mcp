@@ -108,6 +108,29 @@ async def _list_user_chats(client: GraphClient) -> list[dict]:
     return chats
 
 
+def _prefilter_chats_by_query(chats: list[dict], query: str) -> list[dict]:
+    """Narrow chats to those whose members plausibly match the query.
+
+    Heuristic: for each 3+ char word in the query, if any chat has a member
+    whose displayName contains that word (case-insensitive), keep only the
+    matching chats. If no chat matches any query word, return the full list
+    (query wasn't person-shaped, or the person isn't in the top-N chats).
+    """
+    words = [w.lower() for w in query.split() if len(w) >= 3]
+    if not words:
+        return chats
+
+    matched: list[dict] = []
+    for chat in chats:
+        member_names = " ".join(
+            (m.get("displayName") or "").lower()
+            for m in chat.get("members") or []
+        )
+        if any(word in member_names for word in words):
+            matched.append(chat)
+    return matched if matched else chats
+
+
 async def _fetch_chat_messages(
     client: GraphClient,
     chat_id: str,
