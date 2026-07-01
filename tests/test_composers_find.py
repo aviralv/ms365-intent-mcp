@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from ms365_intent_mcp.composers.find import compose_find
+from ms365_intent_mcp.composers.find import compose_find, _list_user_chats
 from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.permissions import PermissionRegistry
 
@@ -74,6 +74,35 @@ class TestFindSearch:
             search_type=None,
         )
         assert "No results" in result or "xyzzy_nonexistent" in result
+
+
+class TestListUserChats:
+    @pytest.mark.asyncio
+    async def test_returns_chats_sorted_by_recency(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [
+                {
+                    "id": "chat-old",
+                    "members": [],
+                    "lastMessagePreview": {"createdDateTime": "2026-06-01T10:00:00Z"},
+                },
+                {
+                    "id": "chat-new",
+                    "members": [],
+                    "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"},
+                },
+            ]
+        })
+        chats = await _list_user_chats(client)
+        assert [c["id"] for c in chats] == ["chat-new", "chat-old"]
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_graph_error(self):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=GraphAPIError(403, "Forbidden", "no scope"))
+        chats = await _list_user_chats(client)
+        assert chats == []
 
 
 def _mock_search_response(query: str) -> dict:

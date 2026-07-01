@@ -84,3 +84,24 @@ def _extract_hits(response: dict) -> list[dict]:
             for hit in container.get("hits", []):
                 hits.append(hit)
     return hits
+
+
+async def _list_user_chats(client: GraphClient) -> list[dict]:
+    """List user's chats, sorted by last-message recency (newest first).
+
+    Returns up to 50 chats. Empty list on any GraphAPIError so callers can
+    treat "no chats accessible" and "call failed" uniformly.
+    """
+    try:
+        response = await client.get("/me/chats", params={
+            "$expand": "members,lastMessagePreview",
+            "$top": "50",
+        })
+    except GraphAPIError:
+        return []
+    chats = (response or {}).get("value", [])
+    chats.sort(
+        key=lambda c: (c.get("lastMessagePreview") or {}).get("createdDateTime") or "",
+        reverse=True,
+    )
+    return chats
