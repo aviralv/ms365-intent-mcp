@@ -45,22 +45,20 @@ class TestFindSearch:
         assert "message" in payload["requests"][0]["entityTypes"]
 
     @pytest.mark.asyncio
-    async def test_403_on_chat_message_falls_back(self, full_permissions):
+    async def test_message_type_uses_chat_enumeration_not_search(self, full_permissions):
         client = AsyncMock()
+        client.get = AsyncMock(return_value={"value": []})
+        client.post = AsyncMock()
 
-        async def _post(endpoint, json_data, headers=None):
-            if "chatMessage" in str(json_data):
-                raise GraphAPIError(403, "Forbidden", "Chat search not allowed")
-            return _mock_search_response("hello")
-
-        client.post = AsyncMock(side_effect=_post)
         result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="hello",
             search_type="message",
         )
-        assert result is not None
+        client.post.assert_not_called()
+        client.get.assert_called()
+        assert "No results" in result
 
     @pytest.mark.asyncio
     async def test_no_results(self, full_permissions):
@@ -222,3 +220,69 @@ class TestPrefilterChatsByQuery:
 
     def test_empty_chats_returns_empty(self):
         assert _prefilter_chats_by_query([], "anything") == []
+
+
+class TestSearchChatMessages:
+    @pytest.mark.asyncio
+    async def test_end_to_end_returns_matching_messages(self, full_permissions):
+        client = AsyncMock()
+
+        chats_response = {
+            "value": [
+                {
+                    "id": "chat-diana",
+                    "members": [{"displayName": "Diana Veit"}, {"displayName": "Me"}],
+                    "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"},
+                },
+                {
+                    "id": "chat-bob",
+                    "members": [{"displayName": "Bob"}, {"displayName": "Me"}],
+                    "lastMessagePreview": {"createdDateTime": "2026-06-29T10:00:00Z"},
+                },
+            ]
+        }
+        messages_by_chat = {
+            "chat-diana": {
+                "value": [
+                    {"id": "m1", "body": {"content": "<p>Second brain idea</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+                ]
+            },
+        }
+
+        async def _get(path, params=None):
+            if path == "/me/chats":
+                return chats_response
+            for chat_id, payload in messages_by_chat.items():
+                if path == f"/chats/{chat_id}/messages":
+                    return payload
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+
+        result = await compose_find(
+            client=client,
+            permissions=full_permissions,
+            query="Diana second brain",
+            search_type="message",
+        )
+        assert "Second brain idea" in result
+        assert "Bob" not in result
+
+    @pytest.mark.asyncio
+    async def test_returns_no_results_when_nothing_matches(self, full_permissions):
+        client = AsyncMock()
+
+        async def _get(path, params=None):
+            if path == "/me/chats":
+                return {"value": [{"id": "c1", "members": [], "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"}}]}
+            return {"value": [{"id": "m1", "body": {"content": "hello"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"}]}
+
+        client.get = AsyncMock(side_effect=_get)
+
+        result = await compose_find(
+            client=client,
+            permissions=full_permissions,
+            query="nonexistent phrase xyz",
+            search_type="message",
+        )
+        assert "No results" in result

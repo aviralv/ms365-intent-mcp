@@ -24,6 +24,9 @@ async def compose_find(
     query: str,
     search_type: str | None,
 ) -> str:
+    if search_type == "message":
+        return await _search_chat_messages(client, query)
+
     entity_types = _TYPE_MAP.get(search_type or "", _DEFAULT_ENTITY_TYPES)
 
     if len(entity_types) == 1:
@@ -40,6 +43,83 @@ async def compose_find(
             hits.extend(result)
 
     return format_search_results_markdown(query, hits)
+
+
+_MESSAGE_SEMAPHORE_LIMIT = 5
+_MAX_CHATS_TO_SEARCH = 20
+_MAX_HITS = 10
+
+
+async def _search_chat_messages(client: GraphClient, query: str) -> str:
+    """Search user's chat messages via enumeration.
+
+    Delegated-scope alternative to POST /search/query (which requires
+    admin-consent ChannelMessage.Read.All). Lists /me/chats, prefilters by
+    member displayName when the query looks person-shaped, then fetches
+    messages in parallel with a bounded semaphore.
+
+    Content matching uses each significant word (3+ chars) as an independent
+    needle so that "Diana second brain" matches messages containing "second brain"
+    even when "diana" matches the chat member name rather than message content.
+    """
+    chats = await _list_user_chats(client)
+    if not chats:
+        return format_search_results_markdown(query, [])
+
+    chats = _prefilter_chats_by_query(chats, query)[:_MAX_CHATS_TO_SEARCH]
+
+    needles = [w for w in query.split() if len(w) >= 3]
+    if not needles:
+        needles = [query.strip()]
+
+    semaphore = asyncio.Semaphore(_MESSAGE_SEMAPHORE_LIMIT)
+
+    async def _bounded_fetch(chat_id: str) -> list[dict]:
+        async with semaphore:
+            seen_ids: set[str] = set()
+            merged: list[dict] = []
+            for needle in needles:
+                for msg in await _fetch_chat_messages(client, chat_id, needle):
+                    if msg["id"] not in seen_ids:
+                        seen_ids.add(msg["id"])
+                        merged.append(msg)
+            return merged
+
+    results = await asyncio.gather(
+        *[_bounded_fetch(c["id"]) for c in chats],
+        return_exceptions=True,
+    )
+
+    hits: list[dict] = []
+    for result in results:
+        if isinstance(result, list):
+            hits.extend(result)
+
+    hits.sort(key=lambda m: m.get("createdDateTime") or "", reverse=True)
+    hits = hits[:_MAX_HITS]
+
+    return format_search_results_markdown(query, [_to_search_hit(m) for m in hits])
+
+
+def _to_search_hit(msg: dict) -> dict:
+    """Adapt a chatMessage dict into the hit shape expected by
+    format_search_results_markdown.
+
+    The formatter dispatches by resource['@odata.type'] substring. Preserve
+    the message's own body/from so the existing "chatMessage" branch renders
+    naturally.
+    """
+    return {
+        "hitId": msg.get("id", ""),
+        "rank": 0,
+        "summary": "",
+        "resource": {
+            "@odata.type": "#microsoft.graph.chatMessage",
+            "from": msg.get("from") or {},
+            "body": msg.get("body") or {},
+            "createdDateTime": msg.get("createdDateTime", ""),
+        },
+    }
 
 
 async def _search_single(client: GraphClient, query: str, entity_types: list[str]) -> str:
