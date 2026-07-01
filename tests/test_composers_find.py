@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from ms365_intent_mcp.composers.find import compose_find, _list_user_chats
+from ms365_intent_mcp.composers.find import compose_find, _list_user_chats, _fetch_chat_messages
 from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.permissions import PermissionRegistry
 
@@ -105,8 +105,41 @@ class TestListUserChats:
         assert chats == []
 
 
-def _mock_search_response(query: str) -> dict:
-    return {
+class TestFetchChatMessages:
+    @pytest.mark.asyncio
+    async def test_filters_by_query_substring_case_insensitive(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [
+                {"id": "m1", "body": {"content": "<p>Second Brain rocks</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+                {"id": "m2", "body": {"content": "<p>Unrelated</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-29T10:00:00Z"},
+                {"id": "m3", "body": {"content": "<p>second brain again</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-28T10:00:00Z"},
+            ]
+        })
+        hits = await _fetch_chat_messages(client, "chat-1", "second brain")
+        assert [h["id"] for h in hits] == ["m1", "m3"]
+        assert all(h["_chat_id"] == "chat-1" for h in hits)
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_graph_error(self):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=GraphAPIError(403, "Forbidden", "no scope"))
+        hits = await _fetch_chat_messages(client, "chat-1", "anything")
+        assert hits == []
+
+    @pytest.mark.asyncio
+    async def test_strips_html_before_matching(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [
+                {"id": "m1", "body": {"content": '<div><at id="0">Diana</at> found it</div>'}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+            ]
+        })
+        hits = await _fetch_chat_messages(client, "chat-1", "Diana found")
+        assert len(hits) == 1
+
+
+def _mock_search_response(query: str) -> dict:    return {
         "value": [
             {
                 "hitsContainers": [

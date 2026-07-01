@@ -2,7 +2,7 @@
 
 import asyncio
 
-from ..formatters import format_search_results_markdown, format_section_error
+from ..formatters import _strip_teams_html, format_search_results_markdown, format_section_error
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
 from ._utils import _error_reason
@@ -105,3 +105,34 @@ async def _list_user_chats(client: GraphClient) -> list[dict]:
         reverse=True,
     )
     return chats
+
+
+async def _fetch_chat_messages(
+    client: GraphClient,
+    chat_id: str,
+    query: str,
+    limit: int = 50,
+) -> list[dict]:
+    """Fetch chat messages and filter client-side by query substring.
+
+    Graph's /chats/{id}/messages supports neither $filter nor $search on body,
+    so filtering is client-side. Case-insensitive substring match against the
+    HTML-stripped body text. Empty list on GraphAPIError so callers can gather
+    across chats without per-chat error handling.
+    """
+    try:
+        response = await client.get(f"/chats/{chat_id}/messages", params={
+            "$top": str(limit),
+        })
+    except GraphAPIError:
+        return []
+
+    needle = query.lower()
+    hits: list[dict] = []
+    for msg in (response or {}).get("value", []):
+        body_html = (msg.get("body") or {}).get("content", "")
+        text = _strip_teams_html(body_html)
+        if needle in text.lower():
+            msg["_chat_id"] = chat_id
+            hits.append(msg)
+    return hits
