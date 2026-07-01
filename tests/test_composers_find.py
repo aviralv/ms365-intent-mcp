@@ -96,11 +96,11 @@ class TestListUserChats:
         assert [c["id"] for c in chats] == ["chat-new", "chat-old"]
 
     @pytest.mark.asyncio
-    async def test_returns_empty_on_graph_error(self):
+    async def test_raises_graph_error(self):
         client = AsyncMock()
         client.get = AsyncMock(side_effect=GraphAPIError(403, "Forbidden", "no scope"))
-        chats = await _list_user_chats(client)
-        assert chats == []
+        with pytest.raises(GraphAPIError):
+            await _list_user_chats(client)
 
 
 class TestFetchChatMessages:
@@ -114,7 +114,7 @@ class TestFetchChatMessages:
                 {"id": "m3", "body": {"content": "<p>second brain again</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-28T10:00:00Z"},
             ]
         })
-        hits = await _fetch_chat_messages(client, "chat-1", "second brain")
+        hits = await _fetch_chat_messages(client, "chat-1", ["second brain"])
         assert [h["id"] for h in hits] == ["m1", "m3"]
         assert all(h["_chat_id"] == "chat-1" for h in hits)
 
@@ -122,7 +122,7 @@ class TestFetchChatMessages:
     async def test_returns_empty_on_graph_error(self):
         client = AsyncMock()
         client.get = AsyncMock(side_effect=GraphAPIError(403, "Forbidden", "no scope"))
-        hits = await _fetch_chat_messages(client, "chat-1", "anything")
+        hits = await _fetch_chat_messages(client, "chat-1", ["anything"])
         assert hits == []
 
     @pytest.mark.asyncio
@@ -133,18 +133,18 @@ class TestFetchChatMessages:
                 {"id": "m1", "body": {"content": '<div><at id="0">Diana</at> found it</div>'}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
             ]
         })
-        hits = await _fetch_chat_messages(client, "chat-1", "Diana found")
+        hits = await _fetch_chat_messages(client, "chat-1", ["Diana found"])
         assert len(hits) == 1
 
     @pytest.mark.asyncio
-    async def test_empty_query_returns_empty(self):
+    async def test_empty_needles_returns_empty(self):
         client = AsyncMock()
         client.get = AsyncMock(return_value={
             "value": [
                 {"id": "m1", "body": {"content": "<p>anything</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
             ]
         })
-        hits = await _fetch_chat_messages(client, "chat-1", "   ")
+        hits = await _fetch_chat_messages(client, "chat-1", ["   "])
         assert hits == []
         client.get.assert_not_called()
 
@@ -156,8 +156,26 @@ class TestFetchChatMessages:
                 {"id": "m1", "body": {"content": "<p>Q&amp;A session</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
             ]
         })
-        hits = await _fetch_chat_messages(client, "chat-1", "Q&A")
+        hits = await _fetch_chat_messages(client, "chat-1", ["Q&A"])
         assert len(hits) == 1
+
+    @pytest.mark.asyncio
+    async def test_matches_any_needle(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [
+                {"id": "m1", "body": {"content": "<p>second brain note</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+                {"id": "m2", "body": {"content": "<p>brain dump</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-29T10:00:00Z"},
+                {"id": "m3", "body": {"content": "<p>unrelated stuff</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-28T10:00:00Z"},
+            ]
+        })
+        hits = await _fetch_chat_messages(client, "chat-1", ["second", "brain"])
+        hit_ids = {h["id"] for h in hits}
+        assert "m1" in hit_ids
+        assert "m2" in hit_ids
+        assert "m3" not in hit_ids
+        # single Graph call (no per-needle fan-out)
+        client.get.assert_called_once()
 
 
 class TestSearchQueryPermissionErrorSurface:
@@ -216,7 +234,8 @@ class TestPrefilterChatsByQuery:
             {"id": "c3", "members": [{"displayName": "diana smith"}, {"displayName": "Me"}]},
         ]
         result = _prefilter_chats_by_query(chats, "Diana second brain")
-        assert [c["id"] for c in result] == ["c1", "c3"]
+        assert [c["id"] for c in result[0]] == ["c1", "c3"]
+        assert "diana" in result[1]
 
     def test_passthrough_when_no_match(self):
         chats = [
@@ -224,7 +243,8 @@ class TestPrefilterChatsByQuery:
             {"id": "c2", "members": [{"displayName": "Alice"}]},
         ]
         result = _prefilter_chats_by_query(chats, "roadmap plan")
-        assert [c["id"] for c in result] == ["c1", "c2"]
+        assert [c["id"] for c in result[0]] == ["c1", "c2"]
+        assert result[1] == set()
 
     def test_ignores_short_words(self):
         chats = [
@@ -232,10 +252,11 @@ class TestPrefilterChatsByQuery:
             {"id": "c2", "members": [{"displayName": "Bob"}]},
         ]
         result = _prefilter_chats_by_query(chats, "ai plan")
-        assert [c["id"] for c in result] == ["c1", "c2"]
+        assert [c["id"] for c in result[0]] == ["c1", "c2"]
+        assert result[1] == set()
 
     def test_empty_chats_returns_empty(self):
-        assert _prefilter_chats_by_query([], "anything") == []
+        assert _prefilter_chats_by_query([], "anything") == ([], set())
 
 
 class TestSearchChatMessages:
@@ -337,3 +358,15 @@ class TestSearchChatMessages:
             search_type="message",
         )
         assert "quick note" in result
+
+    @pytest.mark.asyncio
+    async def test_chats_auth_error_surfaces_error(self, full_permissions):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=GraphAPIError(403, "Forbidden", "no scope"))
+        result = await compose_find(
+            client=client,
+            permissions=full_permissions,
+            query="anything",
+            search_type="message",
+        )
+        assert "Find unavailable" in result or "unavailable" in result

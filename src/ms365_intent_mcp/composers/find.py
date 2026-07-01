@@ -11,7 +11,6 @@ from ._utils import _error_reason
 _TYPE_MAP = {
     "email": ["message"],
     "file": ["driveItem"],
-    "message": ["chatMessage"],
     "page": ["listItem"],
 }
 
@@ -65,25 +64,21 @@ async def _search_chat_messages(client: GraphClient, query: str) -> str:
     the needle set so a person-only query like "Diana" returns her recent
     messages instead of demanding her name appear in message bodies.
     """
-    chats = await _list_user_chats(client)
+    try:
+        chats = await _list_user_chats(client)
+    except GraphAPIError as exc:
+        return format_section_error("Find", _error_reason(exc))
     if not chats:
         return format_search_results_markdown(query, [])
 
-    chats = _prefilter_chats_by_query(chats, query)[:_MAX_CHATS_TO_SEARCH]
+    chats, matched_words = _prefilter_chats_by_query(chats, query)
+    chats = chats[:_MAX_CHATS_TO_SEARCH]
 
     all_words = [w for w in query.split() if len(w) >= 3]
-    member_words: set[str] = set()
-    for chat in chats:
-        member_names = " ".join(
-            (m.get("displayName") or "").lower()
-            for m in chat.get("members") or []
-        )
-        for word in all_words:
-            if word.lower() in member_names:
-                member_words.add(word)
-    needles = [w for w in all_words if w not in member_words]
-    if not all_words and not needles:
-        needles = [query.strip()]
+    needles = [w for w in all_words if w.lower() not in matched_words]
+    if not all_words:
+        stripped = query.strip()
+        needles = [stripped] if stripped else []
 
     semaphore = asyncio.Semaphore(_MESSAGE_SEMAPHORE_LIMIT)
 
@@ -91,14 +86,7 @@ async def _search_chat_messages(client: GraphClient, query: str) -> str:
         async with semaphore:
             if not needles:
                 return await _recent_chat_messages(client, chat_id)
-            seen_ids: set[str] = set()
-            merged: list[dict] = []
-            for needle in needles:
-                for msg in await _fetch_chat_messages(client, chat_id, needle):
-                    if msg["id"] not in seen_ids:
-                        seen_ids.add(msg["id"])
-                        merged.append(msg)
-            return merged
+            return await _fetch_chat_messages(client, chat_id, needles)
 
     results = await asyncio.gather(
         *[_bounded_fetch(c["id"]) for c in chats],
@@ -195,16 +183,14 @@ def _extract_hits(response: dict) -> list[dict]:
 async def _list_user_chats(client: GraphClient) -> list[dict]:
     """List user's chats, sorted by last-message recency (newest first).
 
-    Returns up to 50 chats. Empty list on any GraphAPIError so callers can
-    treat "no chats accessible" and "call failed" uniformly.
+    Returns up to 50 chats. Raises GraphAPIError on failure — caller
+    formats an error message rather than confusing "no chats" with
+    "call failed".
     """
-    try:
-        response = await client.get("/me/chats", params={
-            "$expand": "members,lastMessagePreview",
-            "$top": "50",
-        })
-    except GraphAPIError:
-        return []
+    response = await client.get("/me/chats", params={
+        "$expand": "members,lastMessagePreview",
+        "$top": "50",
+    })
     chats = (response or {}).get("value", [])
     chats.sort(
         key=lambda c: (c.get("lastMessagePreview") or {}).get("createdDateTime") or "",
@@ -213,44 +199,51 @@ async def _list_user_chats(client: GraphClient) -> list[dict]:
     return chats
 
 
-def _prefilter_chats_by_query(chats: list[dict], query: str) -> list[dict]:
+def _prefilter_chats_by_query(chats: list[dict], query: str) -> tuple[list[dict], set[str]]:
     """Narrow chats to those whose members plausibly match the query.
 
-    Heuristic: for each 3+ char word in the query, if any chat has a member
-    whose displayName contains that word (case-insensitive), keep only the
-    matching chats. If no chat matches any query word, return the full list
-    (query wasn't person-shaped, or the person isn't in the top-N chats).
+    Returns (chats, matched_words). matched_words is the set of query words
+    that positively matched at least one member displayName in the resulting
+    chats. If no member matched any query word, the fallback returns
+    (all_chats, set()).
     """
     words = [w.lower() for w in query.split() if len(w) >= 3]
     if not words:
-        return chats
+        return chats, set()
 
     matched: list[dict] = []
+    matched_words: set[str] = set()
     for chat in chats:
         member_names = " ".join(
             (m.get("displayName") or "").lower()
             for m in chat.get("members") or []
         )
-        if any(word in member_names for word in words):
+        chat_matched = False
+        for word in words:
+            if word in member_names:
+                chat_matched = True
+                matched_words.add(word)
+        if chat_matched:
             matched.append(chat)
-    return matched if matched else chats
+    if matched:
+        return matched, matched_words
+    return chats, set()
 
 
 async def _fetch_chat_messages(
     client: GraphClient,
     chat_id: str,
-    query: str,
+    needles: list[str],
     limit: int = 50,
 ) -> list[dict]:
-    """Fetch chat messages and filter client-side by query substring.
+    """Fetch chat messages and filter client-side against a set of needles.
 
-    Graph's /chats/{id}/messages supports neither $filter nor $search on body,
-    so filtering is client-side. Case-insensitive substring match against the
-    HTML-stripped body text. Empty list on GraphAPIError so callers can gather
-    across chats without per-chat error handling.
+    A message matches if ANY needle appears (case-insensitive substring) in
+    its HTML-stripped, entity-decoded body. `_chat_id` is added to each hit.
+    Empty needles or empty stripped set returns [] without fetching.
     """
-    needle = query.strip().lower()
-    if not needle:
+    lowered = [n.strip().lower() for n in needles if n and n.strip()]
+    if not lowered:
         return []
     try:
         response = await client.get(f"/chats/{chat_id}/messages", params={
@@ -262,8 +255,8 @@ async def _fetch_chat_messages(
     hits: list[dict] = []
     for msg in (response or {}).get("value", []):
         body_html = (msg.get("body") or {}).get("content", "")
-        text = _strip_teams_html(body_html)
-        if needle in html.unescape(text).lower():
+        text = html.unescape(_strip_teams_html(body_html)).lower()
+        if any(n in text for n in lowered):
             hits.append({**msg, "_chat_id": chat_id})
     return hits
 
@@ -271,7 +264,7 @@ async def _fetch_chat_messages(
 async def _recent_chat_messages(
     client: GraphClient,
     chat_id: str,
-    limit: int = 5,
+    limit: int = 20,
 ) -> list[dict]:
     """Return the N most recent messages from a chat, unfiltered.
 
