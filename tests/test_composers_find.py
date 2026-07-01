@@ -160,6 +160,22 @@ class TestFetchChatMessages:
         assert len(hits) == 1
 
 
+class TestSearchQueryPermissionErrorSurface:
+    @pytest.mark.asyncio
+    async def test_channel_message_error_points_at_alternatives(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=GraphAPIError(
+            403,
+            "Forbidden",
+            "Access to ChatMessage in Graph API requires: Chat.Read, ChannelMessage.Read.All",
+        ))
+        from ms365_intent_mcp.composers.find import _search_single
+        result = await _search_single(client, "hello", ["message"])
+        assert "resolve" in result
+        assert "people" in result
+        assert "whats_new" in result
+
+
 def _mock_search_response(query: str) -> dict:
     return {
         "value": [
