@@ -260,6 +260,47 @@ class TestFormatSearchResultsMarkdown:
         assert "Q2 Budget Review" in result
         assert "Finance" in result
 
+    def test_email_with_null_from(self):
+        hits = [
+            {
+                "resource": {
+                    "@odata.type": "#microsoft.graph.message",
+                    "subject": "Automated report",
+                    "from": None,
+                    "bodyPreview": "System-generated notice",
+                }
+            }
+        ]
+        result = format_search_results_markdown("report", hits)
+        assert "Automated report" in result
+
+    def test_email_with_null_body_preview(self):
+        hits = [
+            {
+                "resource": {
+                    "@odata.type": "#microsoft.graph.message",
+                    "subject": "Empty preview",
+                    "from": {"emailAddress": {"name": "Sender"}},
+                    "bodyPreview": None,
+                }
+            }
+        ]
+        result = format_search_results_markdown("empty", hits)
+        assert "Empty preview" in result
+
+    def test_listitem_with_null_fields(self):
+        hits = [
+            {
+                "resource": {
+                    "@odata.type": "#microsoft.graph.listItem",
+                    "fields": None,
+                    "name": "fallback-name",
+                }
+            }
+        ]
+        result = format_search_results_markdown("q", hits)
+        assert "fallback-name" in result
+
 
 class TestFormatMeetingTimesMarkdown:
     def test_empty_suggestions(self):
