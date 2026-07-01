@@ -253,8 +253,8 @@ def format_search_results_markdown(query: str, hits: list[dict]) -> str:
             lines.append(f"- **[Teams]** {sender}: {text}")
         elif "message" in odata_type:
             subject = resource.get("subject", "(no subject)")
-            sender = resource.get("from", {}).get("emailAddress", {}).get("name", "?")
-            preview = resource.get("bodyPreview", "")[:80]
+            sender = (resource.get("from") or {}).get("emailAddress", {}).get("name", "?")
+            preview = (resource.get("bodyPreview") or "")[:80]
             lines.append(f"- **[Mail]** {subject} — *from {sender}*")
             if preview:
                 lines.append(f"  {preview}")
@@ -263,7 +263,7 @@ def format_search_results_markdown(query: str, hits: list[dict]) -> str:
             web_url = resource.get("webUrl", "")
             lines.append(f"- **[File]** {name}" + (f" — {web_url}" if web_url else ""))
         elif "listItem" in odata_type:
-            fields = resource.get("fields", {})
+            fields = resource.get("fields") or {}
             title = fields.get("Title", resource.get("name", "?"))
             lines.append(f"- **[SharePoint]** {title}")
         else:
