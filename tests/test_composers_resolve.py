@@ -1355,6 +1355,112 @@ class TestGroupCallEvents:
 # _normalize_chat_entries
 # ---------------------------------------------------------------------------
 
+class TestEncodeShareUrl:
+    def test_produces_u_prefix_base64url(self):
+        from ms365_intent_mcp.composers.resolve import _encode_share_url
+        url = "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw"
+        encoded = _encode_share_url(url)
+        assert encoded.startswith("u!")
+        # Base64url has no padding.
+        assert "=" not in encoded
+
+
+class TestExtractRecordingOwner:
+    def test_extracts_upn_from_share_url(self):
+        from ms365_intent_mcp.composers.resolve import _extract_recording_owner
+        url = "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw"
+        host, upn = _extract_recording_owner(url)
+        assert host == "sap-my.sharepoint.com"
+        assert upn == "marcus_karlbowski"
+
+    def test_returns_empty_when_shape_unrecognized(self):
+        from ms365_intent_mcp.composers.resolve import _extract_recording_owner
+        host, upn = _extract_recording_owner("https://example.com/nope")
+        assert host == ""
+        assert upn == ""
+
+    def test_returns_empty_on_empty_input(self):
+        from ms365_intent_mcp.composers.resolve import _extract_recording_owner
+        assert _extract_recording_owner("") == ("", "")
+
+
+class TestEnrichCallRecording:
+    @pytest.mark.asyncio
+    async def test_adds_drive_metadata_when_shares_succeeds(self):
+        from ms365_intent_mcp.composers.resolve import _enrich_call_recording
+
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "id": "01LUWJL4TQYSFUZ4AUBVC334ND5VUPJEVP",
+            "parentReference": {"driveId": "b!vwRb..."},
+        })
+
+        entry = {
+            "kind": "call",
+            "recording_url": "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw",
+        }
+        await _enrich_call_recording(client, entry)
+
+        assert entry["drive_id"] == "b!vwRb..."
+        assert entry["drive_item_id"] == "01LUWJL4TQYSFUZ4AUBVC334ND5VUPJEVP"
+        assert entry["owner_upn"] == "marcus_karlbowski"
+        assert entry["vroom_url"] == (
+            "https://sap-my.sharepoint.com/personal/marcus_karlbowski"
+            "/_api/v2.0/drives/b!vwRb.../items/01LUWJL4TQYSFUZ4AUBVC334ND5VUPJEVP"
+        )
+        client.get.assert_called_once()
+        called_endpoint = client.get.call_args[0][0]
+        assert called_endpoint.startswith("/shares/u!")
+        assert called_endpoint.endswith("/driveItem")
+
+    @pytest.mark.asyncio
+    async def test_no_op_when_recording_url_missing(self):
+        from ms365_intent_mcp.composers.resolve import _enrich_call_recording
+        client = AsyncMock()
+        entry = {"kind": "call", "recording_url": ""}
+        await _enrich_call_recording(client, entry)
+        client.get.assert_not_called()
+        assert "drive_id" not in entry
+        assert "vroom_url" not in entry
+
+    @pytest.mark.asyncio
+    async def test_silent_degradation_on_shares_403(self):
+        """Cross-organizer recordings may 403 until the user opens the
+        recording in Teams UI. Enrichment must not raise or overwrite the URL —
+        it just leaves the drive fields absent."""
+        from ms365_intent_mcp.composers.resolve import _enrich_call_recording
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=GraphAPIError(403, "Forbidden", "no access"))
+
+        entry = {
+            "kind": "call",
+            "recording_url": "https://sap-my.sharepoint.com/:v:/p/other_user/XYZ",
+        }
+        await _enrich_call_recording(client, entry)
+
+        assert entry["recording_url"] == "https://sap-my.sharepoint.com/:v:/p/other_user/XYZ"
+        assert "drive_id" not in entry
+        assert "vroom_url" not in entry
+
+    @pytest.mark.asyncio
+    async def test_no_vroom_when_upn_not_extractable(self):
+        """If URL shape doesn't yield an owner UPN, drive_id/item_id are still
+        exposed — vroom_url just isn't composable."""
+        from ms365_intent_mcp.composers.resolve import _enrich_call_recording
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "id": "01ABC",
+            "parentReference": {"driveId": "b!x"},
+        })
+        entry = {"kind": "call", "recording_url": "https://example.com/no-upn-here"}
+        await _enrich_call_recording(client, entry)
+
+        assert entry.get("drive_id") == "b!x"
+        assert entry.get("drive_item_id") == "01ABC"
+        assert entry.get("owner_upn") == ""
+        assert "vroom_url" not in entry
+
+
 class TestNormalizeChatEntries:
     def test_partitions_messages_and_events(self):
         from ms365_intent_mcp.composers.resolve import _normalize_chat_entries

@@ -156,6 +156,81 @@ class TestFormatEventDetailMarkdown:
         # No crash; no orphan "None" artifact.
         assert "None" not in result
 
+    def test_recording_block_rendered_when_recording_present(self):
+        """When compose_meeting attaches _recording, format_event_detail_markdown
+        renders a Recording block with structured fields."""
+        event = {
+            "subject": "Team Sync",
+            "start": {"dateTime": "2026-05-15T14:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-15T14:30:00", "timeZone": "UTC"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": True,
+            "onlineMeeting": {"joinUrl": "https://x"},
+            "organizer": {"emailAddress": {"name": "Alice"}},
+            "attendees": [],
+            "body": {"content": ""},
+            "_recording": {
+                "recording_url": "https://sap-my.sharepoint.com/:v:/p/alice/IQBw",
+                "display_name": "Team Sync-recording.mp4",
+                "transcript_ready": True,
+                "drive_id": "b!xxx",
+                "drive_item_id": "01ABC",
+                "owner_upn": "alice",
+                "vroom_url": "https://sap-my.sharepoint.com/personal/alice/_api/v2.0/drives/b!xxx/items/01ABC",
+            },
+        }
+        result = format_event_detail_markdown(event)
+        assert "**Recording:**" in result
+        assert "Team Sync-recording.mp4" in result
+        assert "https://sap-my.sharepoint.com/:v:/p/alice/IQBw" in result
+        assert "b!xxx" in result
+        assert "01ABC" in result
+        assert "alice" in result
+        assert "transcript: ready" in result
+
+    def test_no_recording_block_when_recording_absent(self):
+        """Events without _recording render as before — no blank Recording block."""
+        event = {
+            "subject": "Team Sync",
+            "start": {"dateTime": "2026-05-15T14:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-15T14:30:00", "timeZone": "UTC"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": True,
+            "onlineMeeting": {"joinUrl": "https://x"},
+            "organizer": {"emailAddress": {"name": "Alice"}},
+            "attendees": [],
+            "body": {"content": ""},
+        }
+        result = format_event_detail_markdown(event)
+        assert "Recording" not in result
+
+    def test_recording_block_with_only_url_and_link(self):
+        """Degraded case: /shares/ 403'd, only URL survived enrichment.
+        Should still render the link, just no drive fields."""
+        event = {
+            "subject": "Team Sync",
+            "start": {"dateTime": "2026-05-15T14:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-05-15T14:30:00", "timeZone": "UTC"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": True,
+            "onlineMeeting": {"joinUrl": "https://x"},
+            "organizer": {"emailAddress": {"name": "Alice"}},
+            "attendees": [],
+            "body": {"content": ""},
+            "_recording": {
+                "recording_url": "https://sap-my.sharepoint.com/:v:/p/other/XYZ",
+                "display_name": "recording.mp4",
+                "transcript_ready": False,
+            },
+        }
+        result = format_event_detail_markdown(event)
+        assert "**Recording:**" in result
+        assert "recording.mp4" in result
+        assert "https://sap-my.sharepoint.com/:v:/p/other/XYZ" in result
+        # No drive fields — they weren't enrichable.
+        assert "drive_id" not in result
+        assert "vroom_url" not in result
+
 
 class TestFormatSectionError:
     def test_timeout_message(self):
@@ -848,6 +923,55 @@ class TestFormatChatEntry:
         # Empty parens (matching how the message and event branches
         # render null ts via ts_with_tz).
         assert "()" in line
+
+    def test_call_with_drive_metadata_renders_sub_bullets(self):
+        """Enriched call entries (drive_id/vroom_url/owner) render as
+        sub-bullets beneath the main call line — callers who want a
+        ready-to-download URL can grab vroom_url without parsing."""
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "call",
+            "ts": "2026-06-30T13:00:00Z",
+            "end_ts": "2026-06-30T14:14:00Z",
+            "duration": "1h14m",
+            "recording_url": "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw",
+            "transcript_ready": True,
+            "initiator": "Marcus",
+            "drive_id": "b!vwRb...",
+            "drive_item_id": "01LUWJL4",
+            "owner_upn": "marcus_karlbowski",
+            "vroom_url": "https://sap-my.sharepoint.com/personal/marcus_karlbowski/_api/v2.0/drives/b!vwRb.../items/01LUWJL4",
+        }
+        line = _format_chat_entry(entry)
+        # Main line still there.
+        assert "📞" in line
+        assert "[recording]" in line
+        # Enriched fields visible as sub-bullets.
+        assert "vroom_url:" in line
+        assert "drive_id:" in line
+        assert "drive_item_id:" in line
+        assert "owner:" in line
+        assert "marcus_karlbowski" in line
+        # Sub-bullets are indented (2 spaces) so they render as a nested list.
+        assert "\n  - vroom_url:" in line
+
+    def test_call_without_drive_metadata_stays_single_line(self):
+        """Backward-compatible: unenriched call entries render as before."""
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "call",
+            "ts": "2026-06-30T13:00:00Z",
+            "end_ts": "2026-06-30T14:14:00Z",
+            "duration": "1h14m",
+            "recording_url": "https://sap-my.sharepoint.com/:v:/p/x/y",
+            "transcript_ready": True,
+            "initiator": "Marcus",
+        }
+        line = _format_chat_entry(entry)
+        assert "vroom_url" not in line
+        assert "drive_id" not in line
+        # Still exactly one line.
+        assert "\n" not in line
 
 
 class TestFormatEventTimeRange:

@@ -151,6 +151,31 @@ def format_event_detail_markdown(event: dict) -> str:
             excerpt = text[:500]
             lines.append(f"\n**Body:**\n{excerpt}")
 
+    recording = event.get("_recording")
+    if recording:
+        lines.append("")
+        lines.append("**Recording:**")
+        display_name = recording.get("display_name")
+        if display_name:
+            lines.append(f"- name: {display_name}")
+        url = recording.get("recording_url")
+        if url:
+            lines.append(f"- link: {url}")
+        vroom = recording.get("vroom_url")
+        if vroom:
+            lines.append(f"- vroom_url: `{vroom}`")
+        drive_id = recording.get("drive_id")
+        if drive_id:
+            lines.append(f"- drive_id: `{drive_id}`")
+        drive_item_id = recording.get("drive_item_id")
+        if drive_item_id:
+            lines.append(f"- drive_item_id: `{drive_item_id}`")
+        owner = recording.get("owner_upn")
+        if owner:
+            lines.append(f"- owner: `{owner}`")
+        if recording.get("transcript_ready"):
+            lines.append("- transcript: ready")
+
     return "\n".join(lines)
 
 
@@ -495,9 +520,41 @@ def _format_chat_entry(entry: dict) -> str:
             parts.append(f"[recording]({entry['recording_url']})")
         if entry.get("transcript_ready"):
             parts.append("transcript ready")
-        return "- " + " — ".join(parts)
+        main_line = "- " + " — ".join(parts)
+        # Structured drive metadata (from /shares/ enrichment) as sub-bullets.
+        # These are what a caller like ferret-transcripts needs to download
+        # directly, without name-search guessing.
+        detail_lines = _format_recording_details(entry)
+        if detail_lines:
+            return "\n".join([main_line] + detail_lines)
+        return main_line
 
     if kind == "event":
         return f"- ⚙️ {entry.get('summary', 'system event')} ({ts_with_tz})"
 
     return f"- _(unknown entry: {kind})_"
+
+
+def _format_recording_details(entry: dict) -> list[str]:
+    """Render drive_id / drive_item_id / vroom_url as sub-bullets when present.
+
+    Returns [] when the entry has no enriched fields (recording was surfaced
+    URL-only, or /shares/ lookup failed). Callers that just want the link
+    keep seeing the same one-line entry; callers that want ready-to-download
+    metadata get the extra fields."""
+    vroom = entry.get("vroom_url")
+    drive_id = entry.get("drive_id")
+    drive_item_id = entry.get("drive_item_id")
+    owner = entry.get("owner_upn")
+    if not (vroom or drive_id or drive_item_id):
+        return []
+    lines = []
+    if vroom:
+        lines.append(f"  - vroom_url: `{vroom}`")
+    if drive_id:
+        lines.append(f"  - drive_id: `{drive_id}`")
+    if drive_item_id:
+        lines.append(f"  - drive_item_id: `{drive_item_id}`")
+    if owner:
+        lines.append(f"  - owner: `{owner}`")
+    return lines
