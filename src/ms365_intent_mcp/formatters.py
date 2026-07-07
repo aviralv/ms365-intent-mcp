@@ -3,6 +3,27 @@
 import re
 
 
+_MAX_EMAIL_BODY_BYTES = 200 * 1024
+
+
+def _truncate_email_body(text: str) -> str:
+    """Cap an email body at ~200 KB to protect the LLM context.
+
+    Truncation is by UTF-8 byte length, not character count — a 300 KB body of
+    mostly ASCII is worth capping, but the same character count of CJK is 3× as
+    many bytes. Cuts on a codepoint boundary and appends a visible marker.
+    Real email bodies observed in the wild are ~4 KB; this cap is safety, not
+    routine trimming.
+    """
+    if not text:
+        return ""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= _MAX_EMAIL_BODY_BYTES:
+        return text
+    truncated = encoded[:_MAX_EMAIL_BODY_BYTES].decode("utf-8", errors="ignore")
+    return truncated + f"\n\n…[truncated at {_MAX_EMAIL_BODY_BYTES // 1024} KB]"
+
+
 def _strip_teams_html(body: str) -> str:
     """Strip Teams HTML for plain-text rendering.
 
@@ -254,10 +275,14 @@ def format_search_results_markdown(query: str, hits: list[dict]) -> str:
         elif "message" in odata_type:
             subject = resource.get("subject", "(no subject)")
             sender = (resource.get("from") or {}).get("emailAddress", {}).get("name", "?")
-            preview = (resource.get("bodyPreview") or "")[:80]
+            preview = resource.get("bodyPreview") or ""
+            web_link = resource.get("webLink") or ""
             lines.append(f"- **[Mail]** {subject} — *from {sender}*")
             if preview:
                 lines.append(f"  {preview}")
+            if web_link:
+                # Follow-up hint: resolve(url=<webLink>) fetches the full body.
+                lines.append(f"  🔗 {web_link}")
         elif "driveItem" in odata_type:
             name = resource.get("name", "?")
             web_url = resource.get("webUrl", "")
@@ -301,10 +326,21 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
         subject = data.get("subject", "(no subject)")
         sender = data.get("from", {}).get("emailAddress", {}).get("name", "?")
         received = data.get("receivedDateTime", "")[:10]
-        preview = data.get("bodyPreview", "")[:200]
+        body = data.get("body") or {}
+        body_content = body.get("content", "")
+        body_type = body.get("contentType", "")
+        # Prefer full body (server returns text when Prefer header is honored);
+        # strip HTML if the server ignored the Prefer and returned html anyway.
+        # Fall back to bodyPreview only when body is entirely missing.
+        if body_content:
+            rendered = body_content if body_type == "text" else _strip_teams_html(body_content)
+        else:
+            rendered = (data.get("bodyPreview") or "")
+        rendered = _truncate_email_body(rendered)
         lines = [f"### Email: {subject}", f"**From:** {sender}  |  **Received:** {received}"]
-        if preview:
-            lines.append(f"\n{preview}")
+        if rendered:
+            lines.append("")
+            lines.append(rendered)
         return "\n".join(lines)
     elif url_type in ("channel_message", "chat_message"):
         body = data.get("body", {}).get("content", "")

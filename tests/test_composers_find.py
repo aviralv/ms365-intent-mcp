@@ -45,6 +45,27 @@ class TestFindSearch:
         assert "message" in payload["requests"][0]["entityTypes"]
 
     @pytest.mark.asyncio
+    async def test_email_search_requests_weblink_field(self, full_permissions):
+        """Explicit fields projection guarantees webLink so the caller has a
+        follow-up URL for resolve(). Without it we depend on Graph's implicit
+        default projection, which has changed shape before."""
+        client = AsyncMock()
+        client.post = AsyncMock(return_value=_mock_search_response("invoice"))
+
+        await compose_find(
+            client=client,
+            permissions=full_permissions,
+            query="invoice",
+            search_type="email",
+        )
+        payload = client.post.call_args[0][1]
+        request = payload["requests"][0]
+        assert "fields" in request
+        assert "webLink" in request["fields"]
+        assert "id" in request["fields"]
+        assert "bodyPreview" in request["fields"]
+
+    @pytest.mark.asyncio
     async def test_message_type_uses_chat_enumeration_not_search(self, full_permissions):
         client = AsyncMock()
         client.get = AsyncMock(return_value={"value": []})

@@ -73,7 +73,49 @@ class TestEmail:
         url = f"https://outlook.office365.com/mail/id/{msg_id}"
         result = resolve_url(url)
         assert result.url_type == "email"
-        assert msg_id in result.graph_endpoint
+        # Endpoint percent-encodes reserved chars so Graph doesn't interpret
+        # embedded '/' or '=' as path/query separators.
+        assert result.graph_endpoint == f"/me/messages/{urllib.parse.quote(msg_id, safe='')}"
+
+    def test_owa_itemid_shape(self):
+        """webLink from Graph Search returns owa/?ItemID=... form."""
+        msg_id = "AAMkADJiMzkyOWY1LWJkY2ItNGY2ZC05ZTE2LTY3OTQyNDBmYWQ1NQBGAAAAAAB_LqXAAA="
+        url = f"https://outlook.office365.com/owa/?ItemID={msg_id}&exvsurl=1&viewmodel=ReadMessageItem"
+        result = resolve_url(url)
+        assert result.url_type == "email"
+        assert result.graph_endpoint == f"/me/messages/{urllib.parse.quote(msg_id, safe='')}"
+
+    def test_owa_itemid_when_not_first_param(self):
+        msg_id = "AAMkADJiMzkyOWY1LWJkY2I="
+        url = f"https://outlook.office365.com/owa/?exvsurl=1&ItemID={msg_id}&viewmodel=ReadMessageItem"
+        result = resolve_url(url)
+        assert result.url_type == "email"
+        assert result.graph_endpoint == f"/me/messages/{urllib.parse.quote(msg_id, safe='')}"
+
+    def test_owa_itemid_with_embedded_slash_is_normalized(self):
+        """Search-returned IDs contain '/' (standard-base64) after URL-decoding.
+        Graph accepts only the URL-safe variant, so '/' must be rewritten to
+        '-' (Outlook's non-standard base64url mapping — verified against the
+        live API against hitId comparisons)."""
+        msg_id_encoded = "AAMkADJi%2FzOHQAAA%3D"
+        url = f"https://outlook.office365.com/owa/?ItemID={msg_id_encoded}&exvsurl=1"
+        result = resolve_url(url)
+        assert result.url_type == "email"
+        # '/' → '-', '=' stays but is percent-encoded to survive URL parsing.
+        assert result.graph_endpoint == "/me/messages/AAMkADJi-zOHQAAA%3D"
+        # And crucially: no raw '/' after "/me/messages/" — the id is one
+        # opaque path segment.
+        prefix = "/me/messages/"
+        id_segment = result.graph_endpoint[len(prefix):]
+        assert "/" not in id_segment
+
+    def test_owa_itemid_with_plus_normalized_to_underscore(self):
+        """'+' in standard base64 maps to '_' in Outlook's URL-safe form."""
+        msg_id_encoded = "AAMk%2BZzOHQAAA%3D"  # '%2B' == '+'
+        url = f"https://outlook.office365.com/owa/?ItemID={msg_id_encoded}"
+        result = resolve_url(url)
+        assert result.url_type == "email"
+        assert result.graph_endpoint == "/me/messages/AAMk_ZzOHQAAA%3D"
 
 
 class TestSharePointPage:

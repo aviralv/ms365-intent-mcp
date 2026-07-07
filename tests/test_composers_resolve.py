@@ -53,6 +53,67 @@ class TestResolveEmail:
         assert "Alice" in result
 
     @pytest.mark.asyncio
+    async def test_email_fetch_requests_plain_text_body(self, full_permissions):
+        """Prefer: outlook.body-content-type=\"text\" lets Graph return
+        server-generated plain text instead of HTML — cleaner for LLM
+        consumption, no client-side stripping needed."""
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "subject": "x",
+            "from": {"emailAddress": {"name": "A"}},
+            "receivedDateTime": "2026-05-15T08:00:00Z",
+            "body": {"contentType": "text", "content": "plain text body"},
+        })
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="email",
+                graph_endpoint="/me/messages/AAA",
+                required_scope="Mail.Read",
+            )
+            await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://outlook.office365.com/mail/id/AAA",
+            )
+        _, kwargs = client.get.call_args
+        headers = kwargs.get("headers") or {}
+        assert headers.get("Prefer") == 'outlook.body-content-type="text"'
+        params = kwargs.get("params") or {}
+        assert "body" in params.get("$select", "")
+
+    @pytest.mark.asyncio
+    async def test_email_full_body_renders_in_output(self, full_permissions):
+        """End-to-end at the composer level: body.content flows through."""
+        long_body = (
+            "Yes exactly.\n\nDetail 1: repro on tenant X.\n\n"
+            "Detail 2: repro requires empty input list.\n\n"
+            "Regards, Alessia"
+        )
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "subject": "RE: Additional Feedback on Agent",
+            "from": {"emailAddress": {"name": "Alessia"}},
+            "receivedDateTime": "2026-07-02T09:00:00Z",
+            "body": {"contentType": "text", "content": long_body},
+            "bodyPreview": long_body[:200],
+        })
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="email",
+                graph_endpoint="/me/messages/AAA",
+                required_scope="Mail.Read",
+            )
+            result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://outlook.office365.com/mail/id/AAA",
+            )
+        assert "Detail 2: repro requires empty input list" in result
+        assert "Regards, Alessia" in result
+
+    @pytest.mark.asyncio
     async def test_unrecognised_url_returns_error(self, full_permissions):
         client = AsyncMock()
 
