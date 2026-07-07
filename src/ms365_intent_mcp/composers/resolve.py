@@ -1,6 +1,7 @@
 """resolve composer — parse M365 URLs and fetch their content via Graph."""
 
 import asyncio
+import base64
 import json
 import re
 from collections import defaultdict
@@ -11,6 +12,65 @@ from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ..resolver import ResolvedUrl, UrlParseError, resolve_url
 from ._utils import _error_reason, _escape_odata
+
+
+def _encode_share_url(url: str) -> str:
+    """Encode a share URL for /shares/{u!<base64>}/driveItem lookup."""
+    return "u!" + base64.urlsafe_b64encode(url.encode()).rstrip(b"=").decode()
+
+
+_RECORDING_UPN_RE = re.compile(r"://([^/]+)/(?::[a-z]:/)?p/([^/]+)/")
+
+
+def _extract_recording_owner(recording_url: str) -> tuple[str, str]:
+    """Pull (host, owner_upn_segment) from a SharePoint recording URL.
+
+    Recording URLs look like:
+      https://<tenant>-my.sharepoint.com/:v:/p/<upn-encoded>/<share-token>
+
+    Returns ('', '') if the URL doesn't match.
+    """
+    if not recording_url:
+        return "", ""
+    match = _RECORDING_UPN_RE.search(recording_url)
+    if not match:
+        return "", ""
+    return match.group(1), match.group(2)
+
+
+async def _enrich_call_recording(client: GraphClient, entry: dict) -> None:
+    """Add drive_id / drive_item_id / vroom_url / owner_upn to a call entry.
+
+    Mutates the entry in-place. Silent no-op if the entry has no recording_url,
+    or if the /shares/ lookup fails (cross-organizer recordings on someone
+    else's drive may 403 if the user hasn't opened the recording in Teams UI).
+    Graceful degradation is the point — surface what we can, don't fail the
+    whole chat-thread render because one drive lookup 403'd.
+    """
+    recording_url = entry.get("recording_url") or ""
+    if not recording_url:
+        return
+
+    try:
+        share_ref = _encode_share_url(recording_url)
+        drive_item = await client.get(f"/shares/{share_ref}/driveItem")
+    except GraphAPIError:
+        return
+
+    drive_id = (drive_item.get("parentReference") or {}).get("driveId", "")
+    drive_item_id = drive_item.get("id", "")
+    if not drive_id or not drive_item_id:
+        return
+
+    host, owner_upn = _extract_recording_owner(recording_url)
+    entry["drive_id"] = drive_id
+    entry["drive_item_id"] = drive_item_id
+    entry["owner_upn"] = owner_upn
+    if host and owner_upn:
+        entry["vroom_url"] = (
+            f"https://{host}/personal/{owner_upn}"
+            f"/_api/v2.0/drives/{drive_id}/items/{drive_item_id}"
+        )
 
 
 _ISO_DURATION_RE = re.compile(
@@ -431,6 +491,17 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
 
         name_map = _build_member_name_map(chat) if chat else {}
         entries = _normalize_chat_entries(messages, name_map)
+
+        # Enrich call entries with drive metadata for recordings. In parallel so
+        # multi-recording chats don't serialize the /shares/ lookups. Failures
+        # are silent — enrichment is best-effort, chat-thread render must not
+        # depend on it.
+        recording_entries = [e for e in entries if e.get("kind") == "call" and e.get("recording_url")]
+        if recording_entries:
+            await asyncio.gather(
+                *[_enrich_call_recording(client, e) for e in recording_entries],
+                return_exceptions=True,
+            )
 
         meeting_event = None
         if chat:
