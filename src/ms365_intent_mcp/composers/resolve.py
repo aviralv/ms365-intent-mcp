@@ -391,9 +391,13 @@ async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
     endpoint = resolved.graph_endpoint
 
     if url_type == "email":
-        return await client.get(endpoint, params={
-            "$select": "subject,from,receivedDateTime,bodyPreview,body",
-        })
+        return await client.get(
+            endpoint,
+            params={
+                "$select": "subject,from,receivedDateTime,bodyPreview,body,toRecipients,ccRecipients,webLink",
+            },
+            headers={"Prefer": 'outlook.body-content-type="text"'},
+        )
 
     elif url_type == "channel_message":
         return await client.get(endpoint, params={

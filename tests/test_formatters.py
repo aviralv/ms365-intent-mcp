@@ -302,6 +302,57 @@ class TestFormatSearchResultsMarkdown:
         assert "fallback-name" in result
 
 
+    def test_email_weblink_rendered_when_present(self):
+        hits = [
+            {
+                "resource": {
+                    "@odata.type": "#microsoft.graph.message",
+                    "subject": "Full body needed",
+                    "from": {"emailAddress": {"name": "Alessia"}},
+                    "bodyPreview": "First 255 chars of preview",
+                    "webLink": "https://outlook.office365.com/owa/?ItemID=AAAA",
+                }
+            }
+        ]
+        result = format_search_results_markdown("q", hits)
+        assert "Full body needed" in result
+        # Follow-up hint present so the caller can resolve() the full body.
+        assert "https://outlook.office365.com/owa/?ItemID=AAAA" in result
+
+    def test_email_weblink_omitted_when_absent(self):
+        """No webLink line, no crash — Graph doesn't guarantee webLink."""
+        hits = [
+            {
+                "resource": {
+                    "@odata.type": "#microsoft.graph.message",
+                    "subject": "No link here",
+                    "from": {"emailAddress": {"name": "Sender"}},
+                    "bodyPreview": "Body preview text",
+                    # webLink intentionally absent
+                }
+            }
+        ]
+        result = format_search_results_markdown("q", hits)
+        assert "No link here" in result
+        assert "🔗" not in result
+
+    def test_email_bodypreview_not_truncated_to_80(self):
+        """bodyPreview is already capped at 255 by Graph; don't re-cap at 80."""
+        long_preview = "A" * 200
+        hits = [
+            {
+                "resource": {
+                    "@odata.type": "#microsoft.graph.message",
+                    "subject": "Long preview",
+                    "from": {"emailAddress": {"name": "S"}},
+                    "bodyPreview": long_preview,
+                }
+            }
+        ]
+        result = format_search_results_markdown("q", hits)
+        assert long_preview in result
+
+
 class TestFormatMeetingTimesMarkdown:
     def test_empty_suggestions(self):
         result = format_meeting_times_markdown([])
@@ -335,6 +386,61 @@ class TestFormatResolvedContentMarkdown:
         result = format_resolved_content_markdown("email", data)
         assert "Hello" in result
         assert "Bob" in result
+
+    def test_email_renders_full_text_body(self):
+        """When body.contentType=='text', render body.content as-is (no strip)."""
+        full = "Line one.\n\nLine two with detail.\n\nLine three."
+        data = {
+            "subject": "Details",
+            "from": {"emailAddress": {"name": "Alessia"}},
+            "receivedDateTime": "2026-07-01T09:00:00Z",
+            "body": {"contentType": "text", "content": full},
+            "bodyPreview": "Line one. Line two",
+        }
+        result = format_resolved_content_markdown("email", data)
+        assert "Line two with detail" in result
+        assert "Line three" in result
+
+    def test_email_strips_html_if_server_ignored_prefer(self):
+        html = "<html><body><p>Hello <b>world</b>.</p></body></html>"
+        data = {
+            "subject": "HTML fallback",
+            "from": {"emailAddress": {"name": "Alessia"}},
+            "receivedDateTime": "2026-07-01T09:00:00Z",
+            "body": {"contentType": "html", "content": html},
+            "bodyPreview": "Hello world.",
+        }
+        result = format_resolved_content_markdown("email", data)
+        assert "Hello world" in result
+        # No raw tags leaking through.
+        assert "<b>" not in result
+        assert "<html>" not in result
+
+    def test_email_falls_back_to_body_preview_when_body_missing(self):
+        data = {
+            "subject": "Preview only",
+            "from": {"emailAddress": {"name": "Sender"}},
+            "receivedDateTime": "2026-07-01T09:00:00Z",
+            "bodyPreview": "Just a preview.",
+            # body key intentionally absent
+        }
+        result = format_resolved_content_markdown("email", data)
+        assert "Just a preview." in result
+
+    def test_email_truncates_at_200kb(self):
+        """Pathological body caps at 200 KB with a visible marker."""
+        # 300 KB of ASCII.
+        oversize = "x" * (300 * 1024)
+        data = {
+            "subject": "Huge",
+            "from": {"emailAddress": {"name": "S"}},
+            "receivedDateTime": "2026-07-01T09:00:00Z",
+            "body": {"contentType": "text", "content": oversize},
+        }
+        result = format_resolved_content_markdown("email", data)
+        assert "truncated" in result.lower()
+        # Result body portion must be smaller than the input.
+        assert len(result) < len(oversize)
 
     def test_sharepoint_page_type(self):
         data = {"displayName": "Project Overview", "webUrl": "https://contoso.sharepoint.com/sites/proj"}

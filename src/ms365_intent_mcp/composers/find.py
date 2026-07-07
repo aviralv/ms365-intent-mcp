@@ -126,16 +126,16 @@ def _to_search_hit(msg: dict) -> dict:
 
 
 async def _search_single(client: GraphClient, query: str, entity_types: list[str]) -> str:
-    payload = {
-        "requests": [
-            {
-                "entityTypes": entity_types,
-                "query": {"queryString": query},
-                "from": 0,
-                "size": 10,
-            }
-        ]
+    request: dict = {
+        "entityTypes": entity_types,
+        "query": {"queryString": query},
+        "from": 0,
+        "size": 10,
     }
+    fields = _fields_for(entity_types)
+    if fields:
+        request["fields"] = fields
+    payload = {"requests": [request]}
 
     try:
         response = await client.post("/search/query", payload)
@@ -157,18 +157,38 @@ async def _search_single(client: GraphClient, query: str, entity_types: list[str
 
 
 async def _search_single_raw(client: GraphClient, query: str, entity_types: list[str]) -> list[dict]:
-    payload = {
-        "requests": [
-            {
-                "entityTypes": entity_types,
-                "query": {"queryString": query},
-                "from": 0,
-                "size": 5,
-            }
-        ]
+    request: dict = {
+        "entityTypes": entity_types,
+        "query": {"queryString": query},
+        "from": 0,
+        "size": 5,
     }
+    fields = _fields_for(entity_types)
+    if fields:
+        request["fields"] = fields
+    payload = {"requests": [request]}
     response = await client.post("/search/query", payload)
     return _extract_hits(response)
+
+
+def _fields_for(entity_types: list[str]) -> list[str]:
+    """Return the fields projection for a Search request, if any is needed.
+
+    Explicit fields keep webLink and bodyPreview stable for the "email" entity
+    so the caller has both a snippet and a follow-up URL for resolve(). For
+    driveItem/listItem, Graph's default projection is already sufficient and
+    a mixed fields list would strip useful defaults on those types.
+    """
+    if entity_types == ["message"]:
+        return [
+            "id",
+            "subject",
+            "webLink",
+            "bodyPreview",
+            "from",
+            "receivedDateTime",
+        ]
+    return []
 
 
 def _extract_hits(response: dict) -> list[dict]:

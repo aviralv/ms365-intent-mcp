@@ -59,6 +59,11 @@ _PATTERNS: list[tuple[str, re.Pattern, str]] = [
         "Mail.Read",
     ),
     (
+        "email",
+        re.compile(r"outlook\.office(?:365)?\.com/owa/\?[^\s]*?ItemID=([A-Za-z0-9=+/_\-%.]+)"),
+        "Mail.Read",
+    ),
+    (
         "sharepoint_page",
         re.compile(r"sharepoint\.com/sites/[^/]+/SitePages/[^/\?]+\.aspx"),
         "Sites.Read.All",
@@ -192,7 +197,15 @@ def _build_endpoint(url_type: str, url: str, match: re.Match, extra: dict[str, s
         return "/me/calendarView"
     if url_type == "email":
         msg_id = match.group(1)
-        return f"/me/messages/{msg_id}"
+        # Outlook exposes message IDs in two encodings. Client "copy link"
+        # (mail/id/<id>) uses a URL-safe form ('-'/'_'). OWA (owa/?ItemID=<id>)
+        # uses standard base64 ('+'/'/'). Graph accepts the URL-safe form only.
+        # Normalize: '/'→'-', '+'→'_'. This mapping is Outlook-specific — it
+        # matches what Search's `hitId` returns for the same underlying message.
+        # `resolve_url` already unquoted the incoming URL, so any '%2F' is now
+        # a raw '/' at this point.
+        normalized = msg_id.replace("/", "-").replace("+", "_")
+        return f"/me/messages/{urllib.parse.quote(normalized, safe='')}"
     if url_type == "sharepoint_page":
         parsed = urllib.parse.urlparse(url)
         host = parsed.hostname or ""
