@@ -1,4 +1,4 @@
-"""schedule_v1 tool package."""
+"""schedule tool package."""
 
 from .register import register
 

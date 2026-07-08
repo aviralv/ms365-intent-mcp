@@ -1,4 +1,4 @@
-"""resolve_v1 implementation — dispatches URL to compose_resolve and wraps
+"""resolve implementation — dispatches URL to compose_resolve and wraps
 the structured return into a typed ResolvedContent response."""
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .schemas import (
     SharePointPageContent,
 )
 
-TOOL_NAME = "resolve_v1"
+TOOL_NAME = "resolve"
 
 _KIND_TO_MODEL = {
     "email": EmailContent,
@@ -34,7 +34,7 @@ _KIND_TO_MODEL = {
 
 
 @wrap_errors(TOOL_NAME)
-async def _resolve_v1_impl(ctx: Context, payload: ResolvePayload) -> ResolvedContent:
+async def _resolve_impl(ctx: Context, payload: ResolvePayload) -> ResolvedContent:
     """Resolve an M365 URL and return a typed response."""
     _, client, permissions = _get_deps(ctx)
 

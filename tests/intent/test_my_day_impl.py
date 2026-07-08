@@ -1,4 +1,4 @@
-"""Unit tests for _my_day_v1_impl — mocked context, no FastMCP."""
+"""Unit tests for _my_day_impl — mocked context, no FastMCP."""
 
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
-from ms365_intent_mcp.intent.my_day.impl import _my_day_v1_impl
+from ms365_intent_mcp.intent.my_day.impl import _my_day_impl
 from ms365_intent_mcp.intent.my_day.schemas import (
     MailSummary,
     MyDayPayload,
@@ -45,7 +45,7 @@ class TestMyDayV1Happy:
         )
 
         payload = MyDayPayload(date=date(2026, 7, 8))
-        response = await _my_day_v1_impl(ctx, payload)
+        response = await _my_day_impl(ctx, payload)
 
         assert isinstance(response, MyDaySummary)
         assert response.type == "my_day_summary"
@@ -70,7 +70,7 @@ class TestMyDayV1Happy:
         )
 
         payload = MyDayPayload()
-        response = await _my_day_v1_impl(ctx, payload)
+        response = await _my_day_impl(ctx, payload)
 
         assert isinstance(response, MyDaySummary)
         assert len(received_dates) == 1
@@ -93,7 +93,7 @@ class TestMyDayV1Happy:
 
         target = date(2026, 1, 15)
         payload = MyDayPayload(date=target)
-        response = await _my_day_v1_impl(ctx, payload)
+        response = await _my_day_impl(ctx, payload)
 
         assert response.date == target
         assert received_dates[0] == "2026-01-15"
@@ -112,7 +112,7 @@ class TestMyDayV1Happy:
         )
 
         payload = MyDayPayload(date=date(2026, 7, 8))
-        response = await _my_day_v1_impl(ctx, payload)
+        response = await _my_day_impl(ctx, payload)
 
         assert response.events == []
         assert response.mail.unread_count == 0
@@ -135,7 +135,7 @@ class TestMyDayV1Errors:
         )
 
         payload = MyDayPayload(date=date(2026, 7, 8))
-        response = await _my_day_v1_impl(ctx, payload)
+        response = await _my_day_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"

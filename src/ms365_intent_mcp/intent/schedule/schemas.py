@@ -1,4 +1,4 @@
-"""schedule_v1 schemas — payload, constraints, and response types."""
+"""schedule schemas — payload, constraints, and response types."""
 
 from __future__ import annotations
 

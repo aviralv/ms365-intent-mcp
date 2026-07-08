@@ -4,7 +4,7 @@
 Three probes without hitting Graph:
 
   A. Schema validation via TypeAdapter — proves the discriminator dispatch works.
-  B. Dispatch through _compose_v1_impl with a stubbed compose_action.
+  B. Dispatch through _compose_impl with a stubbed compose_action.
   C. Dump the generated JSON Schema so we can inspect the ``oneOf`` shape.
 
 The GATE for this session is Probe C: the JSON Schema for ``ComposePayload``
@@ -23,7 +23,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from pydantic import TypeAdapter
 
-from ms365_intent_mcp.intent.compose.impl import _compose_v1_impl
+from ms365_intent_mcp.intent.compose.impl import _compose_impl
 from ms365_intent_mcp.intent.compose.schemas import (
     ComposeEmail,
     ComposeEvent,
@@ -69,7 +69,7 @@ async def run() -> None:
         print(f"  ✅ {parsed.__class__.__name__}: type={parsed.type}")
 
     _line()
-    print("PROBE B — dispatch to legacy composer via _compose_v1_impl")
+    print("PROBE B — dispatch to legacy composer via _compose_impl")
     _line()
 
     import ms365_intent_mcp.intent.compose.impl as impl_module
@@ -80,20 +80,20 @@ async def run() -> None:
     original = impl_module.compose_action
     impl_module.compose_action = _fake_compose_action
     try:
-        r1 = await _compose_v1_impl(ctx, ComposeEmail.model_validate({
+        r1 = await _compose_impl(ctx, ComposeEmail.model_validate({
             "type": "email", "mode": "new",
             "to": [{"email": "a@b.com"}], "subject": "Hi", "body": "Hello",
         }))
         print(f"  Email: type={r1.type}, subject={r1.subject}")
 
-        r2 = await _compose_v1_impl(ctx, ComposeEvent.model_validate({
+        r2 = await _compose_impl(ctx, ComposeEvent.model_validate({
             "type": "event", "subject": "Sync",
             "start": "2026-07-08T10:00:00Z", "end": "2026-07-08T11:00:00Z",
             "timezone": "Europe/Berlin",
         }))
         print(f"  Event: type={r2.type}, subject={r2.subject}")
 
-        r3 = await _compose_v1_impl(ctx, ComposeTeamsMessage.model_validate({
+        r3 = await _compose_impl(ctx, ComposeTeamsMessage.model_validate({
             "type": "teams_message", "chat_id": "19:abc@thread.v2", "content": "hi",
         }))
         print(f"  Teams: type={r3.type}, chat_id={r3.chat_id}")

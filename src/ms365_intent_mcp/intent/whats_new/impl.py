@@ -1,4 +1,4 @@
-"""whats_new_v1 implementation — wraps composers.whats_new.compose_whats_new."""
+"""whats_new implementation — wraps composers.whats_new.compose_whats_new."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from ...composers.whats_new import compose_whats_new
 from .._helpers import _get_deps, wrap_errors
 from .schemas import EventSummary, MailItem, TeamsItem, WhatsNewPayload, WhatsNewSummary
 
-TOOL_NAME = "whats_new_v1"
+TOOL_NAME = "whats_new"
 
 
 @wrap_errors(TOOL_NAME)
-async def _whats_new_v1_impl(ctx: Context, payload: WhatsNewPayload) -> WhatsNewSummary:
+async def _whats_new_impl(ctx: Context, payload: WhatsNewPayload) -> WhatsNewSummary:
     """Call the underlying composer and return a typed WhatsNewSummary."""
     config, client, permissions = _get_deps(ctx)
     composer_scope = None if payload.scope == "all" else payload.scope

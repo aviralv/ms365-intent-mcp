@@ -1,11 +1,11 @@
-"""Unit tests for _compose_v1_impl — mocked context, no FastMCP."""
+"""Unit tests for _compose_impl — mocked context, no FastMCP."""
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from ms365_intent_mcp.intent._helpers import idempotency_clear, idempotency_lookup, idempotency_store
-from ms365_intent_mcp.intent.compose.impl import _compose_v1_impl
+from ms365_intent_mcp.intent.compose.impl import _compose_impl
 from ms365_intent_mcp.intent.compose.schemas import (
     ComposeEmail,
     ComposeEvent,
@@ -59,7 +59,7 @@ class TestComposeV1Email:
             "subject": "Hi",
             "body": "Hello",
         })
-        response = await _compose_v1_impl(ctx, payload)
+        response = await _compose_impl(ctx, payload)
 
         assert isinstance(response, EmailDraftCreated)
         assert response.type == "email_draft_created"
@@ -85,7 +85,7 @@ class TestComposeV1Email:
             "in_reply_to_message_id": "AAM123",
             "body": "Reply body",
         })
-        await _compose_v1_impl(ctx, payload)
+        await _compose_impl(ctx, payload)
 
         assert len(captured_action) == 1
         assert captured_action[0].value == "reply_draft"
@@ -113,7 +113,7 @@ class TestComposeV1Event:
             "end": "2026-07-08T11:00:00Z",
             "timezone": "Europe/Berlin",
         })
-        response = await _compose_v1_impl(ctx, payload)
+        response = await _compose_impl(ctx, payload)
 
         assert isinstance(response, EventCreated)
         assert response.subject == "Sync"
@@ -140,7 +140,7 @@ class TestComposeV1TeamsMessage:
             "chat_id": "19:abc@thread.v2",
             "content": "hi",
         })
-        response = await _compose_v1_impl(ctx, payload)
+        response = await _compose_impl(ctx, payload)
 
         assert isinstance(response, TeamsMessageSent)
         assert response.chat_id == "19:abc@thread.v2"
@@ -170,8 +170,8 @@ class TestIdempotencyKey:
             "body": "Hello",
             "idempotency_key": "abc-123",
         })
-        r1 = await _compose_v1_impl(ctx, payload)
-        r2 = await _compose_v1_impl(ctx, payload)
+        r1 = await _compose_impl(ctx, payload)
+        r2 = await _compose_impl(ctx, payload)
 
         assert call_count == 1, "second call should be served from cache"
         assert r1.rendered_markdown == r2.rendered_markdown
@@ -205,8 +205,8 @@ class TestIdempotencyKey:
                 "body": "Hi",
                 "idempotency_key": "expiry-test",
             })
-            await _compose_v1_impl(ctx, payload)
-            await _compose_v1_impl(ctx, payload)
+            await _compose_impl(ctx, payload)
+            await _compose_impl(ctx, payload)
             assert call_count == 2, "past-TTL call should re-execute"
         finally:
             h._IDEMPOTENCY_TTL_SECONDS = original_ttl
@@ -234,8 +234,8 @@ class TestIdempotencyKey:
             "subject": "Hi",
             "body": "Hi",
         })
-        await _compose_v1_impl(ctx, payload)
-        await _compose_v1_impl(ctx, payload)
+        await _compose_impl(ctx, payload)
+        await _compose_impl(ctx, payload)
         assert call_count == 2, "no key should mean no cache"
 
 

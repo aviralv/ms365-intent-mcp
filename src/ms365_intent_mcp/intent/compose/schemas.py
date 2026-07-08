@@ -1,4 +1,4 @@
-"""Schemas for compose_v1 — discriminated union on ``type``.
+"""Schemas for compose — discriminated union on ``type``.
 
 Three variants:
 - ``ComposeEmail`` (mode='new' | 'reply' | 'reply_all' | 'forward')

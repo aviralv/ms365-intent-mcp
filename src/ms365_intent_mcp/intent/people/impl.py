@@ -1,4 +1,4 @@
-"""people_v1 implementation — wraps composers.people.compose_people."""
+"""people implementation — wraps composers.people.compose_people."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from ...composers.people import compose_people
 from .._helpers import _get_deps, wrap_errors
 from .schemas import MailPreview, ChatPreview, PeoplePayload, PersonDetail
 
-TOOL_NAME = "people_v1"
+TOOL_NAME = "people"
 
 
 @wrap_errors(TOOL_NAME)
-async def _people_v1_impl(ctx: Context, payload: PeoplePayload) -> PersonDetail:
+async def _people_impl(ctx: Context, payload: PeoplePayload) -> PersonDetail:
     """Look up a person and return a typed PersonDetail response."""
     _, client, permissions = _get_deps(ctx)
     data, markdown = await compose_people(client, permissions, payload.query)

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Live end-to-end verify script for schedule_v1.
 
-Calls _schedule_v1_impl against a live Graph connection and prints
+Calls _schedule_impl against a live Graph connection and prints
 the structured response fields plus the rendered markdown.
 
 Usage:
-    uv run python scripts/verify_schedule_v1.py
-    uv run python scripts/verify_schedule_v1.py attendee@example.com
+    uv run python scripts/verify_schedule.py
+    uv run python scripts/verify_schedule.py attendee@example.com
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 from ms365_intent_mcp.auth import TokenManager
 from ms365_intent_mcp.config import Config
 from ms365_intent_mcp.graph import GraphClient
-from ms365_intent_mcp.intent.schedule.impl import _schedule_v1_impl
+from ms365_intent_mcp.intent.schedule.impl import _schedule_impl
 from ms365_intent_mcp.intent.schedule.schemas import SchedulePayload
 from ms365_intent_mcp.permissions import PermissionRegistry
 
@@ -52,10 +52,10 @@ async def run(attendee_email: str) -> None:
         })
 
         _line()
-        print(f"schedule_v1 — attendees=[{attendee_email}], duration=30min")
+        print(f"schedule — attendees=[{attendee_email}], duration=30min")
         _line()
 
-        result = await _schedule_v1_impl(ctx, payload)
+        result = await _schedule_impl(ctx, payload)
 
         _line("─")
         print(f"type:              {result.type}")
@@ -71,7 +71,7 @@ async def run(attendee_email: str) -> None:
 
         assert result.type == "schedule_suggestions", f"Expected type='schedule_suggestions', got {result.type!r}"
         print("✅ type field correct")
-        print("✅ verify_schedule_v1 PASSED")
+        print("✅ verify_schedule PASSED")
 
 
 if __name__ == "__main__":

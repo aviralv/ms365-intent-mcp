@@ -1,6 +1,6 @@
 {
   "additionalProperties": false,
-  "description": "Payload for meeting_v1.",
+  "description": "Payload for meeting.",
   "properties": {
     "identifier": {
       "description": "Event ID, subject substring, or 'next'.",

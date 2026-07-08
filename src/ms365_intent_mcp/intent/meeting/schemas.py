@@ -1,4 +1,4 @@
-"""Schemas for meeting_v1 — single payload, structured detail response.
+"""Schemas for meeting — single payload, structured detail response.
 
 Structured fields (id, subject, start, end, organizer, attendees) are stubs
 until Task 12 refactors composers to return ``(dict, markdown)`` tuples.
@@ -16,7 +16,7 @@ from .._shared import BaseResponse
 
 
 class MeetingPayload(BaseModel):
-    """Payload for meeting_v1."""
+    """Payload for meeting."""
 
     model_config = ConfigDict(extra="forbid")
     identifier: Annotated[
@@ -63,7 +63,7 @@ class RecordingMetadata(BaseModel):
 
 
 class MeetingDetail(BaseResponse):
-    """Response for meeting_v1."""
+    """Response for meeting."""
 
     type: Literal["meeting_detail"] = "meeting_detail"
     id: str

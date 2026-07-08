@@ -1,4 +1,4 @@
-"""resolve_v1 tool package."""
+"""resolve tool package."""
 
 from .register import register
 

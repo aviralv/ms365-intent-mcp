@@ -1,4 +1,4 @@
-"""Schemas for resolve_v1 — flat payload, discriminated union on ``kind`` for response.
+"""Schemas for resolve — flat payload, discriminated union on ``kind`` for response.
 
 Input:
 - ``ResolvePayload`` — a single ``url`` field. No discriminator on input: the
@@ -130,7 +130,7 @@ ResolvedContentData = Annotated[
 
 
 class ResolvedContent(BaseResponse):
-    """Response for resolve_v1."""
+    """Response for resolve."""
 
     type: Literal["resolved_content"] = "resolved_content"
     url: HttpUrl

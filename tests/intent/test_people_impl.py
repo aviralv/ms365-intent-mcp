@@ -1,4 +1,4 @@
-"""Unit tests for _people_v1_impl — mocked context, no FastMCP."""
+"""Unit tests for _people_impl — mocked context, no FastMCP."""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -6,7 +6,7 @@ import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.intent._shared import ErrorResponse
-from ms365_intent_mcp.intent.people.impl import _people_v1_impl
+from ms365_intent_mcp.intent.people.impl import _people_impl
 from ms365_intent_mcp.intent.people.schemas import PeoplePayload, PersonDetail
 
 
@@ -40,7 +40,7 @@ class TestPeopleV1Impl:
         )
 
         payload = PeoplePayload(query="Avi Vaid")
-        response = await _people_v1_impl(ctx, payload)
+        response = await _people_impl(ctx, payload)
 
         assert isinstance(response, PersonDetail)
         assert response.type == "person_detail"
@@ -64,7 +64,7 @@ class TestPeopleV1Impl:
         )
 
         payload = PeoplePayload(query="john.doe@example.com")
-        await _people_v1_impl(ctx, payload)
+        await _people_impl(ctx, payload)
 
         assert captured == ["john.doe@example.com"]
 
@@ -82,7 +82,7 @@ class TestPeopleV1Impl:
         )
 
         payload = PeoplePayload(query="anyone")
-        response = await _people_v1_impl(ctx, payload)
+        response = await _people_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"
@@ -103,7 +103,7 @@ class TestPeopleV1Impl:
         )
 
         payload = PeoplePayload(query="someone")
-        response = await _people_v1_impl(ctx, payload)
+        response = await _people_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.retryable is True
@@ -124,7 +124,7 @@ class TestPeopleV1Impl:
         )
 
         payload = PeoplePayload(query="partial")
-        response = await _people_v1_impl(ctx, payload)
+        response = await _people_impl(ctx, payload)
 
         assert isinstance(response, PersonDetail)
         assert response.name == ""

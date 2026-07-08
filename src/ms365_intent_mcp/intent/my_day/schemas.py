@@ -1,4 +1,4 @@
-"""Schemas for my_day_v1 — single payload, structured summary response.
+"""Schemas for my_day — single payload, structured summary response.
 
 Structured fields (events, mail, teams) are stubs until Task 12 refactors
 composers to return ``(dict, markdown)`` tuples. ``rendered_markdown``
@@ -16,7 +16,7 @@ from .._shared import BaseResponse
 
 
 class MyDayPayload(BaseModel):
-    """Payload for my_day_v1."""
+    """Payload for my_day."""
 
     model_config = ConfigDict(extra="forbid")
     date: _dt.date | None = Field(default=None, description="Defaults to today (server tz).")
@@ -50,7 +50,7 @@ class TeamsActivitySummary(BaseModel):
 
 
 class MyDaySummary(BaseResponse):
-    """Response for my_day_v1."""
+    """Response for my_day."""
 
     type: Literal["my_day_summary"] = "my_day_summary"
     date: _dt.date

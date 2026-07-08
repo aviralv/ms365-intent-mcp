@@ -1,4 +1,4 @@
-"""Schema-level tests for compose_v1 discriminated union."""
+"""Schema-level tests for compose discriminated union."""
 
 import pytest
 from pydantic import ValidationError

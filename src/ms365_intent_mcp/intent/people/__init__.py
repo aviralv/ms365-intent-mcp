@@ -1,4 +1,4 @@
-"""people_v1 tool package."""
+"""people tool package."""
 
 from .register import register
 

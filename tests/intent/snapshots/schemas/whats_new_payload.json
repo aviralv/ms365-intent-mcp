@@ -1,6 +1,6 @@
 {
   "additionalProperties": false,
-  "description": "Payload for whats_new_v1.",
+  "description": "Payload for whats_new.",
   "properties": {
     "scope": {
       "default": "all",

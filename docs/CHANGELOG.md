@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.0 — 2026-07-08
+
+### Removed
+- **Legacy flat-kwargs tool surface.** Every tool now takes `payload={...}` with Pydantic validation and returns a typed response. See v0.8.0 CHANGELOG for the shape.
+- Server-side deprecation warnings (no more legacy path to warn about).
+
+### Renamed
+- `my_day_v1` → `my_day`
+- `meeting_v1` → `meeting`
+- `compose_v1` → `compose`
+- `schedule_v1` → `schedule`
+- `people_v1` → `people`
+- `whats_new_v1` → `whats_new`
+- `find_v1` → `find`
+- `resolve_v1` → `resolve`
+
+### Migration for consumers
+Consumers on v0.8.0 that call `<tool>_v1` should update to the unsuffixed name. Behavior is identical — same payload shape, same typed response shape. Only the tool name changes.
+
+Consumers still on the v0.7.x flat-kwargs surface: this is a breaking change. Migrate to the v0.8.0 payload shape first (see v0.8.0 CHANGELOG), then rename `_v1` → canonical.
+
 ## 0.8.0 — 2026-07-08
 
 ### Added

@@ -279,7 +279,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Response for resolve_v1.",
+  "description": "Response for resolve.",
   "properties": {
     "data": {
       "discriminator": {

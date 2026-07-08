@@ -1,10 +1,10 @@
-"""Unit tests for _meeting_v1_impl — mocked context, no FastMCP."""
+"""Unit tests for _meeting_impl — mocked context, no FastMCP."""
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ms365_intent_mcp.intent.meeting.impl import _meeting_v1_impl
+from ms365_intent_mcp.intent.meeting.impl import _meeting_impl
 from ms365_intent_mcp.intent.meeting.schemas import (
     MeetingDetail,
     MeetingPayload,
@@ -52,7 +52,7 @@ class TestMeetingV1HappyPath:
         )
 
         payload = MeetingPayload(identifier="Weekly Sync")
-        response = await _meeting_v1_impl(ctx, payload)
+        response = await _meeting_impl(ctx, payload)
 
         assert isinstance(response, MeetingDetail)
         assert response.type == "meeting_detail"
@@ -83,7 +83,7 @@ class TestMeetingV1HappyPath:
         )
 
         payload = MeetingPayload(identifier="next")
-        await _meeting_v1_impl(ctx, payload)
+        await _meeting_impl(ctx, payload)
 
         assert captured == ["next"], "identifier 'next' should be passed unchanged"
 
@@ -111,7 +111,7 @@ class TestMeetingV1HappyPath:
         )
 
         payload = MeetingPayload(identifier="Standup")
-        response = await _meeting_v1_impl(ctx, payload)
+        response = await _meeting_impl(ctx, payload)
 
         assert response.id == "evt-standup"
         assert response.organizer.name == "Carol"
@@ -145,7 +145,7 @@ class TestMeetingV1ErrorHandling:
         )
 
         payload = MeetingPayload(identifier="some-meeting")
-        response = await _meeting_v1_impl(ctx, payload)
+        response = await _meeting_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"

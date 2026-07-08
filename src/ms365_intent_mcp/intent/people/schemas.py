@@ -1,4 +1,4 @@
-"""Schemas for people_v1.
+"""Schemas for people.
 
 Single payload: ``PeoplePayload``.
 

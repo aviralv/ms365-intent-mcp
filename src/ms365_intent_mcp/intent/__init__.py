@@ -1,6 +1,6 @@
 """Intent-oriented tool surface (v1) — payload={...} shape with typed responses.
 
-Every tool is registered under its ``<name>_v1`` suffix so it can coexist
+Every tool is registered under its ``<name>`` suffix so it can coexist
 with the legacy flat-kwargs tools during the v0.8.0 → v1.0.0 migration.
 Call ``register_all(mcp)`` from ``server.py`` to register all 8 tools in
 one line.

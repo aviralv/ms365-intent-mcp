@@ -174,7 +174,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Response for meeting_v1.",
+  "description": "Response for meeting.",
   "properties": {
     "attendees": {
       "items": {

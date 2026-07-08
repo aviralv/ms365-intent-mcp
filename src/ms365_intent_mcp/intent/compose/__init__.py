@@ -1,4 +1,4 @@
-"""compose_v1 tool package."""
+"""compose tool package."""
 
 from .register import register
 

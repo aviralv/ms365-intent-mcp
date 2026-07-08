@@ -1,4 +1,4 @@
-"""FastMCP registration for compose_v1."""
+"""FastMCP registration for compose."""
 
 from __future__ import annotations
 
@@ -6,15 +6,15 @@ from typing import Annotated
 
 from fastmcp import Context, FastMCP
 
-from .impl import _compose_v1_impl
+from .impl import _compose_impl
 from .schemas import ComposePayload, ComposeResponse
 
 
 def register(mcp: FastMCP) -> None:
-    """Register the compose_v1 tool on a FastMCP instance."""
+    """Register the compose tool on a FastMCP instance."""
 
     @mcp.tool(annotations={"destructiveHint": True, "openWorldHint": True})
-    async def compose_v1(
+    async def compose(
         ctx: Context,
         payload: Annotated[
             ComposePayload,
@@ -26,4 +26,4 @@ def register(mcp: FastMCP) -> None:
         ],
     ) -> ComposeResponse:
         """Create an email draft, calendar event, or Teams message (typed responses)."""
-        return await _compose_v1_impl(ctx, payload)
+        return await _compose_impl(ctx, payload)
