@@ -37,7 +37,7 @@ class TestMyDayV1Happy:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, date, timezone):
-            return "### Calendar\nNo events today.\n\n### Mail\n3 unread."
+            return {"date": date, "events": [], "mail": {}, "teams": {}}, "### Calendar\nNo events today.\n\n### Mail\n3 unread."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.my_day.impl.compose_my_day",
@@ -62,7 +62,7 @@ class TestMyDayV1Happy:
 
         async def _fake(client, permissions, date_str, timezone):
             received_dates.append(date_str)
-            return "### Calendar\nNo events."
+            return {"date": date_str, "events": [], "mail": {}, "teams": {}}, "### Calendar\nNo events."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.my_day.impl.compose_my_day",
@@ -84,7 +84,7 @@ class TestMyDayV1Happy:
 
         async def _fake(client, permissions, date_str, timezone):
             received_dates.append(date_str)
-            return "### Calendar\n2 events."
+            return {"date": date_str, "events": [], "mail": {}, "teams": {}}, "### Calendar\n2 events."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.my_day.impl.compose_my_day",
@@ -100,11 +100,11 @@ class TestMyDayV1Happy:
 
     @pytest.mark.asyncio
     async def test_stub_fields_are_empty(self, monkeypatch):
-        """Structured fields are stubs until Task 12 lands."""
+        """Structured fields reflect what the composer returns."""
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, date_str, timezone):
-            return "content"
+            return {"date": date_str, "events": [], "mail": {}, "teams": {}}, "content"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.my_day.impl.compose_my_day",

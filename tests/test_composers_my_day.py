@@ -35,9 +35,10 @@ class TestMyDayAllSucceed:
             date="2026-05-15",
             timezone="Europe/Berlin",
         )
-        assert "Calendar" in result or "Standup" in result
-        assert "Mail" in result
-        assert "Teams" in result
+        _, markdown = result
+        assert "Calendar" in markdown or "Standup" in markdown
+        assert "Mail" in markdown
+        assert "Teams" in markdown
 
 
 class TestMyDayPartialFailure:
@@ -57,7 +58,7 @@ class TestMyDayPartialFailure:
         client.get = AsyncMock(side_effect=_get)
         client.calendar_headers = lambda tz: {"Prefer": f'outlook.timezone="{tz}"'}
 
-        result = await compose_my_day(
+        _, result = await compose_my_day(
             client=client,
             permissions=full_permissions,
             date="2026-05-15",
@@ -84,7 +85,7 @@ class TestMyDayMissingPermissions:
         client.get = AsyncMock(side_effect=_get)
         client.calendar_headers = lambda tz: {"Prefer": f'outlook.timezone="{tz}"'}
 
-        result = await compose_my_day(
+        _, result = await compose_my_day(
             client=client,
             permissions=calendar_only_permissions,
             date="2026-05-15",

@@ -88,12 +88,13 @@ async def my_day(
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
 
     target_date = date or datetime.now().strftime("%Y-%m-%d")
-    return await compose_my_day(
+    _, markdown = await compose_my_day(
         client=client,
         permissions=permissions,
         date=target_date,
         timezone=config.default_timezone,
     )
+    return markdown
 
 
 @mcp.tool()

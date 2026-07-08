@@ -18,7 +18,7 @@ async def compose_my_day(
     permissions: PermissionRegistry,
     date: str,
     timezone: str,
-) -> str:
+) -> tuple[dict, str]:
     start_iso = f"{date}T00:00:00"
     end_iso = f"{date}T23:59:59"
 
@@ -59,14 +59,18 @@ async def compose_my_day(
     results = dict(zip(keys, results_list))
 
     sections = []
+    events_raw: list[dict] = []
+    unread_count = 0
+    unread_msgs: list[dict] = []
+    chats_raw: list[dict] = []
 
     # Calendar section
     cal_result = results.get("calendar")
     if isinstance(cal_result, BaseException):
         sections.append(format_section_error("Calendar", _error_reason(cal_result)))
     else:
-        events = cal_result.get("value", []) if cal_result else []
-        sections.append(f"### Calendar\n{format_events_markdown(events)}")
+        events_raw = cal_result.get("value", []) if cal_result else []
+        sections.append(f"### Calendar\n{format_events_markdown(events_raw)}")
 
     # Mail section
     if mail_unavailable:
@@ -105,9 +109,9 @@ async def compose_my_day(
         if isinstance(chats_result, BaseException):
             sections.append(format_section_error("Teams", _error_reason(chats_result)))
         else:
-            chats = chats_result.get("value", []) if chats_result else []
+            chats_raw = chats_result.get("value", []) if chats_result else []
             preview_msgs = []
-            for chat in chats[:5]:
+            for chat in chats_raw[:5]:
                 preview = chat.get("lastMessagePreview")
                 if preview:
                     preview_msgs.append({
@@ -116,6 +120,41 @@ async def compose_my_day(
                     })
             sections.append(format_teams_activity_markdown(preview_msgs))
 
-    return "\n\n".join(sections)
+    markdown = "\n\n".join(sections)
+
+    # Build structured data dict
+    def _parse_dt(dt_str: str) -> str:
+        return dt_str
+
+    event_list = []
+    for e in events_raw:
+        start_val = e.get("start", {}).get("dateTime", "")
+        end_val = e.get("end", {}).get("dateTime", "")
+        event_list.append({
+            "subject": e.get("subject", ""),
+            "start": start_val,
+            "end": end_val,
+            "location": e.get("location", {}).get("displayName") or None,
+            "is_online_meeting": bool(e.get("isOnlineMeeting")),
+        })
+
+    mail_summary = _build_mail_summary(unread_msgs) if unread_msgs else {"relevant_count": 0, "high_importance": [], "needs_attention": [], "all_count": 0}
+    teams_count = sum(
+        1 for chat in chats_raw if chat.get("lastMessagePreview")
+    )
+
+    data = {
+        "date": date,
+        "events": event_list,
+        "mail": {
+            "unread_count": unread_count,
+            "relevant_count": mail_summary.get("relevant_count", 0),
+            "flagged_count": 0,
+        },
+        "teams": {
+            "recent_message_count": teams_count,
+        },
+    }
+    return data, markdown
 
 
