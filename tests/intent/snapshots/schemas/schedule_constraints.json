@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "end": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "End"
+    },
+    "start": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Start"
+    },
+    "working_hours_only": {
+      "default": true,
+      "title": "Working Hours Only",
+      "type": "boolean"
+    }
+  },
+  "title": "ScheduleConstraints",
+  "type": "object"
+}

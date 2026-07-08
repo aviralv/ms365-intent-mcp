@@ -1,0 +1,56 @@
+{
+  "$defs": {
+    "TimeSlot": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "title": "Confidence",
+          "type": "number"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "confidence"
+      ],
+      "title": "TimeSlot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "suggestions": {
+      "items": {
+        "$ref": "#/$defs/TimeSlot"
+      },
+      "title": "Suggestions",
+      "type": "array"
+    },
+    "type": {
+      "const": "schedule_suggestions",
+      "default": "schedule_suggestions",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "suggestions",
+    "rendered_markdown"
+  ],
+  "title": "ScheduleSuggestions",
+  "type": "object"
+}
