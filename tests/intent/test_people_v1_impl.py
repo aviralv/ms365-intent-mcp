@@ -109,7 +109,29 @@ class TestPeopleV1Impl:
         assert response.retryable is True
 
 
-class TestPeoplePayloadValidation:
+    @pytest.mark.asyncio
+    async def test_partial_composer_dict_no_key_error(self, monkeypatch):
+        """Partial composer response (missing name/recent_mail) must not raise KeyError."""
+        ctx, _, _ = _mock_ctx()
+
+        async def _fake(client_arg, perms_arg, query):
+            # Intentionally missing 'name' and 'recent_mail' keys
+            return {"email": "partial@example.com"}, "partial markdown"
+
+        monkeypatch.setattr(
+            "ms365_intent_mcp.intent.people.impl.compose_people",
+            _fake,
+        )
+
+        payload = PeoplePayload(query="partial")
+        response = await _people_v1_impl(ctx, payload)
+
+        assert isinstance(response, PersonDetail)
+        assert response.name == ""
+        assert response.recent_mail == []
+        assert response.email == "partial@example.com"
+
+
     def test_empty_query_rejected(self):
         """min_length=1 on query: empty string must raise ValidationError."""
         import pytest
