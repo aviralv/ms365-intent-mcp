@@ -144,7 +144,7 @@ async def compose_whats_new(
             "subject": m.get("subject", ""),
             "sender": (m.get("from") or {}).get("emailAddress", {}).get("name", ""),
             "received": m.get("receivedDateTime", ""),
-            "is_read": False,
+            "is_read": bool(m.get("isRead", False)),
             "importance": (m.get("importance") or "normal").lower(),
         })
 

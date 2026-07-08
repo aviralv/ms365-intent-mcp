@@ -139,3 +139,71 @@ async def _mock_get(endpoint, params=None, headers=None):
     if "chats" in endpoint:
         return {"value": []}
     return {"value": []}
+
+
+class TestWhatsNewIsReadPropagation:
+    @pytest.mark.asyncio
+    async def test_is_read_true_propagates(self, full_permissions):
+        """When Graph returns isRead=True, the structured data must have is_read=True."""
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if "calendarView" in endpoint:
+                return {"value": []}
+            if "messages" in endpoint:
+                return {"value": [
+                    {
+                        "subject": "Read mail",
+                        "from": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
+                        "receivedDateTime": "2026-07-01T10:00:00Z",
+                        "importance": "normal",
+                        "isRead": True,
+                    }
+                ]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        data, _ = await compose_whats_new(
+            client=client,
+            permissions=full_permissions,
+            since="2026-07-01T00:00:00",
+            scope="mail",
+            timezone="Europe/Berlin",
+        )
+
+        assert len(data["mail"]) == 1
+        assert data["mail"][0]["is_read"] is True
+
+    @pytest.mark.asyncio
+    async def test_is_read_false_propagates(self, full_permissions):
+        """When Graph returns isRead=False, the structured data must have is_read=False."""
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if "calendarView" in endpoint:
+                return {"value": []}
+            if "messages" in endpoint:
+                return {"value": [
+                    {
+                        "subject": "Unread mail",
+                        "from": {"emailAddress": {"name": "Bob", "address": "bob@example.com"}},
+                        "receivedDateTime": "2026-07-01T10:00:00Z",
+                        "importance": "normal",
+                        "isRead": False,
+                    }
+                ]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        data, _ = await compose_whats_new(
+            client=client,
+            permissions=full_permissions,
+            since="2026-07-01T00:00:00",
+            scope="mail",
+            timezone="Europe/Berlin",
+        )
+
+        assert len(data["mail"]) == 1
+        assert data["mail"][0]["is_read"] is False
