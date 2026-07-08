@@ -1,0 +1,35 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "const": "page",
+      "title": "Kind",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "web_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Web Url"
+    }
+  },
+  "required": [
+    "kind",
+    "title"
+  ],
+  "title": "PageHit",
+  "type": "object"
+}

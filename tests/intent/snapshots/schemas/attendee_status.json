@@ -1,0 +1,40 @@
+{
+  "additionalProperties": false,
+  "description": "One attendee with their RSVP response.",
+  "properties": {
+    "email": {
+      "anyOf": [
+        {
+          "format": "email",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Email"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "response": {
+      "default": "none",
+      "enum": [
+        "accepted",
+        "declined",
+        "tentative",
+        "none",
+        "notResponded"
+      ],
+      "title": "Response",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "AttendeeStatus",
+  "type": "object"
+}

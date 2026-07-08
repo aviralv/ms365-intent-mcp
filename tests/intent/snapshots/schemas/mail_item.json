@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "description": "Single mail item summary.",
+  "properties": {
+    "importance": {
+      "default": "normal",
+      "enum": [
+        "low",
+        "normal",
+        "high"
+      ],
+      "title": "Importance",
+      "type": "string"
+    },
+    "is_read": {
+      "default": false,
+      "title": "Is Read",
+      "type": "boolean"
+    },
+    "received": {
+      "format": "date-time",
+      "title": "Received",
+      "type": "string"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    }
+  },
+  "required": [
+    "subject",
+    "sender",
+    "received"
+  ],
+  "title": "MailItem",
+  "type": "object"
+}

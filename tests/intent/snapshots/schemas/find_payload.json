@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "entity_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "email",
+            "file",
+            "message",
+            "page"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional filter \u2014 restricts search to one entity type. Not a discriminator.",
+      "title": "Entity Type"
+    },
+    "query": {
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "FindPayload",
+  "type": "object"
+}

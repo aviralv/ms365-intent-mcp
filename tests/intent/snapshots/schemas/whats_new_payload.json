@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "description": "Payload for whats_new_v1.",
+  "properties": {
+    "scope": {
+      "default": "all",
+      "enum": [
+        "mail",
+        "calendar",
+        "teams",
+        "all"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+    }
+  },
+  "required": [
+    "since"
+  ],
+  "title": "WhatsNewPayload",
+  "type": "object"
+}

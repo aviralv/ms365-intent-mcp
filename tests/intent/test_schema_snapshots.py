@@ -64,6 +64,13 @@ from ms365_intent_mcp.intent.find.schemas import (
     PageHit,
     SearchHit,
 )
+from ms365_intent_mcp.intent.whats_new.schemas import (
+    EventSummary as WhatsNewEventSummary,
+    MailItem,
+    TeamsItem,
+    WhatsNewPayload,
+    WhatsNewSummary,
+)
 
 _SNAPSHOT_DIR = Path(__file__).parent / "snapshots" / "schemas"
 
@@ -254,3 +261,28 @@ def test_search_hit_union_snapshot(snapshot: Any) -> None:
     on_disk = json.loads((_SNAPSHOT_DIR / "search_hit_union.json").read_text())
     assert "oneOf" in on_disk, "search_hit_union.json must contain 'oneOf'"
     assert "discriminator" in on_disk, "search_hit_union.json must contain 'discriminator'"
+
+
+# ---------------------------------------------------------------------------
+# whats_new_v1 schemas (Task 7)
+# ---------------------------------------------------------------------------
+
+
+def test_whats_new_payload(snapshot: Any) -> None:
+    snapshot("whats_new_payload", WhatsNewPayload.model_json_schema())
+
+
+def test_whats_new_summary(snapshot: Any) -> None:
+    snapshot("whats_new_summary", WhatsNewSummary.model_json_schema())
+
+
+def test_mail_item(snapshot: Any) -> None:
+    snapshot("mail_item", MailItem.model_json_schema())
+
+
+def test_whats_new_event_summary(snapshot: Any) -> None:
+    snapshot("whats_new_event_summary", WhatsNewEventSummary.model_json_schema())
+
+
+def test_teams_item(snapshot: Any) -> None:
+    snapshot("teams_item", TeamsItem.model_json_schema())

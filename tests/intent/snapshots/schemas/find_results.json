@@ -1,0 +1,222 @@
+{
+  "$defs": {
+    "EmailHit": {
+      "additionalProperties": false,
+      "properties": {
+        "body_preview": {
+          "title": "Body Preview",
+          "type": "string"
+        },
+        "kind": {
+          "const": "email",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "web_link": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Web Link"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "sender",
+        "body_preview"
+      ],
+      "title": "EmailHit",
+      "type": "object"
+    },
+    "FileHit": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "file",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size"
+        },
+        "web_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Web Url"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "title": "FileHit",
+      "type": "object"
+    },
+    "MessageHit": {
+      "additionalProperties": false,
+      "properties": {
+        "body_preview": {
+          "title": "Body Preview",
+          "type": "string"
+        },
+        "created": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created"
+        },
+        "kind": {
+          "const": "message",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "sender",
+        "body_preview"
+      ],
+      "title": "MessageHit",
+      "type": "object"
+    },
+    "PageHit": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "page",
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "web_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Web Url"
+        }
+      },
+      "required": [
+        "kind",
+        "title"
+      ],
+      "title": "PageHit",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "hits": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "email": "#/$defs/EmailHit",
+            "file": "#/$defs/FileHit",
+            "message": "#/$defs/MessageHit",
+            "page": "#/$defs/PageHit"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/EmailHit"
+          },
+          {
+            "$ref": "#/$defs/FileHit"
+          },
+          {
+            "$ref": "#/$defs/MessageHit"
+          },
+          {
+            "$ref": "#/$defs/PageHit"
+          }
+        ]
+      },
+      "title": "Hits",
+      "type": "array"
+    },
+    "query": {
+      "title": "Query",
+      "type": "string"
+    },
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "type": {
+      "const": "find_results",
+      "default": "find_results",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query",
+    "hits",
+    "rendered_markdown"
+  ],
+  "title": "FindResults",
+  "type": "object"
+}
