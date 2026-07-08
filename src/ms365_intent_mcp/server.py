@@ -195,7 +195,8 @@ async def people(
     _logger.warning("legacy tool 'people' called — migrate to 'people_v1'")
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
-    return await compose_people(client=client, permissions=permissions, query=query)
+    _, markdown = await compose_people(client=client, permissions=permissions, query=query)
+    return markdown
 
 
 @mcp.tool()

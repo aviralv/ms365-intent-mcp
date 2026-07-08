@@ -34,7 +34,7 @@ class TestPeopleBasic:
             return {"value": []}
 
         client.get = AsyncMock(side_effect=_get)
-        result = await compose_people(client=client, permissions=full_permissions, query="alice")
+        _, result = await compose_people(client=client, permissions=full_permissions, query="alice")
         assert "Alice Smith" in result
 
     @pytest.mark.asyncio
@@ -47,7 +47,7 @@ class TestPeopleBasic:
             return {"value": []}
 
         client.get = AsyncMock(side_effect=_get)
-        result = await compose_people(client=client, permissions=no_people_permissions, query="alice")
+        _, result = await compose_people(client=client, permissions=no_people_permissions, query="alice")
         assert "Alice" in result
 
     @pytest.mark.asyncio
@@ -55,7 +55,7 @@ class TestPeopleBasic:
         client = AsyncMock()
         client.get = AsyncMock(return_value={"value": []})
 
-        result = await compose_people(client=client, permissions=full_permissions, query="zzz_nobody")
+        _, result = await compose_people(client=client, permissions=full_permissions, query="zzz_nobody")
         assert "No results" in result or "zzz_nobody" in result
 
     @pytest.mark.asyncio
@@ -70,7 +70,7 @@ class TestPeopleBasic:
             return {"value": []}
 
         client.get = AsyncMock(side_effect=_get)
-        result = await compose_people(client=client, permissions=full_permissions, query="alice")
+        _, result = await compose_people(client=client, permissions=full_permissions, query="alice")
         assert "Alice Smith" in result
 
 

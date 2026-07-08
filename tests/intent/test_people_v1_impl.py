@@ -27,12 +27,12 @@ def _mock_ctx():
 class TestPeopleV1Impl:
     @pytest.mark.asyncio
     async def test_happy_path_returns_person_detail(self, monkeypatch):
-        """Happy path: compose_people returns markdown → PersonDetail returned."""
+        """Happy path: compose_people returns (data, markdown) → PersonDetail returned."""
         ctx, _, _ = _mock_ctx()
         markdown = "## Avi Vaid\n**Title:** Senior PM"
 
         async def _fake(client_arg, perms_arg, query):
-            return markdown
+            return {"name": "Avi Vaid", "email": "avi@example.com", "job_title": "Senior PM", "recent_mail": [], "recent_chat": None}, markdown
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.people.impl.compose_people",
@@ -44,6 +44,7 @@ class TestPeopleV1Impl:
 
         assert isinstance(response, PersonDetail)
         assert response.type == "person_detail"
+        assert response.name == "Avi Vaid"
         assert response.rendered_markdown == markdown
         assert response.recent_mail == []
 
@@ -55,7 +56,7 @@ class TestPeopleV1Impl:
 
         async def _fake(client_arg, perms_arg, query):
             captured.append(query)
-            return "markdown"
+            return {"name": query, "email": "", "job_title": None, "recent_mail": [], "recent_chat": None}, "markdown"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.people.impl.compose_people",
