@@ -1,9 +1,5 @@
 """resolve_v1 implementation — dispatches URL to compose_resolve and wraps
-the markdown-only return into a typed ResolvedContent response.
-
-Structured fields on content types are placeholder stubs until Task 12
-refactors composers to return ``(dict, markdown)`` tuples.
-"""
+the structured return into a typed ResolvedContent response."""
 
 from __future__ import annotations
 
@@ -25,15 +21,21 @@ from .schemas import (
 
 TOOL_NAME = "resolve_v1"
 
+_KIND_TO_MODEL = {
+    "email": EmailContent,
+    "chat_thread": ChatThreadContent,
+    "chat_message": ChatMessageContent,
+    "channel_message": ChannelMessageContent,
+    "meeting": MeetingContent,
+    "sharepoint_page": SharePointPageContent,
+    "onedrive_file": OneDriveFileContent,
+    "onedrive_share_link": OneDriveFileContent,
+}
+
 
 @wrap_errors(TOOL_NAME)
 async def _resolve_v1_impl(ctx: Context, payload: ResolvePayload) -> ResolvedContent:
-    """Resolve an M365 URL and return a typed response.
-
-    URL type is auto-detected by resolver.py's regex dispatch table.
-    ``wrap_errors`` catches ``IntentError`` / ``GraphAPIError`` and returns
-    an ``ErrorResponse``.
-    """
+    """Resolve an M365 URL and return a typed response."""
     _, client, permissions = _get_deps(ctx)
 
     from ...resolver import UrlParseError, resolve_url
@@ -44,28 +46,27 @@ async def _resolve_v1_impl(ctx: Context, payload: ResolvePayload) -> ResolvedCon
         raise IntentError("invalid_id", str(exc))
 
     url_type = resolved.url_type
-    markdown = await compose_resolve(client, permissions, str(payload.url))
+    data_dict, markdown = await compose_resolve(client, permissions, str(payload.url))
 
-    if url_type == "email":
-        data = EmailContent(kind="email", subject="(pending)", sender="(pending)", body="")
-    elif url_type == "chat_thread":
-        data = ChatThreadContent(kind="chat_thread")
-    elif url_type == "chat_message":
-        data = ChatMessageContent(kind="chat_message", sender="(pending)", body="")
-    elif url_type == "channel_message":
-        data = ChannelMessageContent(kind="channel_message", sender="(pending)", body="")
-    elif url_type == "meeting":
-        data = MeetingContent(kind="meeting", subject="(pending)")
-    elif url_type == "sharepoint_page":
-        data = SharePointPageContent(kind="sharepoint_page", title="(pending)")
-    elif url_type in ("onedrive_file", "onedrive_share_link"):
-        data = OneDriveFileContent(kind="onedrive_file", name="(pending)")
-    else:
-        raise IntentError("invalid_id", f"Unknown url_type: {url_type}")
+    kind = data_dict.get("kind", url_type)
+    structured_data = data_dict.get("data", {})
+
+    model_cls = _KIND_TO_MODEL.get(kind)
+    if model_cls is None:
+        raise IntentError("invalid_id", f"Unknown url_type: {kind}")
+
+    try:
+        content_obj = model_cls.model_validate(structured_data)
+    except Exception:
+        # Fallback: construct with just the kind field
+        content_obj = model_cls(kind=content_obj.model_fields["kind"].default)  # type: ignore[attr-defined]
+
+    # Normalise onedrive_share_link → onedrive_file for the kind discriminator
+    canonical_kind = "onedrive_file" if kind == "onedrive_share_link" else kind
 
     return ResolvedContent(
         url=payload.url,
-        kind=data.kind,
-        data=data,
+        kind=canonical_kind,
+        data=content_obj,
         rendered_markdown=markdown,
     )

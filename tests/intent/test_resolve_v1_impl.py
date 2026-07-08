@@ -38,7 +38,7 @@ class TestResolveV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url):
-            return "**Subject:** Test Email\nFrom: sender@example.com"
+            return {"url": url, "kind": "email", "data": {"kind": "email", "subject": "Test Email", "sender": "sender@example.com", "body": ""}}, "**Subject:** Test Email\nFrom: sender@example.com"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
@@ -62,7 +62,7 @@ class TestResolveV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url):
-            return "**Chat Thread**\n5 recent messages"
+            return {"url": url, "kind": "chat_thread", "data": {"kind": "chat_thread"}}, "**Chat Thread**\n5 recent messages"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
@@ -84,7 +84,7 @@ class TestResolveV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url):
-            return "**Page:** Engineering Wiki\nLast modified: 2026-07-01"
+            return {"url": url, "kind": "sharepoint_page", "data": {"kind": "sharepoint_page", "title": "Engineering Wiki"}}, "**Page:** Engineering Wiki\nLast modified: 2026-07-01"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
@@ -106,7 +106,7 @@ class TestResolveV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url):
-            return "**File:** document.docx\nSize: 1.2 MB"
+            return {"url": url, "kind": "onedrive_share_link", "data": {"kind": "onedrive_file", "name": "document.docx"}}, "**File:** document.docx\nSize: 1.2 MB"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
@@ -130,7 +130,7 @@ class TestResolveV1HappyPath:
         expected_markdown = "## My Resolved Content\nFull details here."
 
         async def _fake(client, permissions, url):
-            return expected_markdown
+            return {"url": url, "kind": "email", "data": {"kind": "email", "subject": "x", "sender": "a", "body": ""}}, expected_markdown
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",

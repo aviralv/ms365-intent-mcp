@@ -44,7 +44,7 @@ class TestResolveEmail:
                 graph_endpoint="/me/messages/AAkALg123",
                 required_scope="Mail.Read",
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://outlook.office365.com/mail/id/AAkALg123",
@@ -105,7 +105,7 @@ class TestResolveEmail:
                 graph_endpoint="/me/messages/AAA",
                 required_scope="Mail.Read",
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://outlook.office365.com/mail/id/AAA",
@@ -119,7 +119,7 @@ class TestResolveEmail:
 
         with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
             mock_resolve.side_effect = UrlParseError("unknown URL")
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://www.google.com",
@@ -137,7 +137,7 @@ class TestResolveEmail:
                 graph_endpoint="/me/messages/123",
                 required_scope="Mail.Read",
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=permissions,
                 url="https://outlook.office365.com/mail/id/123",
@@ -155,7 +155,7 @@ class TestResolveEmail:
                 graph_endpoint="/me/messages/missing",
                 required_scope="Mail.Read",
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://outlook.office365.com/mail/id/missing",
@@ -181,7 +181,7 @@ class TestChannelMessageResolve:
             "createdDateTime": "2026-01-01T10:00:00Z",
         })
 
-        result = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Teams Message" in result
         assert "Alice" in result
 
@@ -202,7 +202,7 @@ class TestChatMessageResolve:
             "createdDateTime": "2026-01-01T09:00:00Z",
         })
 
-        result = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Teams Message" in result
 
 
@@ -236,7 +236,7 @@ class TestMeetingResolve:
             }],
         })
 
-        result = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Standup" in result
 
     @pytest.mark.asyncio
@@ -246,7 +246,7 @@ class TestMeetingResolve:
         client = AsyncMock()
         client.get = AsyncMock(return_value={"value": []})
 
-        result = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "No matching" in result or "unavailable" in result
 
 
@@ -266,7 +266,7 @@ class TestOneDriveFileResolve:
             "webUrl": "https://contoso-my.sharepoint.com/personal/user_example_com/Documents/report.xlsx",
         })
 
-        result = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "report.xlsx" in result
 
 
@@ -286,7 +286,7 @@ class TestOneDriveShareLinkResolve:
             "webUrl": "https://contoso-my.sharepoint.com/personal/user_example_com/Shared%20Documents/Roadmap.xlsx",
         })
 
-        result = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Roadmap.xlsx" in result
 
 
@@ -314,7 +314,7 @@ class TestSharePointPageResolve:
         client = AsyncMock()
         client.get = AsyncMock(side_effect=[site_response, lists_response, items_response])
 
-        result = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "SharePoint Page" in result
         assert "Project Overview" in result
 
@@ -330,7 +330,7 @@ class TestSharePointPageResolve:
             GraphAPIError(404, "NotFound", "not found"),
         ])
 
-        result = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "SharePoint Site" in result
 
 
@@ -443,7 +443,7 @@ class TestResolveChatThread:
                 required_scope="Chat.ReadWrite",
                 extra={"chat_id": "19:abc@thread.v2"},
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
@@ -489,7 +489,7 @@ class TestResolveChatThread:
                 required_scope="Chat.ReadWrite",
                 extra={"chat_id": "19:abc@thread.v2"},
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
@@ -527,7 +527,7 @@ class TestResolveChatThread:
                 required_scope="Chat.ReadWrite",
                 extra={"chat_id": "19:dm@unq.gbl.spaces"},
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://teams.microsoft.com/l/chat/19:dm@unq.gbl.spaces/conversations",
@@ -566,7 +566,7 @@ class TestResolveChatThread:
                 required_scope="Chat.ReadWrite",
                 extra={"chat_id": "19:abc@thread.v2"},
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
@@ -599,7 +599,7 @@ class TestResolveChatThread:
                 required_scope="Chat.ReadWrite",
                 extra={"chat_id": "19:abc@thread.v2"},
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
@@ -631,7 +631,7 @@ class TestResolveChatThread:
                 required_scope="Chat.ReadWrite",
                 extra={"chat_id": "19:abc@thread.v2"},
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
@@ -664,7 +664,7 @@ class TestResolveChatThread:
                 required_scope="Chat.ReadWrite",
                 extra={"chat_id": "19:abc@thread.v2"},
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
@@ -711,7 +711,7 @@ class TestResolveChatThread:
                 required_scope="Chat.ReadWrite",
                 extra={"chat_id": "19:abc@thread.v2"},
             )
-            result = await compose_resolve(
+            _, result = await compose_resolve(
                 client=client,
                 permissions=full_permissions,
                 url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",

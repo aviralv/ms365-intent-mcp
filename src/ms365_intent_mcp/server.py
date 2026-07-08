@@ -246,7 +246,8 @@ async def resolve(
     _logger.warning("legacy tool 'resolve' called — migrate to 'resolve_v1'")
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
-    return await compose_resolve(client=client, permissions=permissions, url=url)
+    _, markdown = await compose_resolve(client=client, permissions=permissions, url=url)
+    return markdown
 
 
 # --- v1 intent surface (dual-registered alongside legacy tools) ---
