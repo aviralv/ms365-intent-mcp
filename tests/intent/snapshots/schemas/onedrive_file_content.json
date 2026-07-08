@@ -1,0 +1,48 @@
+{
+  "additionalProperties": false,
+  "description": "Content for a resolved OneDrive file.",
+  "properties": {
+    "kind": {
+      "const": "onedrive_file",
+      "title": "Kind",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "size": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Size"
+    },
+    "web_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Web Url"
+    }
+  },
+  "required": [
+    "kind",
+    "name"
+  ],
+  "title": "OneDriveFileContent",
+  "type": "object"
+}

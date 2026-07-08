@@ -1,0 +1,361 @@
+{
+  "$defs": {
+    "ChannelMessageContent": {
+      "additionalProperties": false,
+      "description": "Content for a resolved Teams channel message.",
+      "properties": {
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "channel_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel Name"
+        },
+        "kind": {
+          "const": "channel_message",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "sender",
+        "body"
+      ],
+      "title": "ChannelMessageContent",
+      "type": "object"
+    },
+    "ChatMessageContent": {
+      "additionalProperties": false,
+      "description": "Content for a resolved individual Teams chat message.",
+      "properties": {
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "created": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created"
+        },
+        "kind": {
+          "const": "chat_message",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "sender",
+        "body"
+      ],
+      "title": "ChatMessageContent",
+      "type": "object"
+    },
+    "ChatThreadContent": {
+      "additionalProperties": false,
+      "description": "Content for a resolved Teams chat thread.",
+      "properties": {
+        "kind": {
+          "const": "chat_thread",
+          "title": "Kind",
+          "type": "string"
+        },
+        "member_count": {
+          "default": 0,
+          "title": "Member Count",
+          "type": "integer"
+        },
+        "recent_message_count": {
+          "default": 0,
+          "title": "Recent Message Count",
+          "type": "integer"
+        },
+        "topic": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "ChatThreadContent",
+      "type": "object"
+    },
+    "EmailContent": {
+      "additionalProperties": false,
+      "description": "Content for a resolved email message.",
+      "properties": {
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "kind": {
+          "const": "email",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "sender",
+        "body"
+      ],
+      "title": "EmailContent",
+      "type": "object"
+    },
+    "MeetingContent": {
+      "additionalProperties": false,
+      "description": "Content for a resolved Teams meeting link.",
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "kind": {
+          "const": "meeting",
+          "title": "Kind",
+          "type": "string"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject"
+      ],
+      "title": "MeetingContent",
+      "type": "object"
+    },
+    "OneDriveFileContent": {
+      "additionalProperties": false,
+      "description": "Content for a resolved OneDrive file.",
+      "properties": {
+        "kind": {
+          "const": "onedrive_file",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size"
+        },
+        "web_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Web Url"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "title": "OneDriveFileContent",
+      "type": "object"
+    },
+    "SharePointPageContent": {
+      "additionalProperties": false,
+      "description": "Content for a resolved SharePoint page.",
+      "properties": {
+        "kind": {
+          "const": "sharepoint_page",
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "web_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Web Url"
+        }
+      },
+      "required": [
+        "kind",
+        "title"
+      ],
+      "title": "SharePointPageContent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Response for resolve_v1.",
+  "properties": {
+    "data": {
+      "discriminator": {
+        "mapping": {
+          "channel_message": "#/$defs/ChannelMessageContent",
+          "chat_message": "#/$defs/ChatMessageContent",
+          "chat_thread": "#/$defs/ChatThreadContent",
+          "email": "#/$defs/EmailContent",
+          "meeting": "#/$defs/MeetingContent",
+          "onedrive_file": "#/$defs/OneDriveFileContent",
+          "sharepoint_page": "#/$defs/SharePointPageContent"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/EmailContent"
+        },
+        {
+          "$ref": "#/$defs/ChatThreadContent"
+        },
+        {
+          "$ref": "#/$defs/ChatMessageContent"
+        },
+        {
+          "$ref": "#/$defs/ChannelMessageContent"
+        },
+        {
+          "$ref": "#/$defs/MeetingContent"
+        },
+        {
+          "$ref": "#/$defs/SharePointPageContent"
+        },
+        {
+          "$ref": "#/$defs/OneDriveFileContent"
+        }
+      ],
+      "title": "Data"
+    },
+    "kind": {
+      "enum": [
+        "email",
+        "chat_thread",
+        "chat_message",
+        "channel_message",
+        "meeting",
+        "sharepoint_page",
+        "onedrive_file"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "type": {
+      "const": "resolved_content",
+      "default": "resolved_content",
+      "title": "Type",
+      "type": "string"
+    },
+    "url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "kind",
+    "data",
+    "rendered_markdown"
+  ],
+  "title": "ResolvedContent",
+  "type": "object"
+}

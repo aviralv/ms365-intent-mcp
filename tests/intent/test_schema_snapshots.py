@@ -71,6 +71,18 @@ from ms365_intent_mcp.intent.whats_new.schemas import (
     WhatsNewPayload,
     WhatsNewSummary,
 )
+from ms365_intent_mcp.intent.resolve.schemas import (
+    ChannelMessageContent,
+    ChatMessageContent,
+    ChatThreadContent,
+    EmailContent,
+    MeetingContent,
+    OneDriveFileContent,
+    ResolvePayload,
+    ResolvedContent,
+    ResolvedContentData,
+    SharePointPageContent,
+)
 
 _SNAPSHOT_DIR = Path(__file__).parent / "snapshots" / "schemas"
 
@@ -286,3 +298,61 @@ def test_whats_new_event_summary(snapshot: Any) -> None:
 
 def test_teams_item(snapshot: Any) -> None:
     snapshot("teams_item", TeamsItem.model_json_schema())
+
+
+# ---------------------------------------------------------------------------
+# resolve_v1 schemas (Task 9)
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_payload(snapshot: Any) -> None:
+    snapshot("resolve_payload", ResolvePayload.model_json_schema())
+
+
+def test_resolved_content(snapshot: Any) -> None:
+    snapshot("resolved_content", ResolvedContent.model_json_schema())
+
+
+def test_resolved_content_data_union(snapshot: Any) -> None:
+    schema = TypeAdapter(ResolvedContentData).json_schema()
+    snapshot("resolved_content_data_union", schema)
+
+    # Gate: discriminated union on ``kind`` must render with both keywords
+    on_disk = json.loads((_SNAPSHOT_DIR / "resolved_content_data_union.json").read_text())
+    assert "oneOf" in on_disk, "resolved_content_data_union.json must contain 'oneOf'"
+    assert "discriminator" in on_disk, "resolved_content_data_union.json must contain 'discriminator'"
+    # Gate: must have exactly 7 variants
+    assert len(on_disk["oneOf"]) == 7, (
+        f"Expected 7 variants in resolved_content_data_union.json, got {len(on_disk['oneOf'])}"
+    )
+    assert on_disk["discriminator"]["propertyName"] == "kind", (
+        "discriminator propertyName must be 'kind'"
+    )
+
+
+def test_email_content(snapshot: Any) -> None:
+    snapshot("email_content", EmailContent.model_json_schema())
+
+
+def test_chat_thread_content(snapshot: Any) -> None:
+    snapshot("chat_thread_content", ChatThreadContent.model_json_schema())
+
+
+def test_chat_message_content(snapshot: Any) -> None:
+    snapshot("chat_message_content", ChatMessageContent.model_json_schema())
+
+
+def test_channel_message_content(snapshot: Any) -> None:
+    snapshot("channel_message_content", ChannelMessageContent.model_json_schema())
+
+
+def test_meeting_content(snapshot: Any) -> None:
+    snapshot("meeting_content", MeetingContent.model_json_schema())
+
+
+def test_sharepoint_page_content(snapshot: Any) -> None:
+    snapshot("sharepoint_page_content", SharePointPageContent.model_json_schema())
+
+
+def test_onedrive_file_content(snapshot: Any) -> None:
+    snapshot("onedrive_file_content", OneDriveFileContent.model_json_schema())

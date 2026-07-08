@@ -1,0 +1,18 @@
+{
+  "additionalProperties": false,
+  "description": "Resolve any M365 URL.",
+  "properties": {
+    "url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "title": "ResolvePayload",
+  "type": "object"
+}
