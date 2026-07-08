@@ -85,6 +85,17 @@ class TestComposeEmail:
                 "body": "",
             })
 
+    def test_empty_idempotency_key_rejected(self):
+        with pytest.raises(ValidationError):
+            ComposeEmail.model_validate({
+                "type": "email",
+                "mode": "new",
+                "to": [{"email": "a@b.com"}],
+                "subject": "Hi",
+                "body": "Hello",
+                "idempotency_key": "",
+            })
+
 
 class TestComposeEvent:
     def test_valid_event(self):
