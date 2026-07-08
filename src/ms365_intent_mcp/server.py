@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import time as _time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated
@@ -24,6 +25,17 @@ from .resilience import CircuitBreaker
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 _logger = logging.getLogger("ms365_intent_mcp")
+
+_LEGACY_WARN_INTERVAL_SECONDS = 3600  # 1 hour
+_last_legacy_warn: dict[str, float] = {}
+
+
+def _warn_legacy_once(tool_name: str) -> None:
+    now = _time.time()
+    last = _last_legacy_warn.get(tool_name, 0.0)
+    if now - last > _LEGACY_WARN_INTERVAL_SECONDS:
+        _logger.warning("legacy tool '%s' called — migrate to '%s_v1'", tool_name, tool_name)
+        _last_legacy_warn[tool_name] = now
 
 
 @asynccontextmanager
@@ -82,7 +94,7 @@ async def my_day(
     date: Annotated[str | None, "Date to show (YYYY-MM-DD). Defaults to today."] = None,
 ) -> str:
     """What does my day look like? Returns calendar events, mail summary, and Teams activity."""
-    _logger.warning("legacy tool 'my_day' called — migrate to 'my_day_v1'")
+    _warn_legacy_once("my_day")
     config: Config = ctx.request_context.lifespan_context["config"]
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
@@ -103,7 +115,7 @@ async def meeting(
     identifier: Annotated[str, "Event ID, subject text to search, or 'next' for upcoming"],
 ) -> str:
     """Tell me about this meeting. Returns full context: attendees, body, Teams link."""
-    _logger.warning("legacy tool 'meeting' called — migrate to 'meeting_v1'")
+    _warn_legacy_once("meeting")
     config: Config = ctx.request_context.lifespan_context["config"]
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
@@ -136,7 +148,7 @@ async def compose(
     content: Annotated[str | None, "Message content (teams_message only)"] = None,
 ) -> str:
     """Create something: email draft, reply draft, calendar event, or Teams message."""
-    _logger.warning("legacy tool 'compose' called — migrate to 'compose_v1'")
+    _warn_legacy_once("compose")
     config: Config = ctx.request_context.lifespan_context["config"]
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
@@ -177,7 +189,7 @@ async def schedule(
     constraints: Annotated[dict | None, "Optional time constraints: {'start': 'ISO', 'end': 'ISO'}"] = None,
 ) -> str:
     """Find available meeting times. Returns ranked time slots with confidence scores."""
-    _logger.warning("legacy tool 'schedule' called — migrate to 'schedule_v1'")
+    _warn_legacy_once("schedule")
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
     _, markdown = await compose_schedule(
@@ -196,7 +208,7 @@ async def people(
     query: Annotated[str, "Name or email to search for"],
 ) -> str:
     """Look up a person and see recent email and Teams context."""
-    _logger.warning("legacy tool 'people' called — migrate to 'people_v1'")
+    _warn_legacy_once("people")
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
     _, markdown = await compose_people(client=client, permissions=permissions, query=query)
@@ -210,7 +222,7 @@ async def whats_new(
     scope: Annotated[str | None, "Filter to: 'mail', 'calendar', 'teams', or 'all' (default)"] = None,
 ) -> str:
     """What happened since a given time? Returns new mail, events, and Teams messages."""
-    _logger.warning("legacy tool 'whats_new' called — migrate to 'whats_new_v1'")
+    _warn_legacy_once("whats_new")
     config: Config = ctx.request_context.lifespan_context["config"]
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
@@ -231,7 +243,7 @@ async def find(
     type: Annotated[str | None, "Optional filter: 'email', 'file', 'message' (Teams), 'page' (SharePoint)"] = None,
 ) -> str:
     """Search across mail, files, Teams messages, and SharePoint pages."""
-    _logger.warning("legacy tool 'find' called — migrate to 'find_v1'")
+    _warn_legacy_once("find")
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
     _, markdown = await compose_find(client=client, permissions=permissions, query=query, search_type=type)
@@ -244,7 +256,7 @@ async def resolve(
     url: Annotated[str, "An M365 URL: Teams message/meeting link, Outlook deep link, SharePoint page, or OneDrive file"],
 ) -> str:
     """Resolve any Microsoft 365 URL and return its content."""
-    _logger.warning("legacy tool 'resolve' called — migrate to 'resolve_v1'")
+    _warn_legacy_once("resolve")
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
     _, markdown = await compose_resolve(client=client, permissions=permissions, url=url)
