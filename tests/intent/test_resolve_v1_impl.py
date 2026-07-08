@@ -201,6 +201,6 @@ class TestResolveV1HappyPath:
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"
-        assert response.code == "graph_api_error"
+        assert response.code == "rate_limited"
         assert response.retryable is True
         assert "ServiceUnavailable" in response.message

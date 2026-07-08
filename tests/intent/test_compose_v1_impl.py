@@ -255,10 +255,9 @@ class TestIdempotencyLookupDirect:
     def test_lookup_returns_none_after_ttl_expiry(self):
         import ms365_intent_mcp.intent._helpers as h
         original_ttl = h._IDEMPOTENCY_TTL_SECONDS
-        h._IDEMPOTENCY_TTL_SECONDS = 0  # instant expiry
+        h._IDEMPOTENCY_TTL_SECONDS = -1  # always expired (any elapsed time > -1)
         try:
             idempotency_store("tool", "key-ttl", "cached-response")
-            # With TTL=0, stored_at is older than now by at least epsilon
             result = idempotency_lookup("tool", "key-ttl")
             assert result is None, "expired entry should return None, not the stale response"
         finally:
@@ -267,3 +266,52 @@ class TestIdempotencyLookupDirect:
     def test_lookup_no_op_on_falsy_key(self):
         assert idempotency_lookup("tool", None) is None
         assert idempotency_lookup("tool", "") is None
+
+
+class TestWrapErrors:
+    """Unit tests for wrap_errors — direct function exercise, no FastMCP."""
+
+    @pytest.mark.asyncio
+    async def test_429_maps_to_rate_limited(self):
+        from ms365_intent_mcp.graph import GraphAPIError
+        from ms365_intent_mcp.intent._helpers import wrap_errors
+        from ms365_intent_mcp.intent._shared import ErrorResponse
+
+        @wrap_errors("test_tool")
+        async def _raises(*args, **kwargs):
+            raise GraphAPIError(429, "TooManyRequests", "slow down")
+
+        result = await _raises()
+        assert isinstance(result, ErrorResponse)
+        assert result.code == "rate_limited"
+        assert result.retryable is True
+
+    @pytest.mark.asyncio
+    async def test_503_maps_to_rate_limited(self):
+        from ms365_intent_mcp.graph import GraphAPIError
+        from ms365_intent_mcp.intent._helpers import wrap_errors
+        from ms365_intent_mcp.intent._shared import ErrorResponse
+
+        @wrap_errors("test_tool")
+        async def _raises(*args, **kwargs):
+            raise GraphAPIError(503, "ServiceUnavailable", "try later")
+
+        result = await _raises()
+        assert isinstance(result, ErrorResponse)
+        assert result.code == "rate_limited"
+        assert result.retryable is True
+
+    @pytest.mark.asyncio
+    async def test_500_maps_to_graph_api_error(self):
+        from ms365_intent_mcp.graph import GraphAPIError
+        from ms365_intent_mcp.intent._helpers import wrap_errors
+        from ms365_intent_mcp.intent._shared import ErrorResponse
+
+        @wrap_errors("test_tool")
+        async def _raises(*args, **kwargs):
+            raise GraphAPIError(500, "InternalError", "boom")
+
+        result = await _raises()
+        assert isinstance(result, ErrorResponse)
+        assert result.code == "graph_api_error"
+        assert result.retryable is False

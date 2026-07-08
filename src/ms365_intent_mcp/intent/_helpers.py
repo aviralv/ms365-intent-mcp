@@ -53,6 +53,12 @@ def wrap_errors(func_name: str):
                     retryable=exc.retryable,
                 )
             except GraphAPIError as exc:
+                if exc.status_code in (429, 503):
+                    return ErrorResponse(
+                        code="rate_limited",
+                        message=f"{exc.error_code}: {exc.message}",
+                        retryable=True,
+                    )
                 return ErrorResponse(
                     code="graph_api_error",
                     message=f"{exc.error_code}: {exc.message}",

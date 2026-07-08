@@ -134,6 +134,6 @@ class TestWhatsNewV1Errors:
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"
-        assert response.code == "graph_api_error"
+        assert response.code == "rate_limited"
         assert response.retryable is True
         assert "TooManyRequests" in response.message

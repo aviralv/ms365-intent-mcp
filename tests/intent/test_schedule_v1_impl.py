@@ -156,5 +156,5 @@ class TestScheduleV1ErrorHandling:
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"
-        assert response.code == "graph_api_error"
+        assert response.code == "rate_limited"
         assert response.retryable is True
