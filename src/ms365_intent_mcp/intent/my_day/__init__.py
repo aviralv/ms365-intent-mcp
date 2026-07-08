@@ -1,4 +1,4 @@
-"""my_day_v1 tool package."""
+"""my_day tool package."""
 
 from .register import register
 

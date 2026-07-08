@@ -1,4 +1,4 @@
-"""find_v1 tool package."""
+"""find tool package."""
 
 from .register import register
 

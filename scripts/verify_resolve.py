@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Live end-to-end verify script for people_v1.
+"""Live end-to-end verify script for resolve_v1.
 
-Calls _people_v1_impl against a live Graph connection and prints
+Calls _resolve_impl against a live Graph connection and prints
 the structured response fields plus the rendered markdown.
 
 Usage:
-    uv run python scripts/verify_people_v1.py "Firstname Lastname"
-    uv run python scripts/verify_people_v1.py "firstname.lastname@example.com"
+    uv run python scripts/verify_resolve.py <M365-URL>
+
+Examples:
+    uv run python scripts/verify_resolve.py "https://teams.microsoft.com/l/chat/19:xxx@thread.v2"
+    uv run python scripts/verify_resolve.py "https://outlook.office.com/mail/id/AAA..."
 """
 
 from __future__ import annotations
@@ -18,8 +21,8 @@ from unittest.mock import MagicMock
 from ms365_intent_mcp.auth import TokenManager
 from ms365_intent_mcp.config import Config
 from ms365_intent_mcp.graph import GraphClient
-from ms365_intent_mcp.intent.people.impl import _people_v1_impl
-from ms365_intent_mcp.intent.people.schemas import PeoplePayload
+from ms365_intent_mcp.intent.resolve.impl import _resolve_impl
+from ms365_intent_mcp.intent.resolve.schemas import ResolvePayload
 from ms365_intent_mcp.permissions import PermissionRegistry
 
 
@@ -37,7 +40,7 @@ def _make_ctx(config, client, permissions):
     return ctx
 
 
-async def run(query: str) -> None:
+async def run(url: str) -> None:
     config = Config()
     auth = TokenManager(config)
     auth.ensure_authenticated()
@@ -46,21 +49,19 @@ async def run(query: str) -> None:
         permissions = PermissionRegistry.from_token_provider(auth.peek_access_token)
         ctx = _make_ctx(config, client, permissions)
 
-        payload = PeoplePayload.model_validate({"query": query})
+        payload = ResolvePayload.model_validate({"url": url})
 
         _line()
-        print(f"people_v1 — query={query!r}")
+        print(f"resolve — url={url[:80]}{'…' if len(url) > 80 else ''}")
         _line()
 
-        result = await _people_v1_impl(ctx, payload)
+        result = await _resolve_impl(ctx, payload)
 
         _line("─")
-        print(f"type:           {result.type}")
-        print(f"name:           {result.name}")
-        print(f"email:          {result.email}")
-        print(f"job_title:      {result.job_title}")
-        print(f"recent_mail:    {len(result.recent_mail)} items")
-        print(f"recent_chat:    {result.recent_chat is not None}")
+        print(f"type:     {result.type}")
+        print(f"kind:     {result.kind}")
+        print(f"url:      {result.url}")
+        print(f"data cls: {result.data.__class__.__name__}")
         _line("─")
         print("rendered_markdown (first 500 chars):")
         print(result.rendered_markdown[:500])
@@ -68,14 +69,13 @@ async def run(query: str) -> None:
             print(f"... [{len(result.rendered_markdown) - 500} more chars]")
         _line()
 
-        assert result.type == "person_detail", f"Expected type='person_detail', got {result.type!r}"
+        assert result.type == "resolved_content", f"Expected type='resolved_content', got {result.type!r}"
         print("✅ type field correct")
-        print("✅ verify_people_v1 PASSED")
+        print("✅ verify_resolve PASSED")
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
-    query = " ".join(sys.argv[1:])
-    asyncio.run(run(query))
+    asyncio.run(run(sys.argv[1]))

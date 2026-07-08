@@ -17,20 +17,6 @@ Most Microsoft 365 MCP servers replicate Graph API endpoints as tools — one to
 | `people` | Person lookup with recent interaction context |
 | `schedule` | Find available meeting times using the scheduling assistant |
 
-## v0.8.0 dual-registered surface (interim)
-
-As of v0.8.0, every tool is registered TWICE on the server:
-
-- **Legacy names** (`my_day`, `meeting`, `compose`, `schedule`, `people`, `whats_new`, `find`, `resolve`) — the flat-kwargs shape from v0.7.0 and earlier. Still works identically. Emits a server-side deprecation warning on every call.
-- **New v1 names** (`my_day_v1`, `meeting_v1`, `compose_v1`, `schedule_v1`, `people_v1`, `whats_new_v1`, `find_v1`, `resolve_v1`) — Pydantic `payload={...}` shape, typed responses with `type` discriminator, `rendered_markdown` field, `ErrorResponse` envelope, idempotency keys on writes.
-
-**Migration timeline:**
-1. **v0.8.0 (now)** — dual-registered. Existing consumers keep working. Deprecation warnings surface which callers still use legacy.
-2. **v0.9.x (multiple releases)** — consumers of ms365-intent-mcp migrate from legacy to `_v1` names, one at a time.
-3. **v1.0.0 (later)** — after every consumer has migrated and server logs show zero deprecation warnings for 7 consecutive days, legacy names are removed. The `_v1` variants are renamed to their canonical names (`my_day_v1` → `my_day`, etc.).
-
-**For adopters starting fresh**: skip the legacy names entirely. Use `_v1` from the start; they will be renamed to canonical (unsuffixed) in v1.0.0.
-
 ## Design Philosophy
 
 - **8 tools, not 76** — lean schema, loadable in any LLM session without bloat

@@ -1,4 +1,4 @@
-"""Golden JSON Schema snapshots for compose_v1 payloads and response models.
+"""Golden JSON Schema snapshots for compose payloads and response models.
 
 8 snapshot tests — one per schema. First run writes the JSON file;
 subsequent runs assert byte-equality.  Use ``SNAPSHOT_UPDATE=1`` to
@@ -141,7 +141,7 @@ def test_error_response(snapshot: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# my_day_v1 schemas (Task 3)
+# my_day schemas (Task 3)
 # ---------------------------------------------------------------------------
 
 
@@ -166,7 +166,7 @@ def test_teams_activity_summary(snapshot: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# people_v1 schemas (Task 5)
+# people schemas (Task 5)
 # ---------------------------------------------------------------------------
 
 
@@ -187,7 +187,7 @@ def test_chat_preview(snapshot: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# schedule_v1 schemas (Task 6)
+# schedule schemas (Task 6)
 # ---------------------------------------------------------------------------
 
 
@@ -208,7 +208,7 @@ def test_schedule_constraints(snapshot: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# meeting_v1 schemas (Task 4)
+# meeting schemas (Task 4)
 # ---------------------------------------------------------------------------
 
 
@@ -237,7 +237,7 @@ def test_recording_metadata(snapshot: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# find_v1 schemas (Task 8)
+# find schemas (Task 8)
 # ---------------------------------------------------------------------------
 
 
@@ -276,7 +276,7 @@ def test_search_hit_union_snapshot(snapshot: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# whats_new_v1 schemas (Task 7)
+# whats_new schemas (Task 7)
 # ---------------------------------------------------------------------------
 
 
@@ -301,7 +301,7 @@ def test_teams_item(snapshot: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# resolve_v1 schemas (Task 9)
+# resolve schemas (Task 9)
 # ---------------------------------------------------------------------------
 
 

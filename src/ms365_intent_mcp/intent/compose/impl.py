@@ -1,4 +1,4 @@
-"""compose_v1 implementation — dispatches on ComposePayload's ``type``.
+"""compose implementation — dispatches on ComposePayload's ``type``.
 
 Wraps the existing ``composers.compose.compose_action`` and adapts its
 (dict, markdown) return into typed response models.
@@ -28,12 +28,12 @@ from .schemas import (
     TeamsMessageSent,
 )
 
-TOOL_NAME = "compose_v1"
+TOOL_NAME = "compose"
 
 
 @wrap_errors(TOOL_NAME)
-async def _compose_v1_impl(ctx: Context, payload: ComposePayload) -> ComposeResponse:
-    """Dispatch a compose_v1 payload to the underlying composer.
+async def _compose_impl(ctx: Context, payload: ComposePayload) -> ComposeResponse:
+    """Dispatch a compose payload to the underlying composer.
 
     Returns a typed response model. On error, ``wrap_errors`` catches
     ``IntentError`` / ``GraphAPIError`` and returns an ``ErrorResponse``.

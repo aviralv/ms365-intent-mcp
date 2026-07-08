@@ -1,4 +1,4 @@
-"""my_day_v1 implementation — wraps composers.my_day.compose_my_day."""
+"""my_day implementation — wraps composers.my_day.compose_my_day."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from ...composers.my_day import compose_my_day
 from .._helpers import _get_deps, wrap_errors
 from .schemas import EventSummary, MailSummary, MyDayPayload, MyDaySummary, TeamsActivitySummary
 
-TOOL_NAME = "my_day_v1"
+TOOL_NAME = "my_day"
 
 
 @wrap_errors(TOOL_NAME)
-async def _my_day_v1_impl(ctx: Context, payload: MyDayPayload) -> MyDaySummary:
+async def _my_day_impl(ctx: Context, payload: MyDayPayload) -> MyDaySummary:
     """Call the underlying composer and return a typed MyDaySummary."""
     config, client, permissions = _get_deps(ctx)
     target_date = payload.date or date.today()

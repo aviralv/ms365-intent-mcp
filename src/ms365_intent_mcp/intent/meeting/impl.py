@@ -1,4 +1,4 @@
-"""meeting_v1 implementation — wraps composers.meeting.compose_meeting."""
+"""meeting implementation — wraps composers.meeting.compose_meeting."""
 
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ from .schemas import (
     RecordingMetadata,
 )
 
-TOOL_NAME = "meeting_v1"
+TOOL_NAME = "meeting"
 
 
 @wrap_errors(TOOL_NAME)
-async def _meeting_v1_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail:
+async def _meeting_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail:
     """Call the underlying composer and return a typed MeetingDetail."""
     config, client, permissions = _get_deps(ctx)
     data, markdown = await compose_meeting(

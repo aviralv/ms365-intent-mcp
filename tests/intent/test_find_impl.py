@@ -1,4 +1,4 @@
-"""Unit tests for _find_v1_impl — mocked context, no FastMCP."""
+"""Unit tests for _find_impl — mocked context, no FastMCP."""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.intent._shared import ErrorResponse
-from ms365_intent_mcp.intent.find.impl import _find_v1_impl
+from ms365_intent_mcp.intent.find.impl import _find_impl
 from ms365_intent_mcp.intent.find.schemas import FindPayload, FindResults
 
 
@@ -40,7 +40,7 @@ class TestFindV1Happy:
         )
 
         payload = FindPayload(query="project roadmap")
-        response = await _find_v1_impl(ctx, payload)
+        response = await _find_impl(ctx, payload)
 
         assert isinstance(response, FindResults)
         assert response.type == "find_results"
@@ -63,7 +63,7 @@ class TestFindV1Happy:
         )
 
         payload = FindPayload(query="budget", entity_type="email")
-        await _find_v1_impl(ctx, payload)
+        await _find_impl(ctx, payload)
 
         assert captured["search_type"] == "email"
 
@@ -82,7 +82,7 @@ class TestFindV1Happy:
         )
 
         payload = FindPayload(query="meeting notes")
-        await _find_v1_impl(ctx, payload)
+        await _find_impl(ctx, payload)
 
         assert captured["search_type"] is None
 
@@ -116,7 +116,7 @@ class TestFindV1Happy:
 
         with caplog.at_level(logging.WARNING, logger="ms365_intent_mcp"):
             payload = FindPayload(query="budget")
-            response = await _find_v1_impl(ctx, payload)
+            response = await _find_impl(ctx, payload)
 
         assert isinstance(response, FindResults)
         assert len(response.hits) == 1
@@ -141,7 +141,7 @@ class TestFindV1Happy:
         )
 
         payload = FindPayload(query="test")
-        response = await _find_v1_impl(ctx, payload)
+        response = await _find_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"

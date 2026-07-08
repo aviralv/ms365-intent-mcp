@@ -1,4 +1,4 @@
-"""Unit tests for _resolve_v1_impl — mocked context, no FastMCP."""
+"""Unit tests for _resolve_impl — mocked context, no FastMCP."""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -6,7 +6,7 @@ import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.intent._shared import ErrorResponse
-from ms365_intent_mcp.intent.resolve.impl import _resolve_v1_impl
+from ms365_intent_mcp.intent.resolve.impl import _resolve_impl
 from ms365_intent_mcp.intent.resolve.schemas import (
     ChatThreadContent,
     EmailContent,
@@ -48,7 +48,7 @@ class TestResolveV1HappyPath:
         payload = ResolvePayload.model_validate({
             "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
         })
-        response = await _resolve_v1_impl(ctx, payload)
+        response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
         assert response.type == "resolved_content"
@@ -72,7 +72,7 @@ class TestResolveV1HappyPath:
         payload = ResolvePayload.model_validate({
             "url": "https://teams.microsoft.com/l/chat/19:abc123def456@thread.v2/0"
         })
-        response = await _resolve_v1_impl(ctx, payload)
+        response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
         assert response.kind == "chat_thread"
@@ -94,7 +94,7 @@ class TestResolveV1HappyPath:
         payload = ResolvePayload.model_validate({
             "url": "https://contoso.sharepoint.com/sites/Engineering/SitePages/Home.aspx"
         })
-        response = await _resolve_v1_impl(ctx, payload)
+        response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
         assert response.kind == "sharepoint_page"
@@ -116,7 +116,7 @@ class TestResolveV1HappyPath:
         payload = ResolvePayload.model_validate({
             "url": "https://contoso.sharepoint.com/personal/alice_contoso_com/_layouts/15/Doc.aspx?sourcedoc=%7Babc%7D"
         })
-        response = await _resolve_v1_impl(ctx, payload)
+        response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
         assert response.kind == "onedrive_file"
@@ -140,7 +140,7 @@ class TestResolveV1HappyPath:
         payload = ResolvePayload.model_validate({
             "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
         })
-        response = await _resolve_v1_impl(ctx, payload)
+        response = await _resolve_impl(ctx, payload)
 
         assert response.rendered_markdown == expected_markdown
 
@@ -162,7 +162,7 @@ class TestResolveV1HappyPath:
         payload = ResolvePayload.model_validate({
             "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
         })
-        response = await _resolve_v1_impl(ctx, payload)
+        response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.code == "validation_error"
@@ -175,7 +175,7 @@ class TestResolveV1HappyPath:
         payload = ResolvePayload.model_validate({
             "url": "https://example.com/not-an-m365-url"
         })
-        response = await _resolve_v1_impl(ctx, payload)
+        response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"
@@ -197,7 +197,7 @@ class TestResolveV1HappyPath:
         payload = ResolvePayload.model_validate({
             "url": "https://teams.microsoft.com/l/chat/19:abc123def456@thread.v2/0"
         })
-        response = await _resolve_v1_impl(ctx, payload)
+        response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"

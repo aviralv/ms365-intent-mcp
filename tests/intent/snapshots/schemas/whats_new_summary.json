@@ -125,7 +125,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Response for whats_new_v1.",
+  "description": "Response for whats_new.",
   "properties": {
     "events": {
       "items": {

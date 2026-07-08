@@ -1,4 +1,4 @@
-"""find_v1 implementation — wraps composers.find.compose_find."""
+"""find implementation — wraps composers.find.compose_find."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from ...composers.find import compose_find
 from .._helpers import _get_deps, wrap_errors
 from .schemas import EmailHit, FileHit, FindPayload, FindResults, MessageHit, PageHit
 
-TOOL_NAME = "find_v1"
+TOOL_NAME = "find"
 _logger = logging.getLogger("ms365_intent_mcp")
 
 _KIND_TO_MODEL = {
@@ -22,7 +22,7 @@ _KIND_TO_MODEL = {
 
 
 @wrap_errors(TOOL_NAME)
-async def _find_v1_impl(ctx: Context, payload: FindPayload) -> FindResults:
+async def _find_impl(ctx: Context, payload: FindPayload) -> FindResults:
     """Call the underlying composer and return a typed FindResults."""
     _, client, permissions = _get_deps(ctx)
     data, markdown = await compose_find(
@@ -40,7 +40,7 @@ async def _find_v1_impl(ctx: Context, payload: FindPayload) -> FindResults:
             try:
                 hits.append(model_cls.model_validate(h))
             except Exception as exc:
-                _logger.warning("find_v1: dropping malformed hit (kind=%r): %s", kind, exc)
+                _logger.warning("find: dropping malformed hit (kind=%r): %s", kind, exc)
 
     return FindResults(
         query=payload.query,

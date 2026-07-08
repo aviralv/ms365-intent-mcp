@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Live end-to-end verify script for compose_v1.
+"""Live end-to-end verify script for compose.
 
-compose_v1 is a write operation (creates drafts, events, Teams messages).
+compose is a write operation (creates drafts, events, Teams messages).
 This script validates payload shapes and prints what would be sent — it
 does NOT call the impl to avoid creating side effects.
 
 Usage:
-    uv run python scripts/verify_compose_v1.py
+    uv run python scripts/verify_compose.py
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def _line(char="═", n=72):
 
 def run():
     _line()
-    print("compose_v1 payload shape verification (no Graph calls)")
+    print("compose payload shape verification (no Graph calls)")
     _line()
 
     # Example 1: email draft (new)
@@ -33,7 +33,7 @@ def run():
         "type": "email",
         "mode": "new",
         "to": [{"email": "test@example.com", "name": "Test User"}],
-        "subject": "Hello from verify_compose_v1",
+        "subject": "Hello from verify_compose",
         "body": "<p>This is a test email.</p>",
     })
     _line("─")
@@ -58,7 +58,7 @@ def run():
     teams_payload = ComposeTeamsMessage.model_validate({
         "type": "teams_message",
         "chat_id": "19:fake-chat-id@thread.v2",
-        "content": "Hello from verify_compose_v1",
+        "content": "Hello from verify_compose",
     })
     _line("─")
     print("ComposeTeamsMessage payload (would send Teams message — NOT called):")
@@ -84,7 +84,7 @@ def run():
 
     _line()
     print("All payload shapes validated. No Graph calls made.")
-    print("✅ verify_compose_v1 PASSED")
+    print("✅ verify_compose PASSED")
 
 
 if __name__ == "__main__":

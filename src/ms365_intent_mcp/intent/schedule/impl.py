@@ -1,4 +1,4 @@
-"""schedule_v1 implementation — wraps composers.schedule.compose_schedule."""
+"""schedule implementation — wraps composers.schedule.compose_schedule."""
 
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ from ...composers.schedule import compose_schedule
 from .._helpers import _get_deps, wrap_errors
 from .schemas import SchedulePayload, ScheduleSuggestions, TimeSlot
 
-TOOL_NAME = "schedule_v1"
+TOOL_NAME = "schedule"
 
 
 @wrap_errors(TOOL_NAME)
-async def _schedule_v1_impl(ctx: Context, payload: SchedulePayload) -> ScheduleSuggestions:
-    """Execute a schedule_v1 request via the underlying composer."""
+async def _schedule_impl(ctx: Context, payload: SchedulePayload) -> ScheduleSuggestions:
+    """Execute a schedule request via the underlying composer."""
     _, client, permissions = _get_deps(ctx)
 
     attendees_flat = [

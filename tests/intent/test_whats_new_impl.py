@@ -1,4 +1,4 @@
-"""Unit tests for _whats_new_v1_impl — mocked context, no FastMCP."""
+"""Unit tests for _whats_new_impl — mocked context, no FastMCP."""
 
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
-from ms365_intent_mcp.intent.whats_new.impl import _whats_new_v1_impl
+from ms365_intent_mcp.intent.whats_new.impl import _whats_new_impl
 from ms365_intent_mcp.intent.whats_new.schemas import WhatsNewPayload, WhatsNewSummary
 from ms365_intent_mcp.intent._shared import ErrorResponse
 
@@ -41,7 +41,7 @@ class TestWhatsNewV1Happy:
         )
 
         payload = WhatsNewPayload(since=since, scope="all")
-        response = await _whats_new_v1_impl(ctx, payload)
+        response = await _whats_new_impl(ctx, payload)
 
         assert isinstance(response, WhatsNewSummary)
         assert response.type == "whats_new_summary"
@@ -68,7 +68,7 @@ class TestWhatsNewV1Happy:
         )
 
         payload = WhatsNewPayload(since=since, scope="all")
-        await _whats_new_v1_impl(ctx, payload)
+        await _whats_new_impl(ctx, payload)
 
         assert captured_kwargs["scope"] is None
 
@@ -89,7 +89,7 @@ class TestWhatsNewV1Happy:
         )
 
         payload = WhatsNewPayload(since=since, scope="teams")
-        await _whats_new_v1_impl(ctx, payload)
+        await _whats_new_impl(ctx, payload)
 
         assert captured_kwargs["scope"] == "teams"
 
@@ -108,7 +108,7 @@ class TestWhatsNewV1Happy:
         )
 
         payload = WhatsNewPayload(since=since)
-        response = await _whats_new_v1_impl(ctx, payload)
+        response = await _whats_new_impl(ctx, payload)
 
         assert response.mail == []
         assert response.events == []
@@ -130,7 +130,7 @@ class TestWhatsNewV1Errors:
         )
 
         payload = WhatsNewPayload(since=since)
-        response = await _whats_new_v1_impl(ctx, payload)
+        response = await _whats_new_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"

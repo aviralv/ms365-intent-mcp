@@ -1,11 +1,11 @@
-"""Unit tests for _schedule_v1_impl — mocked context, no FastMCP."""
+"""Unit tests for _schedule_impl — mocked context, no FastMCP."""
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from ms365_intent_mcp.intent._shared import ErrorResponse
-from ms365_intent_mcp.intent.schedule.impl import _schedule_v1_impl
+from ms365_intent_mcp.intent.schedule.impl import _schedule_impl
 from ms365_intent_mcp.intent.schedule.schemas import SchedulePayload, ScheduleSuggestions
 from ms365_intent_mcp.graph import GraphAPIError
 
@@ -42,7 +42,7 @@ class TestScheduleV1HappyPath:
             "attendees": [{"email": "alice@example.com"}],
             "duration_minutes": 30,
         })
-        response = await _schedule_v1_impl(ctx, payload)
+        response = await _schedule_impl(ctx, payload)
 
         assert isinstance(response, ScheduleSuggestions)
         assert response.type == "schedule_suggestions"
@@ -67,7 +67,7 @@ class TestScheduleV1HappyPath:
         payload = SchedulePayload.model_validate({
             "attendees": [{"email": "bob@example.com"}],
         })
-        await _schedule_v1_impl(ctx, payload)
+        await _schedule_impl(ctx, payload)
 
         assert len(captured_attendees) == 1
         assert captured_attendees[0]["email"] == "bob@example.com"
@@ -97,7 +97,7 @@ class TestScheduleV1AttendeeConversion:
             ],
             "duration_minutes": 45,
         })
-        await _schedule_v1_impl(ctx, payload)
+        await _schedule_impl(ctx, payload)
 
         assert len(captured_attendees) == 2
         assert captured_attendees[0] == {"email": "alice@example.com", "name": "Alice"}
@@ -152,7 +152,7 @@ class TestScheduleV1ErrorHandling:
         payload = SchedulePayload.model_validate({
             "attendees": [{"email": "alice@example.com"}],
         })
-        response = await _schedule_v1_impl(ctx, payload)
+        response = await _schedule_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.type == "error"

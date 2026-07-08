@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Live end-to-end verify script for my_day_v1.
 
-Calls _my_day_v1_impl against a live Graph connection and prints
+Calls _my_day_impl against a live Graph connection and prints
 the structured response fields plus the rendered markdown.
 
 Usage:
-    uv run python scripts/verify_my_day_v1.py
-    uv run python scripts/verify_my_day_v1.py 2026-07-08
+    uv run python scripts/verify_my_day.py
+    uv run python scripts/verify_my_day.py 2026-07-08
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 from ms365_intent_mcp.auth import TokenManager
 from ms365_intent_mcp.config import Config
 from ms365_intent_mcp.graph import GraphClient
-from ms365_intent_mcp.intent.my_day.impl import _my_day_v1_impl
+from ms365_intent_mcp.intent.my_day.impl import _my_day_impl
 from ms365_intent_mcp.intent.my_day.schemas import MyDayPayload
 from ms365_intent_mcp.permissions import PermissionRegistry
 
@@ -52,10 +52,10 @@ async def run(target_date: date | None = None) -> None:
         )
 
         _line()
-        print(f"my_day_v1 — date={payload.date or 'today (server default)'}")
+        print(f"my_day — date={payload.date or 'today (server default)'}")
         _line()
 
-        result = await _my_day_v1_impl(ctx, payload)
+        result = await _my_day_impl(ctx, payload)
 
         _line("─")
         print(f"type:           {result.type}")
@@ -72,7 +72,7 @@ async def run(target_date: date | None = None) -> None:
 
         assert result.type == "my_day_summary", f"Expected type='my_day_summary', got {result.type!r}"
         print("✅ type field correct")
-        print("✅ verify_my_day_v1 PASSED")
+        print("✅ verify_my_day PASSED")
 
 
 if __name__ == "__main__":

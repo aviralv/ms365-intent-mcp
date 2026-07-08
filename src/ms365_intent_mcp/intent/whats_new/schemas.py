@@ -1,4 +1,4 @@
-"""Schemas for whats_new_v1 — payload + structured summary response.
+"""Schemas for whats_new — payload + structured summary response.
 
 Structured fields (mail, events, teams) are stubs until Task 12 refactors
 composers to return ``(dict, markdown)`` tuples. ``rendered_markdown``
@@ -16,7 +16,7 @@ from .._shared import BaseResponse
 
 
 class WhatsNewPayload(BaseModel):
-    """Payload for whats_new_v1."""
+    """Payload for whats_new."""
 
     model_config = ConfigDict(extra="forbid")
     since: datetime  # ISO 8601; naive treated as UTC per Pydantic default
@@ -56,7 +56,7 @@ class TeamsItem(BaseModel):
 
 
 class WhatsNewSummary(BaseResponse):
-    """Response for whats_new_v1."""
+    """Response for whats_new."""
 
     type: Literal["whats_new_summary"] = "whats_new_summary"
     since: datetime

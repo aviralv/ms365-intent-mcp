@@ -1,4 +1,4 @@
-"""meeting_v1 tool package."""
+"""meeting tool package."""
 
 from .register import register
 

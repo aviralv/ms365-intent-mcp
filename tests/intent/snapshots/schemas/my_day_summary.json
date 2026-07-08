@@ -82,7 +82,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Response for my_day_v1.",
+  "description": "Response for my_day.",
   "properties": {
     "date": {
       "format": "date",

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Live end-to-end verify script for whats_new_v1.
 
-Calls _whats_new_v1_impl against a live Graph connection for the past
+Calls _whats_new_impl against a live Graph connection for the past
 24 hours and prints the structured response fields plus rendered markdown.
 
 Usage:
-    uv run python scripts/verify_whats_new_v1.py
-    uv run python scripts/verify_whats_new_v1.py mail
-    uv run python scripts/verify_whats_new_v1.py calendar
-    uv run python scripts/verify_whats_new_v1.py teams
+    uv run python scripts/verify_whats_new.py
+    uv run python scripts/verify_whats_new.py mail
+    uv run python scripts/verify_whats_new.py calendar
+    uv run python scripts/verify_whats_new.py teams
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from unittest.mock import MagicMock
 from ms365_intent_mcp.auth import TokenManager
 from ms365_intent_mcp.config import Config
 from ms365_intent_mcp.graph import GraphClient
-from ms365_intent_mcp.intent.whats_new.impl import _whats_new_v1_impl
+from ms365_intent_mcp.intent.whats_new.impl import _whats_new_impl
 from ms365_intent_mcp.intent.whats_new.schemas import WhatsNewPayload
 from ms365_intent_mcp.permissions import PermissionRegistry
 
@@ -55,10 +55,10 @@ async def run(scope: str = "all") -> None:
         payload = WhatsNewPayload.model_validate({"since": since_iso, "scope": scope})
 
         _line()
-        print(f"whats_new_v1 — since={since_iso}, scope={scope!r}")
+        print(f"whats_new — since={since_iso}, scope={scope!r}")
         _line()
 
-        result = await _whats_new_v1_impl(ctx, payload)
+        result = await _whats_new_impl(ctx, payload)
 
         _line("─")
         print(f"type:         {result.type}")
@@ -75,7 +75,7 @@ async def run(scope: str = "all") -> None:
 
         assert result.type == "whats_new_summary", f"Expected type='whats_new_summary', got {result.type!r}"
         print("✅ type field correct")
-        print("✅ verify_whats_new_v1 PASSED")
+        print("✅ verify_whats_new PASSED")
 
 
 if __name__ == "__main__":

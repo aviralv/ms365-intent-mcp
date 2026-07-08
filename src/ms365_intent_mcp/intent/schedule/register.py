@@ -1,4 +1,4 @@
-"""FastMCP registration for schedule_v1."""
+"""FastMCP registration for schedule."""
 
 from __future__ import annotations
 
@@ -6,15 +6,15 @@ from typing import Annotated
 
 from fastmcp import Context, FastMCP
 
-from .impl import _schedule_v1_impl
+from .impl import _schedule_impl
 from .schemas import SchedulePayload, ScheduleSuggestions
 
 
 def register(mcp: FastMCP) -> None:
-    """Register the schedule_v1 tool on a FastMCP instance."""
+    """Register the schedule tool on a FastMCP instance."""
 
     @mcp.tool()
-    async def schedule_v1(
+    async def schedule(
         ctx: Context,
         payload: Annotated[
             SchedulePayload,
@@ -25,4 +25,4 @@ def register(mcp: FastMCP) -> None:
         ],
     ) -> ScheduleSuggestions:
         """Find available meeting times. Returns ranked time slots with confidence scores."""
-        return await _schedule_v1_impl(ctx, payload)
+        return await _schedule_impl(ctx, payload)

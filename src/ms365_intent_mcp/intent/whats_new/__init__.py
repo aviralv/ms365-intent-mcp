@@ -1,4 +1,4 @@
-"""whats_new_v1 tool package."""
+"""whats_new tool package."""
 
 from .register import register
 
