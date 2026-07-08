@@ -55,11 +55,11 @@ async def _resolve_v1_impl(ctx: Context, payload: ResolvePayload) -> ResolvedCon
     if model_cls is None:
         raise IntentError("invalid_id", f"Unknown url_type: {kind}")
 
+    structured_data_with_kind = {"kind": kind if kind != "onedrive_share_link" else "onedrive_file", **structured_data}
     try:
-        content_obj = model_cls.model_validate(structured_data)
-    except Exception:
-        # Fallback: construct with just the kind field
-        content_obj = model_cls(kind=content_obj.model_fields["kind"].default)  # type: ignore[attr-defined]
+        content_obj = model_cls.model_validate(structured_data_with_kind)
+    except Exception as exc:
+        raise IntentError("validation_error", f"Failed to build {kind} content: {exc}")
 
     # Normalise onedrive_share_link → onedrive_file for the kind discriminator
     canonical_kind = "onedrive_file" if kind == "onedrive_share_link" else kind

@@ -145,7 +145,28 @@ class TestResolveV1HappyPath:
         assert response.rendered_markdown == expected_markdown
 
 
-class TestResolveV1Errors:
+    @pytest.mark.asyncio
+    async def test_invalid_structured_data_returns_validation_error(self, monkeypatch):
+        """Composer returning partial/invalid structured_data must yield ErrorResponse(code='validation_error')."""
+        ctx, _, _ = _mock_ctx()
+
+        async def _fake(client, permissions, url):
+            # 'email' kind requires 'subject', 'sender', 'body' — return none of them
+            return {"url": url, "kind": "email", "data": {"totally": "wrong"}}, "partial"
+
+        monkeypatch.setattr(
+            "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
+            _fake,
+        )
+
+        payload = ResolvePayload.model_validate({
+            "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
+        })
+        response = await _resolve_v1_impl(ctx, payload)
+
+        assert isinstance(response, ErrorResponse)
+        assert response.code == "validation_error"
+        assert "email" in response.message
     @pytest.mark.asyncio
     async def test_invalid_url_returns_error_response(self, monkeypatch):
         """An unrecognised URL should yield ErrorResponse with code='invalid_id'."""
