@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ms365_intent_mcp.intent._helpers import idempotency_clear
+from ms365_intent_mcp.intent._helpers import idempotency_clear, idempotency_lookup, idempotency_store
 from ms365_intent_mcp.intent.compose.impl import _compose_v1_impl
 from ms365_intent_mcp.intent.compose.schemas import (
     ComposeEmail,
@@ -233,3 +233,37 @@ class TestIdempotencyKey:
         await _compose_v1_impl(ctx, payload)
         await _compose_v1_impl(ctx, payload)
         assert call_count == 2, "no key should mean no cache"
+
+
+class TestIdempotencyLookupDirect:
+    """Direct unit tests for idempotency_lookup — no FastMCP overhead."""
+
+    def setup_method(self):
+        idempotency_clear()
+
+    def teardown_method(self):
+        idempotency_clear()
+
+    def test_lookup_returns_none_when_empty(self):
+        assert idempotency_lookup("tool", "key-1") is None
+
+    def test_lookup_returns_stored_value(self):
+        sentinel = object()
+        idempotency_store("tool", "key-2", sentinel)
+        assert idempotency_lookup("tool", "key-2") is sentinel
+
+    def test_lookup_returns_none_after_ttl_expiry(self):
+        import ms365_intent_mcp.intent._helpers as h
+        original_ttl = h._IDEMPOTENCY_TTL_SECONDS
+        h._IDEMPOTENCY_TTL_SECONDS = 0  # instant expiry
+        try:
+            idempotency_store("tool", "key-ttl", "cached-response")
+            # With TTL=0, stored_at is older than now by at least epsilon
+            result = idempotency_lookup("tool", "key-ttl")
+            assert result is None, "expired entry should return None, not the stale response"
+        finally:
+            h._IDEMPOTENCY_TTL_SECONDS = original_ttl
+
+    def test_lookup_no_op_on_falsy_key(self):
+        assert idempotency_lookup("tool", None) is None
+        assert idempotency_lookup("tool", "") is None
