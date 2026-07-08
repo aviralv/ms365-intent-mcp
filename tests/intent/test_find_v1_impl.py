@@ -32,7 +32,7 @@ class TestFindV1Happy:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, query, search_type):
-            return "### Results\n2 hits found."
+            return {"query": query, "hits": []}, "### Results\n2 hits found."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.find.impl.compose_find",
@@ -55,7 +55,7 @@ class TestFindV1Happy:
 
         async def _fake(client, permissions, query, search_type):
             captured["search_type"] = search_type
-            return "### Results\n1 hit."
+            return {"query": query, "hits": []}, "### Results\n1 hit."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.find.impl.compose_find",
@@ -74,7 +74,7 @@ class TestFindV1Happy:
 
         async def _fake(client, permissions, query, search_type):
             captured["search_type"] = search_type
-            return "### Results\n3 hits."
+            return {"query": query, "hits": []}, "### Results\n3 hits."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.find.impl.compose_find",

@@ -232,7 +232,8 @@ async def find(
     _logger.warning("legacy tool 'find' called — migrate to 'find_v1'")
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
-    return await compose_find(client=client, permissions=permissions, query=query, search_type=type)
+    _, markdown = await compose_find(client=client, permissions=permissions, query=query, search_type=type)
+    return markdown
 
 
 @mcp.tool()

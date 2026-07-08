@@ -22,26 +22,29 @@ async def compose_find(
     permissions: PermissionRegistry,
     query: str,
     search_type: str | None,
-) -> str:
+) -> tuple[dict, str]:
     if search_type == "message":
-        return await _search_chat_messages(client, query)
+        markdown, hits = await _search_chat_messages_with_hits(client, query)
+        return {"query": query, "hits": hits}, markdown
 
     entity_types = _TYPE_MAP.get(search_type or "", _DEFAULT_ENTITY_TYPES)
 
     if len(entity_types) == 1:
-        return await _search_single(client, query, entity_types)
+        hits = await _search_single_raw(client, query, entity_types)
+        markdown = format_search_results_markdown(query, hits)
+    else:
+        results = await asyncio.gather(
+            *[_search_single_raw(client, query, [et]) for et in entity_types],
+            return_exceptions=True,
+        )
+        hits = []
+        for result in results:
+            if isinstance(result, list):
+                hits.extend(result)
+        markdown = format_search_results_markdown(query, hits)
 
-    results = await asyncio.gather(
-        *[_search_single_raw(client, query, [et]) for et in entity_types],
-        return_exceptions=True,
-    )
-
-    hits = []
-    for result in results:
-        if isinstance(result, list):
-            hits.extend(result)
-
-    return format_search_results_markdown(query, hits)
+    structured_hits = [_hit_to_structured(h) for h in hits if _hit_to_structured(h) is not None]
+    return {"query": query, "hits": structured_hits}, markdown
 
 
 _MESSAGE_SEMAPHORE_LIMIT = 5
@@ -123,6 +126,93 @@ def _to_search_hit(msg: dict) -> dict:
             "createdDateTime": msg.get("createdDateTime", ""),
         },
     }
+
+
+def _hit_to_structured(hit: dict) -> dict | None:
+    """Convert a Graph Search API hit dict into a structured dict for v1 impls.
+
+    Returns None for unrecognised resource types (caller should filter these out).
+    """
+    resource = hit.get("resource") or {}
+    odata_type = resource.get("@odata.type", "")
+    if "chatMessage" in odata_type:
+        sender = (resource.get("from") or {}).get("user", {}).get("displayName", "?")
+        body_html = (resource.get("body") or {}).get("content", "")
+        return {
+            "kind": "message",
+            "sender": sender,
+            "body_preview": _strip_teams_html(body_html)[:200],
+            "created": resource.get("createdDateTime"),
+        }
+    elif "message" in odata_type:
+        return {
+            "kind": "email",
+            "subject": resource.get("subject", ""),
+            "sender": (resource.get("from") or {}).get("emailAddress", {}).get("name", ""),
+            "body_preview": resource.get("bodyPreview") or "",
+            "web_link": resource.get("webLink"),
+        }
+    elif "driveItem" in odata_type:
+        return {
+            "kind": "file",
+            "name": resource.get("name", ""),
+            "web_url": resource.get("webUrl"),
+            "size": resource.get("size"),
+        }
+    elif "listItem" in odata_type:
+        fields = resource.get("fields") or {}
+        return {
+            "kind": "page",
+            "title": fields.get("Title", resource.get("name", "")),
+            "web_url": resource.get("webUrl"),
+        }
+    return None
+
+
+async def _search_chat_messages_with_hits(client: GraphClient, query: str) -> tuple[str, list[dict]]:
+    """Like _search_chat_messages but also returns the raw hit list for structured output."""
+    try:
+        chats = await _list_user_chats(client)
+    except GraphAPIError as exc:
+        return format_section_error("Find", _error_reason(exc)), []
+    if not chats:
+        return format_search_results_markdown(query, []), []
+
+    chats, matched_words = _prefilter_chats_by_query(chats, query)
+    chats = chats[:_MAX_CHATS_TO_SEARCH]
+
+    all_words = [w for w in query.split() if len(w) >= 3]
+    needles = [w for w in all_words if w.lower() not in matched_words]
+    if not all_words:
+        stripped = query.strip()
+        needles = [stripped] if stripped else []
+
+    semaphore = asyncio.Semaphore(_MESSAGE_SEMAPHORE_LIMIT)
+
+    async def _bounded_fetch(chat_id: str) -> list[dict]:
+        async with semaphore:
+            if not needles:
+                return await _recent_chat_messages(client, chat_id)
+            return await _fetch_chat_messages(client, chat_id, needles)
+
+    results = await asyncio.gather(
+        *[_bounded_fetch(c["id"]) for c in chats],
+        return_exceptions=True,
+    )
+
+    hits: list[dict] = []
+    for result in results:
+        if isinstance(result, list):
+            hits.extend(result)
+
+    hits.sort(key=lambda m: m.get("createdDateTime") or "", reverse=True)
+    hits = hits[:_MAX_HITS]
+
+    search_hits = [_to_search_hit(m) for m in hits]
+    markdown = format_search_results_markdown(query, search_hits)
+    structured = [_hit_to_structured(h) for h in search_hits]
+    structured = [s for s in structured if s is not None]
+    return markdown, structured
 
 
 async def _search_single(client: GraphClient, query: str, entity_types: list[str]) -> str:
