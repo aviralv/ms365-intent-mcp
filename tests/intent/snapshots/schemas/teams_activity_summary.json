@@ -1,0 +1,13 @@
+{
+  "additionalProperties": false,
+  "description": "Aggregate Teams activity for the day.",
+  "properties": {
+    "recent_message_count": {
+      "default": 0,
+      "title": "Recent Message Count",
+      "type": "integer"
+    }
+  },
+  "title": "TeamsActivitySummary",
+  "type": "object"
+}
