@@ -45,7 +45,7 @@ class TestComposeV1Email:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client_arg, perms_arg, action_type, params):
-            return "✅ Draft created\n**Subject:** Hi"
+            return {"draft_id": "draft-abc", "subject": "Hi", "to": [{"email": "a@b.com", "name": "A"}], "web_link": "https://outlook.office.com/mail/inbox"}, "✅ Draft created\n**Subject:** Hi"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
@@ -72,7 +72,7 @@ class TestComposeV1Email:
 
         async def _fake(client_arg, perms_arg, action_type, params):
             captured_action.append(action_type)
-            return "✅ Reply draft created"
+            return {"draft_id": "reply-1", "subject": "Re: Hi", "to": [], "web_link": "https://outlook.office.com/mail/inbox"}, "✅ Reply draft created"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
@@ -97,7 +97,7 @@ class TestComposeV1Event:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client_arg, perms_arg, action_type, params):
-            return "✅ Event created\n**Subject:** Sync"
+            return {"event_id": "evt-123", "subject": "Sync", "start": "2026-07-08T10:00:00Z", "end": "2026-07-08T11:00:00Z", "join_url": None}, "✅ Event created\n**Subject:** Sync"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
@@ -124,7 +124,7 @@ class TestComposeV1TeamsMessage:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client_arg, perms_arg, action_type, params):
-            return "✅ Message sent to Teams chat."
+            return {"message_id": "msg-456", "chat_id": "19:abc@thread.v2"}, "✅ Message sent to Teams chat."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
@@ -151,7 +151,7 @@ class TestIdempotencyKey:
         async def _fake(client_arg, perms_arg, action_type, params):
             nonlocal call_count
             call_count += 1
-            return f"✅ Draft created (call {call_count})"
+            return {"draft_id": f"d{call_count}", "subject": "Hi", "to": [{"email": "a@b.com", "name": "A"}], "web_link": "https://outlook.office.com/mail/inbox"}, f"✅ Draft created (call {call_count})"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
@@ -186,7 +186,7 @@ class TestIdempotencyKey:
             async def _fake(*args, **kwargs):
                 nonlocal call_count
                 call_count += 1
-                return f"call {call_count}"
+                return {"draft_id": f"d{call_count}", "subject": "Hi", "to": [{"email": "a@b.com", "name": "A"}], "web_link": "https://outlook.office.com/mail/inbox"}, f"call {call_count}"
 
             monkeypatch.setattr(
                 "ms365_intent_mcp.intent.compose.impl.compose_action",
@@ -216,7 +216,7 @@ class TestIdempotencyKey:
         async def _fake(*args, **kwargs):
             nonlocal call_count
             call_count += 1
-            return f"call {call_count}"
+            return {"draft_id": f"d{call_count}", "subject": "Hi", "to": [{"email": "a@b.com", "name": "A"}], "web_link": "https://outlook.office.com/mail/inbox"}, f"call {call_count}"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",

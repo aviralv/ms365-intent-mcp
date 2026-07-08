@@ -33,7 +33,8 @@ class TestComposeEmailDraft:
                 "to": [{"email": "bob@example.com", "name": "Bob"}],
             },
         )
-        assert "Draft created" in result or "✅" in result
+        _, markdown = result
+        assert "Draft created" in markdown or "✅" in markdown
         client.post.assert_called_once()
 
 
@@ -57,7 +58,8 @@ class TestComposeReplyDraft:
                 "reply_all": True,
             },
         )
-        assert "✅" in result
+        _, markdown = result
+        assert "✅" in markdown
 
 
 class TestComposeEvent:
@@ -83,7 +85,8 @@ class TestComposeEvent:
                 "timezone": "Europe/Berlin",
             },
         )
-        assert "✅" in result
+        _, markdown = result
+        assert "✅" in markdown
 
 
 class TestComposeTeamsMessage:
@@ -101,7 +104,8 @@ class TestComposeTeamsMessage:
                 "content": "Hey team!",
             },
         )
-        assert "✅" in result or "sent" in result.lower()
+        _, markdown = result
+        assert "✅" in markdown or "sent" in markdown.lower()
 
 
 class TestComposeMissingPermission:
@@ -116,4 +120,5 @@ class TestComposeMissingPermission:
             action_type=ComposeType.EMAIL_DRAFT,
             params={"subject": "Test", "body": "Hi", "to": [{"email": "x@x.com"}]},
         )
-        assert "Mail.ReadWrite" in result
+        _, markdown = result
+        assert "Mail.ReadWrite" in markdown

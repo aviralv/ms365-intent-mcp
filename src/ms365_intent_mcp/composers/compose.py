@@ -27,11 +27,11 @@ async def compose_action(
     permissions: PermissionRegistry,
     action_type: ComposeType,
     params: dict,
-) -> str:
+) -> tuple[dict, str]:
     required_scope = SCOPE_REQUIREMENTS[action_type]
     scope_msg = permissions.check(required_scope)
     if scope_msg:
-        return scope_msg
+        return {}, scope_msg
 
     if action_type == ComposeType.EMAIL_DRAFT:
         return await _create_email_draft(client, params)
@@ -42,16 +42,16 @@ async def compose_action(
     elif action_type == ComposeType.TEAMS_MESSAGE:
         return await _send_teams_message(client, params)
     else:
-        return f"❌ Unknown compose type: {action_type}"
+        return {}, f"❌ Unknown compose type: {action_type}"
 
 
-async def _create_email_draft(client: GraphClient, params: dict) -> str:
+async def _create_email_draft(client: GraphClient, params: dict) -> tuple[dict, str]:
     if not params.get("to"):
-        return "❌ Missing required field: 'to' (recipients list)"
+        return {}, "❌ Missing required field: 'to' (recipients list)"
     if not params.get("subject"):
-        return "❌ Missing required field: 'subject'"
+        return {}, "❌ Missing required field: 'subject'"
     if not params.get("body"):
-        return "❌ Missing required field: 'body'"
+        return {}, "❌ Missing required field: 'body'"
     recipients = [
         {"emailAddress": {"address": r["email"], "name": r.get("name", r["email"])}}
         for r in params["to"]
@@ -70,14 +70,23 @@ async def _create_email_draft(client: GraphClient, params: dict) -> str:
         payload["importance"] = params["importance"]
 
     draft = await client.post("/me/messages", payload)
-    return format_draft_created_markdown(draft)
+    data = {
+        "draft_id": draft.get("id", ""),
+        "subject": draft.get("subject", params.get("subject", "")),
+        "to": [
+            {"email": r.get("emailAddress", {}).get("address", ""), "name": r.get("emailAddress", {}).get("name", "")}
+            for r in draft.get("toRecipients", [])
+        ],
+        "web_link": draft.get("webLink", ""),
+    }
+    return data, format_draft_created_markdown(draft)
 
 
-async def _create_reply_draft(client: GraphClient, params: dict) -> str:
+async def _create_reply_draft(client: GraphClient, params: dict) -> tuple[dict, str]:
     if not params.get("message_id"):
-        return "❌ Missing required field: 'message_id'"
+        return {}, "❌ Missing required field: 'message_id'"
     if not params.get("body"):
-        return "❌ Missing required field: 'body'"
+        return {}, "❌ Missing required field: 'body'"
     message_id = params["message_id"]
     reply_all = params.get("reply_all", True)
     endpoint = "createReplyAll" if reply_all else "createReply"
@@ -91,16 +100,25 @@ async def _create_reply_draft(client: GraphClient, params: dict) -> str:
         payload["comment"] = params["comment"]
 
     draft = await client.post(f"/me/messages/{message_id}/{endpoint}", payload)
-    return format_draft_created_markdown(draft)
+    data = {
+        "draft_id": draft.get("id", ""),
+        "subject": draft.get("subject", ""),
+        "to": [
+            {"email": r.get("emailAddress", {}).get("address", ""), "name": r.get("emailAddress", {}).get("name", "")}
+            for r in draft.get("toRecipients", [])
+        ],
+        "web_link": draft.get("webLink", ""),
+    }
+    return data, format_draft_created_markdown(draft)
 
 
-async def _create_event(client: GraphClient, params: dict) -> str:
+async def _create_event(client: GraphClient, params: dict) -> tuple[dict, str]:
     if not params.get("subject"):
-        return "❌ Missing required field: 'subject'"
+        return {}, "❌ Missing required field: 'subject'"
     if not params.get("start"):
-        return "❌ Missing required field: 'start'"
+        return {}, "❌ Missing required field: 'start'"
     if not params.get("end"):
-        return "❌ Missing required field: 'end'"
+        return {}, "❌ Missing required field: 'end'"
     tz = params.get("timezone", "UTC")
     payload = {
         "subject": params["subject"],
@@ -123,14 +141,22 @@ async def _create_event(client: GraphClient, params: dict) -> str:
         payload["isOnlineMeeting"] = True
 
     event = await client.post("/me/events", payload)
-    return format_event_created_markdown(event)
+    join_url = (event.get("onlineMeeting") or {}).get("joinUrl", "") if event.get("isOnlineMeeting") else ""
+    data = {
+        "event_id": event.get("id", ""),
+        "subject": event.get("subject", params.get("subject", "")),
+        "start": (event.get("start") or {}).get("dateTime", params.get("start", "")),
+        "end": (event.get("end") or {}).get("dateTime", params.get("end", "")),
+        "join_url": join_url or None,
+    }
+    return data, format_event_created_markdown(event)
 
 
-async def _send_teams_message(client: GraphClient, params: dict) -> str:
+async def _send_teams_message(client: GraphClient, params: dict) -> tuple[dict, str]:
     if not params.get("chat_id"):
-        return "❌ Missing required field: 'chat_id'"
+        return {}, "❌ Missing required field: 'chat_id'"
     if not params.get("content"):
-        return "❌ Missing required field: 'content'"
+        return {}, "❌ Missing required field: 'content'"
     chat_id = params["chat_id"]
     content = params["content"]
     content_type = params.get("content_type", "text")
@@ -138,5 +164,9 @@ async def _send_teams_message(client: GraphClient, params: dict) -> str:
     payload = {
         "body": {"contentType": content_type, "content": content},
     }
-    await client.post(f"/chats/{chat_id}/messages", payload)
-    return "✅ Message sent to Teams chat."
+    msg = await client.post(f"/chats/{chat_id}/messages", payload)
+    data = {
+        "message_id": (msg or {}).get("id", ""),
+        "chat_id": chat_id,
+    }
+    return data, "✅ Message sent to Teams chat."

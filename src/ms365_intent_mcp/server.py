@@ -160,12 +160,13 @@ async def compose(
     }
     params = {k: v for k, v in params.items() if v is not None}
 
-    return await compose_action(
+    _, markdown = await compose_action(
         client=client,
         permissions=permissions,
         action_type=type,
         params=params,
     )
+    return markdown
 
 
 @mcp.tool()

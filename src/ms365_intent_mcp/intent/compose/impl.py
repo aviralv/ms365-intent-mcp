@@ -1,9 +1,7 @@
 """compose_v1 implementation — dispatches on ComposePayload's ``type``.
 
 Wraps the existing ``composers.compose.compose_action`` and adapts its
-markdown-only return into typed response models. Structured fields
-(``draft_id``, ``event_id``, ``web_link``, ``join_url``) are placeholder
-values until Task 12 refactors composers to return ``(dict, markdown)``.
+(dict, markdown) return into typed response models.
 """
 
 from __future__ import annotations
@@ -31,12 +29,6 @@ from .schemas import (
 )
 
 TOOL_NAME = "compose_v1"
-
-# Placeholder ID used until Task 12 makes composers return (dict, markdown).
-# When a live-verify script sees this string in a response, it means the
-# composer refactor hasn't landed for that variant yet.
-_PENDING = "pending-composer-dict-refactor"
-_PENDING_URL = "https://outlook.office.com/mail/inbox"
 
 
 @wrap_errors(TOOL_NAME)
@@ -92,14 +84,10 @@ async def _handle_email(
             params["cc"] = [
                 {"email": r.email, "name": r.name or r.email} for r in payload.cc
             ]
-        markdown = await compose_action(
+        data, markdown = await compose_action(
             client, permissions, ComposeType.EMAIL_DRAFT, params,
         )
     else:
-        # reply / reply_all / forward — all route through the reply_draft path.
-        # `forward` uses the same Graph endpoint (createReply/createReplyAll)
-        # with reply_all=False, which is a light abuse of the Graph API but
-        # matches the current legacy composer's behavior. Task 12 will refine.
         params = {
             "message_id": payload.in_reply_to_message_id,
             "body": payload.body,
@@ -107,15 +95,24 @@ async def _handle_email(
         }
         if payload.comment:
             params["comment"] = payload.comment
-        markdown = await compose_action(
+        data, markdown = await compose_action(
             client, permissions, ComposeType.REPLY_DRAFT, params,
         )
 
+    # Build recipient list from data (preferred) or payload (fallback for error paths)
+    to_list = []
+    for r in data.get("to", []):
+        email = r.get("email", "")
+        if email:
+            to_list.append(Recipient(email=email, name=r.get("name") or None))
+    if not to_list:
+        to_list = payload.to or []
+
     return EmailDraftCreated(
-        draft_id=_PENDING,
-        subject=payload.subject or "(reply)",
-        to=payload.to or [Recipient(email="pending@example.com")],
-        web_link=_PENDING_URL,  # type: ignore[arg-type]
+        draft_id=data.get("draft_id") or "unknown",
+        subject=data.get("subject") or payload.subject or "(reply)",
+        to=to_list,
+        web_link=data.get("web_link") or "https://outlook.office.com/mail/inbox",  # type: ignore[arg-type]
         rendered_markdown=markdown,
     )
 
@@ -144,14 +141,14 @@ async def _handle_event(
             for a in payload.attendees
         ]
 
-    markdown = await compose_action(client, permissions, ComposeType.EVENT, params)
+    data, markdown = await compose_action(client, permissions, ComposeType.EVENT, params)
 
     return EventCreated(
-        event_id=_PENDING,
-        subject=payload.subject,
+        event_id=data.get("event_id") or "unknown",
+        subject=data.get("subject") or payload.subject,
         start=payload.start,
         end=payload.end,
-        join_url=None,
+        join_url=data.get("join_url") or None,
         rendered_markdown=markdown,
     )
 
@@ -167,10 +164,10 @@ async def _handle_teams_message(
         "content": payload.content,
         "content_type": payload.content_type,
     }
-    markdown = await compose_action(client, permissions, ComposeType.TEAMS_MESSAGE, params)
+    data, markdown = await compose_action(client, permissions, ComposeType.TEAMS_MESSAGE, params)
 
     return TeamsMessageSent(
-        message_id=_PENDING,
+        message_id=data.get("message_id") or "unknown",
         chat_id=payload.chat_id,
         rendered_markdown=markdown,
     )
