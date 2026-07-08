@@ -19,16 +19,64 @@ async def compose_meeting(
     permissions: PermissionRegistry,
     identifier: str,
     timezone: str,
-) -> str:
+) -> tuple[dict, str]:
     event = await _resolve_event(client, identifier, timezone)
     if event is None:
-        return f'❌ No meeting found matching "{identifier}"'
+        markdown = f'❌ No meeting found matching "{identifier}"'
+        return {"id": "", "subject": identifier, "start": "", "end": "", "organizer": {}, "attendees": [], "recording": None}, markdown
 
     recording = await _resolve_recording_for_event(client, event)
     if recording:
         event = {**event, "_recording": recording}
 
-    return format_event_detail_markdown(event)
+    markdown = format_event_detail_markdown(event)
+
+    # Build structured data dict from the event
+    organizer_email_addr = event.get("organizer", {}).get("emailAddress", {})
+    organizer_data = {
+        "name": organizer_email_addr.get("name", "Unknown"),
+        "email": organizer_email_addr.get("address") or None,
+    }
+
+    attendees_data = []
+    for a in event.get("attendees", []):
+        ea = a.get("emailAddress", {})
+        attendees_data.append({
+            "name": ea.get("name", ""),
+            "email": ea.get("address") or None,
+            "response": a.get("status", {}).get("response", "none"),
+        })
+
+    online_meeting_data = None
+    if event.get("isOnlineMeeting"):
+        join_url = (event.get("onlineMeeting") or {}).get("joinUrl", "")
+        if join_url:
+            online_meeting_data = {"join_url": join_url}
+
+    recording_data = None
+    if recording:
+        recording_data = {
+            "recording_url": recording.get("recording_url", ""),
+            "display_name": recording.get("display_name"),
+            "transcript_ready": recording.get("transcript_ready", False),
+            "drive_id": recording.get("drive_id"),
+            "drive_item_id": recording.get("drive_item_id"),
+            "owner_upn": recording.get("owner_upn"),
+            "vroom_url": recording.get("vroom_url"),
+        }
+
+    data = {
+        "id": event.get("id", ""),
+        "subject": event.get("subject", ""),
+        "start": event.get("start", {}).get("dateTime", ""),
+        "end": event.get("end", {}).get("dateTime", ""),
+        "organizer": organizer_data,
+        "attendees": attendees_data,
+        "location": event.get("location", {}).get("displayName") or None,
+        "online_meeting": online_meeting_data,
+        "recording": recording_data,
+    }
+    return data, markdown
 
 
 async def _resolve_recording_for_event(client: GraphClient, event: dict) -> dict | None:

@@ -108,12 +108,13 @@ async def meeting(
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
 
-    return await compose_meeting(
+    _, markdown = await compose_meeting(
         client=client,
         permissions=permissions,
         identifier=identifier,
         timezone=config.default_timezone,
     )
+    return markdown
 
 
 @mcp.tool()

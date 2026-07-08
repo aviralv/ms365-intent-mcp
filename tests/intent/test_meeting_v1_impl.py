@@ -34,7 +34,17 @@ class TestMeetingV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake_compose(client, permissions, identifier, timezone):
-            return "## Weekly Sync\n\nOrganizer: Alice"
+            return {
+                "id": "event-123",
+                "subject": "Weekly Sync",
+                "start": "2026-07-08T10:00:00",
+                "end": "2026-07-08T11:00:00",
+                "organizer": {"name": "Alice", "email": "alice@example.com"},
+                "attendees": [],
+                "location": None,
+                "online_meeting": None,
+                "recording": None,
+            }, "## Weekly Sync\n\nOrganizer: Alice"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.meeting.impl.compose_meeting",
@@ -55,7 +65,17 @@ class TestMeetingV1HappyPath:
 
         async def _fake_compose(client, permissions, identifier, timezone):
             captured.append(identifier)
-            return "## Next Meeting"
+            return {
+                "id": "evt-next",
+                "subject": "Next Meeting",
+                "start": "2026-07-08T14:00:00",
+                "end": "2026-07-08T14:30:00",
+                "organizer": {"name": "Bob"},
+                "attendees": [],
+                "location": None,
+                "online_meeting": None,
+                "recording": None,
+            }, "## Next Meeting"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.meeting.impl.compose_meeting",
@@ -68,12 +88,22 @@ class TestMeetingV1HappyPath:
         assert captured == ["next"], "identifier 'next' should be passed unchanged"
 
     @pytest.mark.asyncio
-    async def test_placeholder_fields_present(self, monkeypatch):
-        """Structured fields are stubs — verify they're present with placeholder values."""
+    async def test_structured_fields_populated(self, monkeypatch):
+        """Structured fields are populated from the composer's dict."""
         ctx, _, _ = _mock_ctx()
 
         async def _fake_compose(client, permissions, identifier, timezone):
-            return "## Standup\n"
+            return {
+                "id": "evt-standup",
+                "subject": "Standup",
+                "start": "2026-07-08T09:00:00",
+                "end": "2026-07-08T09:15:00",
+                "organizer": {"name": "Carol", "email": None},
+                "attendees": [],
+                "location": None,
+                "online_meeting": None,
+                "recording": None,
+            }, "## Standup\n"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.meeting.impl.compose_meeting",
@@ -83,8 +113,8 @@ class TestMeetingV1HappyPath:
         payload = MeetingPayload(identifier="Standup")
         response = await _meeting_v1_impl(ctx, payload)
 
-        assert response.id == "pending-composer-dict-refactor"
-        assert response.organizer.name == "unknown"
+        assert response.id == "evt-standup"
+        assert response.organizer.name == "Carol"
         assert response.attendees == []
 
 
