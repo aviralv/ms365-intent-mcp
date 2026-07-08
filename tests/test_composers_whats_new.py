@@ -19,7 +19,7 @@ class TestWhatsNewAll:
     async def test_returns_all_sections(self, full_permissions):
         client = AsyncMock()
         client.get = AsyncMock(side_effect=_mock_get)
-        result = await compose_whats_new(
+        _, result = await compose_whats_new(
             client=client,
             permissions=full_permissions,
             since="2026-05-14T00:00:00",
@@ -34,7 +34,7 @@ class TestWhatsNewAll:
     async def test_scope_mail_only_skips_calendar(self, full_permissions):
         client = AsyncMock()
         client.get = AsyncMock(side_effect=_mock_get)
-        result = await compose_whats_new(
+        _, result = await compose_whats_new(
             client=client,
             permissions=full_permissions,
             since="2026-05-14T00:00:00",
@@ -54,7 +54,7 @@ class TestWhatsNewAll:
             return await _mock_get(endpoint)
 
         client.get = AsyncMock(side_effect=_get)
-        result = await compose_whats_new(
+        _, result = await compose_whats_new(
             client=client,
             permissions=full_permissions,
             since="2026-05-14T00:00:00",
@@ -69,7 +69,7 @@ class TestWhatsNewAll:
         permissions = PermissionRegistry(["Calendars.ReadWrite"])
         client = AsyncMock()
         client.get = AsyncMock(return_value={"value": []})
-        result = await compose_whats_new(
+        _, result = await compose_whats_new(
             client=client,
             permissions=permissions,
             since="2026-05-14T00:00:00",
@@ -102,7 +102,7 @@ class TestWhatsNewTeamsPermalink:
 
         client.get = AsyncMock(side_effect=fake_get)
 
-        result = await compose_whats_new(
+        _, result = await compose_whats_new(
             client=client,
             permissions=full_permissions,
             since="2026-05-14T00:00:00",

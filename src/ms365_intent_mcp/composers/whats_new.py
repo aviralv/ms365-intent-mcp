@@ -22,7 +22,7 @@ async def compose_whats_new(
     since: str,
     scope: str | None,
     timezone: str,
-) -> str:
+) -> tuple[dict, str]:
     scope = (scope or "all").lower()
     if scope not in _VALID_SCOPES:
         scope = "all"
@@ -30,7 +30,8 @@ async def compose_whats_new(
     try:
         since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
     except (ValueError, TypeError):
-        return "❌ Invalid 'since' format. Use ISO datetime, e.g. '2026-05-14T00:00:00'."
+        markdown = "❌ Invalid 'since' format. Use ISO datetime, e.g. '2026-05-14T00:00:00'."
+        return {"since": since, "mail": [], "events": [], "teams": []}, markdown
     if since_dt.tzinfo is None:
         since_dt = since_dt.replace(tzinfo=_tz.utc)
 
@@ -74,14 +75,17 @@ async def compose_whats_new(
     results = dict(zip(keys, results_list))
 
     sections = []
+    events_raw: list[dict] = []
+    mail_raw: list[dict] = []
+    chats_raw: list[dict] = []
 
     if "calendar" in results:
         cal_result = results["calendar"]
         if isinstance(cal_result, BaseException):
             sections.append(format_section_error("Calendar", _error_reason(cal_result)))
         else:
-            events = (cal_result or {}).get("value", [])
-            sections.append(f"### Calendar\n{format_events_markdown(events)}")
+            events_raw = (cal_result or {}).get("value", [])
+            sections.append(f"### Calendar\n{format_events_markdown(events_raw)}")
 
     if scope in ("mail", "all"):
         if mail_unavailable:
@@ -91,8 +95,8 @@ async def compose_whats_new(
             if isinstance(msgs_result, BaseException):
                 sections.append(format_section_error("Mail", _error_reason(msgs_result)))
             else:
-                all_msgs = (msgs_result or {}).get("value", [])
-                summary = _build_mail_summary(all_msgs)
+                mail_raw = (msgs_result or {}).get("value", [])
+                summary = _build_mail_summary(mail_raw)
                 sections.append(format_mail_summary_markdown(
                     unread_count=summary["all_count"],
                     relevant_count=summary["relevant_count"],
@@ -109,9 +113,9 @@ async def compose_whats_new(
             if isinstance(chats_result, BaseException):
                 sections.append(format_section_error("Teams", _error_reason(chats_result)))
             else:
-                chats = (chats_result or {}).get("value", [])
+                chats_raw = (chats_result or {}).get("value", [])
                 preview_msgs = []
-                for chat in chats[:5]:
+                for chat in chats_raw[:5]:
                     preview = chat.get("lastMessagePreview")
                     if preview:
                         preview_msgs.append({
@@ -121,6 +125,46 @@ async def compose_whats_new(
                         })
                 sections.append(format_teams_activity_markdown(preview_msgs))
 
-    return "\n\n".join(sections) if sections else "Nothing new since that time."
+    markdown = "\n\n".join(sections) if sections else "Nothing new since that time."
+
+    # Build structured data
+    event_list = []
+    for e in events_raw:
+        event_list.append({
+            "subject": e.get("subject", ""),
+            "start": e.get("start", {}).get("dateTime", ""),
+            "end": e.get("end", {}).get("dateTime", ""),
+            "location": e.get("location", {}).get("displayName") or None,
+            "is_online_meeting": bool(e.get("isOnlineMeeting")),
+        })
+
+    mail_list = []
+    for m in mail_raw:
+        mail_list.append({
+            "subject": m.get("subject", ""),
+            "sender": (m.get("from") or {}).get("emailAddress", {}).get("name", ""),
+            "received": m.get("receivedDateTime", ""),
+            "is_read": False,
+            "importance": (m.get("importance") or "normal").lower(),
+        })
+
+    teams_list = []
+    for chat in chats_raw[:5]:
+        preview = chat.get("lastMessagePreview")
+        if preview:
+            teams_list.append({
+                "chat_name": chat.get("topic"),
+                "sender": _chat_sender(preview),
+                "body_preview": (preview.get("body") or {}).get("content", "")[:200],
+                "received": (preview.get("createdDateTime") or ""),
+            })
+
+    data = {
+        "since": since,
+        "mail": mail_list,
+        "events": event_list,
+        "teams": teams_list,
+    }
+    return data, markdown
 
 

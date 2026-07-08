@@ -212,13 +212,14 @@ async def whats_new(
     config: Config = ctx.request_context.lifespan_context["config"]
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
-    return await compose_whats_new(
+    _, markdown = await compose_whats_new(
         client=client,
         permissions=permissions,
         since=since,
         scope=scope,
         timezone=config.default_timezone,
     )
+    return markdown
 
 
 @mcp.tool()
