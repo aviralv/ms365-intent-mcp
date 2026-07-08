@@ -20,7 +20,7 @@ class TestFindSearch:
         client = AsyncMock()
         client.post = AsyncMock(return_value=_mock_search_response("Q2 Budget"))
 
-        result = await compose_find(
+        _, result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="Q2 Budget",
@@ -33,7 +33,7 @@ class TestFindSearch:
         client = AsyncMock()
         client.post = AsyncMock(return_value=_mock_search_response("invoice"))
 
-        result = await compose_find(
+        _, result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="invoice",
@@ -71,7 +71,7 @@ class TestFindSearch:
         client.get = AsyncMock(return_value={"value": []})
         client.post = AsyncMock()
 
-        result = await compose_find(
+        _, result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="hello",
@@ -86,7 +86,7 @@ class TestFindSearch:
         client = AsyncMock()
         client.post = AsyncMock(return_value={"value": [{"hitsContainers": [{"hits": [], "total": 0}]}]})
 
-        result = await compose_find(
+        _, result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="xyzzy_nonexistent",
@@ -317,7 +317,7 @@ class TestSearchChatMessages:
 
         client.get = AsyncMock(side_effect=_get)
 
-        result = await compose_find(
+        _, result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="Diana second brain",
@@ -337,7 +337,7 @@ class TestSearchChatMessages:
 
         client.get = AsyncMock(side_effect=_get)
 
-        result = await compose_find(
+        _, result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="nonexistent phrase xyz",
@@ -372,7 +372,7 @@ class TestSearchChatMessages:
 
         client.get = AsyncMock(side_effect=_get)
 
-        result = await compose_find(
+        _, result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="Diana",
@@ -384,7 +384,7 @@ class TestSearchChatMessages:
     async def test_chats_auth_error_surfaces_error(self, full_permissions):
         client = AsyncMock()
         client.get = AsyncMock(side_effect=GraphAPIError(403, "Forbidden", "no scope"))
-        result = await compose_find(
+        _, result = await compose_find(
             client=client,
             permissions=full_permissions,
             query="anything",

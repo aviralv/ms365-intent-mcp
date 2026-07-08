@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "description": "Payload for my_day_v1.",
+  "properties": {
+    "date": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Defaults to today (server tz).",
+      "title": "Date"
+    }
+  },
+  "title": "MyDayPayload",
+  "type": "object"
+}

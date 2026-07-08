@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "description": "Single Teams message summary.",
+  "properties": {
+    "body_preview": {
+      "title": "Body Preview",
+      "type": "string"
+    },
+    "chat_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chat Name"
+    },
+    "received": {
+      "format": "date-time",
+      "title": "Received",
+      "type": "string"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sender",
+    "body_preview",
+    "received"
+  ],
+  "title": "TeamsItem",
+  "type": "object"
+}

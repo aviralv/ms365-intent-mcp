@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "description": "Content for a resolved individual Teams chat message.",
+  "properties": {
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "created": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created"
+    },
+    "kind": {
+      "const": "chat_message",
+      "title": "Kind",
+      "type": "string"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "sender",
+    "body"
+  ],
+  "title": "ChatMessageContent",
+  "type": "object"
+}

@@ -27,15 +27,16 @@ class TestScheduleBasic:
             duration_minutes=30,
             constraints=None,
         )
-        assert "10:00" in result
-        assert "100" in result
+        _, markdown = result
+        assert "10:00" in markdown
+        assert "100" in markdown
 
     @pytest.mark.asyncio
     async def test_no_suggestions_returns_helpful_message(self, full_permissions):
         client = AsyncMock()
         client.post = AsyncMock(return_value={"meetingTimeSuggestions": [], "emptySuggestionsReason": "AttendeesUnavailable"})
 
-        result = await compose_schedule(
+        _, result = await compose_schedule(
             client=client,
             permissions=full_permissions,
             attendees=[{"email": "bob@example.com"}],
@@ -49,7 +50,7 @@ class TestScheduleBasic:
         client = AsyncMock()
         permissions = PermissionRegistry([])
 
-        result = await compose_schedule(
+        _, result = await compose_schedule(
             client=client,
             permissions=permissions,
             attendees=[{"email": "x@x.com"}],
@@ -63,7 +64,7 @@ class TestScheduleBasic:
         client = AsyncMock()
         client.post = AsyncMock(side_effect=GraphAPIError(400, "InvalidRequest", "bad attendees"))
 
-        result = await compose_schedule(
+        _, result = await compose_schedule(
             client=client,
             permissions=full_permissions,
             attendees=[{"email": "bad"}],

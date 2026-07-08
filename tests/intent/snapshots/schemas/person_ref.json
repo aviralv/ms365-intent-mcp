@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "description": "Lightweight reference to a person (organizer, etc.).",
+  "properties": {
+    "email": {
+      "anyOf": [
+        {
+          "format": "email",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Email"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "PersonRef",
+  "type": "object"
+}

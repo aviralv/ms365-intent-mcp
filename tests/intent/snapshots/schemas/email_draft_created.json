@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "Recipient": {
+      "additionalProperties": false,
+      "description": "One email recipient. Used in email draft payloads.",
+      "properties": {
+        "email": {
+          "description": "RFC 5322 email address",
+          "format": "email",
+          "title": "Email",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "title": "Recipient",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Response: an email draft was saved to the user's Drafts folder.",
+  "properties": {
+    "draft_id": {
+      "title": "Draft Id",
+      "type": "string"
+    },
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    },
+    "to": {
+      "items": {
+        "$ref": "#/$defs/Recipient"
+      },
+      "title": "To",
+      "type": "array"
+    },
+    "type": {
+      "const": "email_draft_created",
+      "default": "email_draft_created",
+      "title": "Type",
+      "type": "string"
+    },
+    "web_link": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Web Link",
+      "type": "string"
+    }
+  },
+  "required": [
+    "draft_id",
+    "subject",
+    "to",
+    "web_link",
+    "rendered_markdown"
+  ],
+  "title": "EmailDraftCreated",
+  "type": "object"
+}

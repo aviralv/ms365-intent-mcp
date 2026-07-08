@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "last_message_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Message At"
+    }
+  },
+  "required": [
+    "body"
+  ],
+  "title": "ChatPreview",
+  "type": "object"
+}

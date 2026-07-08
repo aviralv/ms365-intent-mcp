@@ -1,0 +1,17 @@
+{
+  "additionalProperties": false,
+  "description": "Payload for meeting_v1.",
+  "properties": {
+    "identifier": {
+      "description": "Event ID, subject substring, or 'next'.",
+      "minLength": 1,
+      "title": "Identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "identifier"
+  ],
+  "title": "MeetingPayload",
+  "type": "object"
+}

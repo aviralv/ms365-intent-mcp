@@ -1,0 +1,47 @@
+{
+  "additionalProperties": false,
+  "description": "Content for a resolved Teams meeting link.",
+  "properties": {
+    "end": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "End"
+    },
+    "kind": {
+      "const": "meeting",
+      "title": "Kind",
+      "type": "string"
+    },
+    "start": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Start"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "subject"
+  ],
+  "title": "MeetingContent",
+  "type": "object"
+}

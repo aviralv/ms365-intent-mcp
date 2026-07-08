@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "Attendee": {
+      "additionalProperties": false,
+      "description": "One event attendee \u2014 email + optional role.",
+      "properties": {
+        "email": {
+          "format": "email",
+          "title": "Email",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "type": {
+          "default": "required",
+          "enum": [
+            "required",
+            "optional",
+            "resource"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "title": "Attendee",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Create a calendar event.\n\nValidates ``end > start`` and duration \u2264 12 hours. Longer events almost\nalways indicate an off-by-day error in the caller's timezone handling.",
+  "properties": {
+    "attendees": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Attendee"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Attendees"
+    },
+    "body": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Body"
+    },
+    "end": {
+      "format": "date-time",
+      "title": "End",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
+    "is_online_meeting": {
+      "default": false,
+      "title": "Is Online Meeting",
+      "type": "boolean"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Location"
+    },
+    "start": {
+      "format": "date-time",
+      "title": "Start",
+      "type": "string"
+    },
+    "subject": {
+      "minLength": 1,
+      "title": "Subject",
+      "type": "string"
+    },
+    "timezone": {
+      "description": "IANA timezone name (e.g. 'Europe/Berlin'). Interprets naive start/end.",
+      "title": "Timezone",
+      "type": "string"
+    },
+    "type": {
+      "const": "event",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "subject",
+    "start",
+    "end",
+    "timezone"
+  ],
+  "title": "ComposeEvent",
+  "type": "object"
+}

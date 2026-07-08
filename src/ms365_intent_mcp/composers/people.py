@@ -12,10 +12,18 @@ async def compose_people(
     client: GraphClient,
     permissions: PermissionRegistry,
     query: str,
-) -> str:
+) -> tuple[dict, str]:
     people = await _lookup_person(client, permissions, query)
     if not people:
-        return f"### People\nNo results for '{query}'."
+        markdown = f"### People\nNo results for '{query}'."
+        data: dict = {
+            "name": query,
+            "email": "",
+            "job_title": None,
+            "recent_mail": [],
+            "recent_chat": None,
+        }
+        return data, markdown
 
     person = people[0]
     display_name = person.get("displayName", "")
@@ -56,7 +64,25 @@ async def compose_people(
             chats = (chats_result or {}).get("value", [])
             recent_chat = _find_chat_with_person(chats, display_name, email_addr)
 
-    return format_people_markdown(query, people, recent_emails, recent_chat)
+    markdown = format_people_markdown(query, people, recent_emails, recent_chat)
+    data = {
+        "name": display_name or query,
+        "email": email_addr,
+        "job_title": person.get("jobTitle") or None,
+        "recent_mail": [
+            {
+                "subject": m.get("subject", ""),
+                "sender": (m.get("from") or {}).get("emailAddress", {}).get("name", ""),
+                "received": m.get("receivedDateTime"),
+            }
+            for m in recent_emails
+        ],
+        "recent_chat": {
+            "body": ((recent_chat.get("lastMessagePreview") or {}).get("body") or {}).get("content", ""),
+            "last_message_at": (recent_chat.get("lastMessagePreview") or {}).get("createdDateTime"),
+        } if recent_chat else None,
+    }
+    return data, markdown
 
 
 def _find_chat_with_person(

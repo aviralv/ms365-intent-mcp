@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "description": "Response: a Teams chat message was sent.",
+  "properties": {
+    "chat_id": {
+      "title": "Chat Id",
+      "type": "string"
+    },
+    "message_id": {
+      "title": "Message Id",
+      "type": "string"
+    },
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "type": {
+      "const": "teams_message_sent",
+      "default": "teams_message_sent",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "message_id",
+    "chat_id",
+    "rendered_markdown"
+  ],
+  "title": "TeamsMessageSent",
+  "type": "object"
+}

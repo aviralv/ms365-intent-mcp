@@ -1,0 +1,45 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "body_preview": {
+      "title": "Body Preview",
+      "type": "string"
+    },
+    "kind": {
+      "const": "email",
+      "title": "Kind",
+      "type": "string"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    },
+    "web_link": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Web Link"
+    }
+  },
+  "required": [
+    "kind",
+    "subject",
+    "sender",
+    "body_preview"
+  ],
+  "title": "EmailHit",
+  "type": "object"
+}

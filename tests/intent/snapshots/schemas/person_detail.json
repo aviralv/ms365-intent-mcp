@@ -1,0 +1,131 @@
+{
+  "$defs": {
+    "ChatPreview": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "last_message_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Message At"
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "title": "ChatPreview",
+      "type": "object"
+    },
+    "MailPreview": {
+      "additionalProperties": false,
+      "properties": {
+        "received": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Received"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "sender"
+      ],
+      "title": "MailPreview",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Structured person lookup result.\n\n``rendered_markdown`` carries the full legacy markdown from the composer.\nStructured fields (``name``, ``email``, ``job_title``, ``recent_mail``,\n``recent_chat``) are populated with best-guess / placeholder values until\nTask 12 refactors the underlying composer to return structured data.",
+  "properties": {
+    "email": {
+      "anyOf": [
+        {
+          "format": "email",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Email"
+    },
+    "job_title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Job Title"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "recent_chat": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ChatPreview"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "recent_mail": {
+      "items": {
+        "$ref": "#/$defs/MailPreview"
+      },
+      "title": "Recent Mail",
+      "type": "array"
+    },
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "type": {
+      "const": "person_detail",
+      "default": "person_detail",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "recent_mail",
+    "rendered_markdown"
+  ],
+  "title": "PersonDetail",
+  "type": "object"
+}

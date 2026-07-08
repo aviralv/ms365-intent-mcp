@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "Attendee": {
+      "additionalProperties": false,
+      "description": "One event attendee \u2014 email + optional role.",
+      "properties": {
+        "email": {
+          "format": "email",
+          "title": "Email",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "type": {
+          "default": "required",
+          "enum": [
+            "required",
+            "optional",
+            "resource"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "title": "Attendee",
+      "type": "object"
+    },
+    "ScheduleConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "working_hours_only": {
+          "default": true,
+          "title": "Working Hours Only",
+          "type": "boolean"
+        }
+      },
+      "title": "ScheduleConstraints",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attendees": {
+      "items": {
+        "$ref": "#/$defs/Attendee"
+      },
+      "minItems": 1,
+      "title": "Attendees",
+      "type": "array"
+    },
+    "constraints": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ScheduleConstraints"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "duration_minutes": {
+      "default": 30,
+      "maximum": 480,
+      "minimum": 5,
+      "title": "Duration Minutes",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "attendees"
+  ],
+  "title": "SchedulePayload",
+  "type": "object"
+}

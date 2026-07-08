@@ -20,7 +20,7 @@ class TestMeetingById:
         client = AsyncMock()
         client.get = AsyncMock(return_value=_full_event())
 
-        result = await compose_meeting(
+        _, result = await compose_meeting(
             client=client,
             permissions=full_permissions,
             identifier="event-id-123",
@@ -41,7 +41,7 @@ class TestMeetingBySubject:
             return _full_event()
 
         client.get = AsyncMock(side_effect=_get)
-        result = await compose_meeting(
+        _, result = await compose_meeting(
             client=client,
             permissions=full_permissions,
             identifier="Team Sync",
@@ -56,7 +56,7 @@ class TestMeetingNext:
         client = AsyncMock()
         client.get = AsyncMock(return_value={"value": [_full_event()]})
 
-        result = await compose_meeting(
+        _, result = await compose_meeting(
             client=client,
             permissions=full_permissions,
             identifier="next",
@@ -266,7 +266,7 @@ class TestMeetingWithRecording:
 
         client.get = AsyncMock(side_effect=_get)
 
-        result = await compose_meeting(
+        _, result = await compose_meeting(
             client=client,
             permissions=full_permissions,
             identifier="event-id-123",
@@ -297,7 +297,7 @@ class TestMeetingWithRecording:
             return event
 
         client.get = AsyncMock(side_effect=_get)
-        result = await compose_meeting(
+        _, result = await compose_meeting(
             client=client,
             permissions=full_permissions,
             identifier="event-id-123",

@@ -1,0 +1,125 @@
+{
+  "$defs": {
+    "EventSummary": {
+      "additionalProperties": false,
+      "description": "Compact summary of a single calendar event.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "is_online_meeting": {
+          "default": false,
+          "title": "Is Online Meeting",
+          "type": "boolean"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "start",
+        "end"
+      ],
+      "title": "EventSummary",
+      "type": "object"
+    },
+    "MailSummary": {
+      "additionalProperties": false,
+      "description": "Aggregate mail counts for the day.",
+      "properties": {
+        "flagged_count": {
+          "default": 0,
+          "title": "Flagged Count",
+          "type": "integer"
+        },
+        "relevant_count": {
+          "default": 0,
+          "title": "Relevant Count",
+          "type": "integer"
+        },
+        "unread_count": {
+          "default": 0,
+          "title": "Unread Count",
+          "type": "integer"
+        }
+      },
+      "title": "MailSummary",
+      "type": "object"
+    },
+    "TeamsActivitySummary": {
+      "additionalProperties": false,
+      "description": "Aggregate Teams activity for the day.",
+      "properties": {
+        "recent_message_count": {
+          "default": 0,
+          "title": "Recent Message Count",
+          "type": "integer"
+        }
+      },
+      "title": "TeamsActivitySummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Response for my_day_v1.",
+  "properties": {
+    "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/EventSummary"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "mail": {
+      "$ref": "#/$defs/MailSummary"
+    },
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "teams": {
+      "$ref": "#/$defs/TeamsActivitySummary"
+    },
+    "type": {
+      "const": "my_day_summary",
+      "default": "my_day_summary",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "date",
+    "events",
+    "mail",
+    "teams",
+    "rendered_markdown"
+  ],
+  "title": "MyDaySummary",
+  "type": "object"
+}

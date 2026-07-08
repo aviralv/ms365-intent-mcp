@@ -1,0 +1,176 @@
+{
+  "$defs": {
+    "EventSummary": {
+      "additionalProperties": false,
+      "description": "Compact summary of a single calendar event.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "is_online_meeting": {
+          "default": false,
+          "title": "Is Online Meeting",
+          "type": "boolean"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "start",
+        "end"
+      ],
+      "title": "EventSummary",
+      "type": "object"
+    },
+    "MailItem": {
+      "additionalProperties": false,
+      "description": "Single mail item summary.",
+      "properties": {
+        "importance": {
+          "default": "normal",
+          "enum": [
+            "low",
+            "normal",
+            "high"
+          ],
+          "title": "Importance",
+          "type": "string"
+        },
+        "is_read": {
+          "default": false,
+          "title": "Is Read",
+          "type": "boolean"
+        },
+        "received": {
+          "format": "date-time",
+          "title": "Received",
+          "type": "string"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "sender",
+        "received"
+      ],
+      "title": "MailItem",
+      "type": "object"
+    },
+    "TeamsItem": {
+      "additionalProperties": false,
+      "description": "Single Teams message summary.",
+      "properties": {
+        "body_preview": {
+          "title": "Body Preview",
+          "type": "string"
+        },
+        "chat_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chat Name"
+        },
+        "received": {
+          "format": "date-time",
+          "title": "Received",
+          "type": "string"
+        },
+        "sender": {
+          "title": "Sender",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sender",
+        "body_preview",
+        "received"
+      ],
+      "title": "TeamsItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Response for whats_new_v1.",
+  "properties": {
+    "events": {
+      "items": {
+        "$ref": "#/$defs/EventSummary"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "mail": {
+      "items": {
+        "$ref": "#/$defs/MailItem"
+      },
+      "title": "Mail",
+      "type": "array"
+    },
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+    },
+    "teams": {
+      "items": {
+        "$ref": "#/$defs/TeamsItem"
+      },
+      "title": "Teams",
+      "type": "array"
+    },
+    "type": {
+      "const": "whats_new_summary",
+      "default": "whats_new_summary",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "since",
+    "mail",
+    "events",
+    "teams",
+    "rendered_markdown"
+  ],
+  "title": "WhatsNewSummary",
+  "type": "object"
+}

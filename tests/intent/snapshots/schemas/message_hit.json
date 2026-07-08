@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "body_preview": {
+      "title": "Body Preview",
+      "type": "string"
+    },
+    "created": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created"
+    },
+    "kind": {
+      "const": "message",
+      "title": "Kind",
+      "type": "string"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "sender",
+    "body_preview"
+  ],
+  "title": "MessageHit",
+  "type": "object"
+}

@@ -382,25 +382,87 @@ async def compose_resolve(
     client: GraphClient,
     permissions: PermissionRegistry,
     url: str,
-) -> str:
+) -> tuple[dict, str]:
     try:
         resolved = resolve_url(url)
     except UrlParseError as exc:
-        return f"❌ Unrecognised URL — {exc}"
+        markdown = f"❌ Unrecognised URL — {exc}"
+        return {"url": url, "kind": "unknown", "data": {}}, markdown
 
     scope_msg = permissions.check(resolved.required_scope)
     if scope_msg:
-        return scope_msg
+        return {"url": url, "kind": resolved.url_type, "data": {}}, scope_msg
 
     try:
         data = await _fetch_resolved(client, resolved)
     except GraphAPIError as exc:
-        return format_section_error("Resolve", _error_reason(exc))
+        markdown = format_section_error("Resolve", _error_reason(exc))
+        return {"url": url, "kind": resolved.url_type, "data": {}}, markdown
 
     if "_error" in data:
-        return format_section_error("Resolve", data["_error"])
+        markdown = format_section_error("Resolve", data["_error"])
+        return {"url": url, "kind": resolved.url_type, "data": {}}, markdown
 
-    return format_resolved_content_markdown(resolved.url_type, data)
+    markdown = format_resolved_content_markdown(resolved.url_type, data)
+    structured_data = _build_structured_data(resolved.url_type, data)
+    return {"url": url, "kind": resolved.url_type, "data": structured_data}, markdown
+
+
+def _build_structured_data(url_type: str, data: dict) -> dict:
+    """Extract structured fields from the raw Graph response for the given URL type."""
+    if url_type == "email":
+        return {
+            "kind": "email",
+            "subject": data.get("subject", ""),
+            "sender": (data.get("from") or {}).get("emailAddress", {}).get("name", ""),
+            "body": (data.get("body") or {}).get("content", "") or (data.get("bodyPreview") or ""),
+        }
+    elif url_type == "chat_thread":
+        chat = data.get("chat") or {}
+        entries = data.get("entries") or []
+        members = chat.get("members") or []
+        msg_count = sum(1 for e in entries if e.get("kind") == "message")
+        return {
+            "kind": "chat_thread",
+            "topic": chat.get("topic"),
+            "member_count": len(members),
+            "recent_message_count": msg_count,
+        }
+    elif url_type == "chat_message":
+        return {
+            "kind": "chat_message",
+            "sender": (data.get("from") or {}).get("user", {}).get("displayName", ""),
+            "body": (data.get("body") or {}).get("content", ""),
+            "created": data.get("createdDateTime"),
+        }
+    elif url_type == "channel_message":
+        return {
+            "kind": "channel_message",
+            "sender": (data.get("from") or {}).get("user", {}).get("displayName", ""),
+            "body": (data.get("body") or {}).get("content", ""),
+            "channel_name": None,
+        }
+    elif url_type == "meeting":
+        return {
+            "kind": "meeting",
+            "subject": data.get("subject", ""),
+            "start": (data.get("start") or {}).get("dateTime"),
+            "end": (data.get("end") or {}).get("dateTime"),
+        }
+    elif url_type == "sharepoint_page":
+        return {
+            "kind": "sharepoint_page",
+            "title": data.get("title") or data.get("displayName") or data.get("name", ""),
+            "web_url": data.get("webUrl"),
+        }
+    elif url_type in ("onedrive_file", "onedrive_share_link"):
+        return {
+            "kind": "onedrive_file",
+            "name": data.get("name", ""),
+            "web_url": data.get("webUrl"),
+            "size": data.get("size"),
+        }
+    return {"kind": url_type}
 
 
 async def _find_meeting_by_join_url(client: GraphClient, join_url: str) -> dict | None:

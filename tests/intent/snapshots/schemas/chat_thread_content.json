@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "description": "Content for a resolved Teams chat thread.",
+  "properties": {
+    "kind": {
+      "const": "chat_thread",
+      "title": "Kind",
+      "type": "string"
+    },
+    "member_count": {
+      "default": 0,
+      "title": "Member Count",
+      "type": "integer"
+    },
+    "recent_message_count": {
+      "default": 0,
+      "title": "Recent Message Count",
+      "type": "integer"
+    },
+    "topic": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Topic"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "title": "ChatThreadContent",
+  "type": "object"
+}

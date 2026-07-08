@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "description": "Content for a resolved email message.",
+  "properties": {
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "kind": {
+      "const": "email",
+      "title": "Kind",
+      "type": "string"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "subject",
+    "sender",
+    "body"
+  ],
+  "title": "EmailContent",
+  "type": "object"
+}

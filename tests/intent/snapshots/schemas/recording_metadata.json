@@ -1,0 +1,86 @@
+{
+  "additionalProperties": false,
+  "description": "Recording metadata surfaced when a meeting has a recording (issue #8).",
+  "properties": {
+    "display_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Display Name"
+    },
+    "drive_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Drive Id"
+    },
+    "drive_item_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Drive Item Id"
+    },
+    "owner_upn": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Owner Upn"
+    },
+    "recording_url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Recording Url",
+      "type": "string"
+    },
+    "transcript_ready": {
+      "default": false,
+      "title": "Transcript Ready",
+      "type": "boolean"
+    },
+    "vroom_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vroom Url"
+    }
+  },
+  "required": [
+    "recording_url"
+  ],
+  "title": "RecordingMetadata",
+  "type": "object"
+}

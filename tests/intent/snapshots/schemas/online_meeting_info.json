@@ -1,0 +1,18 @@
+{
+  "additionalProperties": false,
+  "description": "Teams join link for an online meeting.",
+  "properties": {
+    "join_url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Join Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "join_url"
+  ],
+  "title": "OnlineMeetingInfo",
+  "type": "object"
+}

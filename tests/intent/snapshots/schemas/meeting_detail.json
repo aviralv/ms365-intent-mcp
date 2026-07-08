@@ -1,0 +1,263 @@
+{
+  "$defs": {
+    "AttendeeStatus": {
+      "additionalProperties": false,
+      "description": "One attendee with their RSVP response.",
+      "properties": {
+        "email": {
+          "anyOf": [
+            {
+              "format": "email",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "response": {
+          "default": "none",
+          "enum": [
+            "accepted",
+            "declined",
+            "tentative",
+            "none",
+            "notResponded"
+          ],
+          "title": "Response",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "AttendeeStatus",
+      "type": "object"
+    },
+    "OnlineMeetingInfo": {
+      "additionalProperties": false,
+      "description": "Teams join link for an online meeting.",
+      "properties": {
+        "join_url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Join Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "join_url"
+      ],
+      "title": "OnlineMeetingInfo",
+      "type": "object"
+    },
+    "PersonRef": {
+      "additionalProperties": false,
+      "description": "Lightweight reference to a person (organizer, etc.).",
+      "properties": {
+        "email": {
+          "anyOf": [
+            {
+              "format": "email",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "PersonRef",
+      "type": "object"
+    },
+    "RecordingMetadata": {
+      "additionalProperties": false,
+      "description": "Recording metadata surfaced when a meeting has a recording (issue #8).",
+      "properties": {
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Name"
+        },
+        "drive_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Drive Id"
+        },
+        "drive_item_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Drive Item Id"
+        },
+        "owner_upn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner Upn"
+        },
+        "recording_url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Recording Url",
+          "type": "string"
+        },
+        "transcript_ready": {
+          "default": false,
+          "title": "Transcript Ready",
+          "type": "boolean"
+        },
+        "vroom_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vroom Url"
+        }
+      },
+      "required": [
+        "recording_url"
+      ],
+      "title": "RecordingMetadata",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Response for meeting_v1.",
+  "properties": {
+    "attendees": {
+      "items": {
+        "$ref": "#/$defs/AttendeeStatus"
+      },
+      "title": "Attendees",
+      "type": "array"
+    },
+    "end": {
+      "format": "date-time",
+      "title": "End",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Location"
+    },
+    "online_meeting": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OnlineMeetingInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "organizer": {
+      "$ref": "#/$defs/PersonRef"
+    },
+    "recording": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RecordingMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "rendered_markdown": {
+      "title": "Rendered Markdown",
+      "type": "string"
+    },
+    "start": {
+      "format": "date-time",
+      "title": "Start",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    },
+    "type": {
+      "const": "meeting_detail",
+      "default": "meeting_detail",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "subject",
+    "start",
+    "end",
+    "organizer",
+    "attendees",
+    "rendered_markdown"
+  ],
+  "title": "MeetingDetail",
+  "type": "object"
+}

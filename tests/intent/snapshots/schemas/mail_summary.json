@@ -1,0 +1,23 @@
+{
+  "additionalProperties": false,
+  "description": "Aggregate mail counts for the day.",
+  "properties": {
+    "flagged_count": {
+      "default": 0,
+      "title": "Flagged Count",
+      "type": "integer"
+    },
+    "relevant_count": {
+      "default": 0,
+      "title": "Relevant Count",
+      "type": "integer"
+    },
+    "unread_count": {
+      "default": 0,
+      "title": "Unread Count",
+      "type": "integer"
+    }
+  },
+  "title": "MailSummary",
+  "type": "object"
+}
