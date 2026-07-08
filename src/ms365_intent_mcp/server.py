@@ -162,6 +162,11 @@ async def compose(
     )
 
 
+# --- v1 intent surface (dual-registered alongside legacy) ---
+from .intent.compose import register as _register_compose_v1
+_register_compose_v1(mcp)
+
+
 @mcp.tool()
 async def schedule(
     ctx: Context,
