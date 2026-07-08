@@ -1,0 +1,50 @@
+{
+  "additionalProperties": false,
+  "description": "Send a Teams chat message.",
+  "properties": {
+    "chat_id": {
+      "minLength": 1,
+      "title": "Chat Id",
+      "type": "string"
+    },
+    "content": {
+      "minLength": 1,
+      "title": "Content",
+      "type": "string"
+    },
+    "content_type": {
+      "default": "text",
+      "enum": [
+        "text",
+        "html"
+      ],
+      "title": "Content Type",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
+    "type": {
+      "const": "teams_message",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "chat_id",
+    "content"
+  ],
+  "title": "ComposeTeamsMessage",
+  "type": "object"
+}

@@ -1,0 +1,361 @@
+{
+  "$defs": {
+    "Attendee": {
+      "additionalProperties": false,
+      "description": "One event attendee \u2014 email + optional role.",
+      "properties": {
+        "email": {
+          "format": "email",
+          "title": "Email",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "type": {
+          "default": "required",
+          "enum": [
+            "required",
+            "optional",
+            "resource"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "title": "Attendee",
+      "type": "object"
+    },
+    "ComposeEmail": {
+      "additionalProperties": false,
+      "description": "Draft an email \u2014 new, reply, reply_all, or forward.\n\nMode-specific field requirements are enforced by ``_check_mode_fields``:\n- ``mode='new'`` requires ``to`` and ``subject``\n- ``mode='reply' | 'reply_all' | 'forward'`` requires ``in_reply_to_message_id``",
+      "properties": {
+        "body": {
+          "description": "HTML supported.",
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "cc": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Recipient"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cc"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
+        "importance": {
+          "default": "normal",
+          "enum": [
+            "low",
+            "normal",
+            "high"
+          ],
+          "title": "Importance",
+          "type": "string"
+        },
+        "in_reply_to_message_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "In Reply To Message Id"
+        },
+        "mode": {
+          "default": "new",
+          "enum": [
+            "new",
+            "reply",
+            "reply_all",
+            "forward"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subject"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Recipient"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To"
+        },
+        "type": {
+          "const": "email",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ],
+      "title": "ComposeEmail",
+      "type": "object"
+    },
+    "ComposeEvent": {
+      "additionalProperties": false,
+      "description": "Create a calendar event.\n\nValidates ``end > start`` and duration \u2264 12 hours. Longer events almost\nalways indicate an off-by-day error in the caller's timezone handling.",
+      "properties": {
+        "attendees": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Attendee"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attendees"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
+        "is_online_meeting": {
+          "default": false,
+          "title": "Is Online Meeting",
+          "type": "boolean"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "subject": {
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        },
+        "timezone": {
+          "description": "IANA timezone name (e.g. 'Europe/Berlin'). Interprets naive start/end.",
+          "title": "Timezone",
+          "type": "string"
+        },
+        "type": {
+          "const": "event",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "subject",
+        "start",
+        "end",
+        "timezone"
+      ],
+      "title": "ComposeEvent",
+      "type": "object"
+    },
+    "ComposeTeamsMessage": {
+      "additionalProperties": false,
+      "description": "Send a Teams chat message.",
+      "properties": {
+        "chat_id": {
+          "minLength": 1,
+          "title": "Chat Id",
+          "type": "string"
+        },
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "content_type": {
+          "default": "text",
+          "enum": [
+            "text",
+            "html"
+          ],
+          "title": "Content Type",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
+        "type": {
+          "const": "teams_message",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "chat_id",
+        "content"
+      ],
+      "title": "ComposeTeamsMessage",
+      "type": "object"
+    },
+    "Recipient": {
+      "additionalProperties": false,
+      "description": "One email recipient. Used in email draft payloads.",
+      "properties": {
+        "email": {
+          "description": "RFC 5322 email address",
+          "format": "email",
+          "title": "Email",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "title": "Recipient",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "email": "#/$defs/ComposeEmail",
+      "event": "#/$defs/ComposeEvent",
+      "teams_message": "#/$defs/ComposeTeamsMessage"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ComposeEmail"
+    },
+    {
+      "$ref": "#/$defs/ComposeEvent"
+    },
+    {
+      "$ref": "#/$defs/ComposeTeamsMessage"
+    }
+  ]
+}
