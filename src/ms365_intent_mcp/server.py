@@ -69,6 +69,12 @@ _register_intent_surface(mcp)
 
 
 def main():
+    # Subcommand dispatch before FastMCP startup — `auth` needs to bootstrap
+    # a token before the lifespan (which calls ensure_authenticated) can run.
+    if len(sys.argv) > 1 and sys.argv[1] == "auth":
+        from .auth_cli import main as auth_main
+
+        sys.exit(auth_main(sys.argv[2:]))
     mcp.run()
 
 
