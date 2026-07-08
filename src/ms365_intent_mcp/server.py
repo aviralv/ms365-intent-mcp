@@ -166,6 +166,27 @@ async def compose(
 from .intent.compose import register as _register_compose_v1
 _register_compose_v1(mcp)
 
+from .intent.my_day import register as _register_my_day_v1
+_register_my_day_v1(mcp)
+
+from .intent.meeting import register as _register_meeting_v1
+_register_meeting_v1(mcp)
+
+from .intent.schedule import register as _register_schedule_v1
+_register_schedule_v1(mcp)
+
+from .intent.people import register as _register_people_v1
+_register_people_v1(mcp)
+
+from .intent.find import register as _register_find_v1
+_register_find_v1(mcp)
+
+from .intent.whats_new import register as _register_whats_new_v1
+_register_whats_new_v1(mcp)
+
+from .intent.resolve import register as _register_resolve_v1
+_register_resolve_v1(mcp)
+
 
 @mcp.tool()
 async def schedule(

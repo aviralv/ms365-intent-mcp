@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "query": {
+      "description": "Name or email substring.",
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "PeoplePayload",
+  "type": "object"
+}

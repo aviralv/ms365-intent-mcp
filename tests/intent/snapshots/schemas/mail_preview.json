@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "received": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Received"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    }
+  },
+  "required": [
+    "subject",
+    "sender"
+  ],
+  "title": "MailPreview",
+  "type": "object"
+}
