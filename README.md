@@ -27,8 +27,22 @@ Most Microsoft 365 MCP servers replicate Graph API endpoints as tools — one to
 
 ## Installation
 
+Not published to PyPI — install from GitHub:
+
 ```bash
-uv tool install ms365-intent-mcp
+uv tool install "ms365-intent-mcp[auth] @ git+https://github.com/aviralv/ms365-intent-mcp.git"
+```
+
+The `[auth]` extra pulls in `msal`, required by the `auth` subcommand below. To install a specific branch or tag, append `@<ref>` to the URL:
+
+```bash
+uv tool install "ms365-intent-mcp[auth] @ git+https://github.com/aviralv/ms365-intent-mcp.git@main"
+```
+
+To upgrade after a new release:
+
+```bash
+uv cache clean ms365-intent-mcp && uv tool install --force "ms365-intent-mcp[auth] @ git+https://github.com/aviralv/ms365-intent-mcp.git"
 ```
 
 ## Authentication
@@ -37,7 +51,7 @@ uv tool install ms365-intent-mcp
 ms365-intent-mcp auth
 ```
 
-Uses device code flow — visit the URL, enter the code, done. No app registration needed.
+Uses device code flow — visit the URL, enter the code, done. No app registration needed. Token is saved to `~/.config/ms365-intent-mcp/token.json` (0600).
 
 ## Compliance
 
