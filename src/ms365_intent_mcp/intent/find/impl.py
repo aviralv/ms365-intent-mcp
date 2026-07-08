@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastmcp import Context
 
 from ...composers.find import compose_find
@@ -9,6 +11,7 @@ from .._helpers import _get_deps, wrap_errors
 from .schemas import EmailHit, FileHit, FindPayload, FindResults, MessageHit, PageHit
 
 TOOL_NAME = "find_v1"
+_logger = logging.getLogger("ms365_intent_mcp")
 
 _KIND_TO_MODEL = {
     "email": EmailHit,
@@ -36,8 +39,8 @@ async def _find_v1_impl(ctx: Context, payload: FindPayload) -> FindResults:
         if model_cls:
             try:
                 hits.append(model_cls.model_validate(h))
-            except Exception:
-                pass
+            except Exception as exc:
+                _logger.warning("find_v1: dropping malformed hit (kind=%r): %s", kind, exc)
 
     return FindResults(
         query=payload.query,

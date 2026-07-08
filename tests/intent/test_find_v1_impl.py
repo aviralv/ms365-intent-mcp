@@ -92,7 +92,38 @@ class TestFindV1Happy:
         assert "entity_type" in str(exc_info.value) or "audio" in str(exc_info.value)
 
 
-class TestFindV1Errors:
+    @pytest.mark.asyncio
+    async def test_invalid_hit_is_dropped_valid_hit_passes_through(self, monkeypatch, caplog):
+        """Malformed hits should be dropped with a warning; valid hits remain."""
+        import logging
+        ctx, _, _ = _mock_ctx()
+
+        async def _fake(client, permissions, query, search_type):
+            return {
+                "query": query,
+                "hits": [
+                    # valid email hit — all required fields present
+                    {"kind": "email", "subject": "Budget Q3", "sender": "finance@co.com", "body_preview": "See attached"},
+                    # invalid email hit — missing required fields (subject, sender, body_preview)
+                    {"kind": "email", "totally": "wrong"},
+                ],
+            }, "### Results"
+
+        monkeypatch.setattr(
+            "ms365_intent_mcp.intent.find.impl.compose_find",
+            _fake,
+        )
+
+        with caplog.at_level(logging.WARNING, logger="ms365_intent_mcp"):
+            payload = FindPayload(query="budget")
+            response = await _find_v1_impl(ctx, payload)
+
+        assert isinstance(response, FindResults)
+        assert len(response.hits) == 1
+        assert response.hits[0].subject == "Budget Q3"
+        assert any("malformed" in r.message for r in caplog.records)
+
+
     @pytest.mark.asyncio
     async def test_graph_api_error_returns_error_response(self, monkeypatch):
         ctx, _, _ = _mock_ctx()
