@@ -315,3 +315,19 @@ class TestWrapErrors:
         assert isinstance(result, ErrorResponse)
         assert result.code == "graph_api_error"
         assert result.retryable is False
+
+    @pytest.mark.asyncio
+    async def test_broad_exception_returns_error_response(self):
+        """Unhandled exceptions (e.g. KeyError) must be caught and returned as ErrorResponse."""
+        from ms365_intent_mcp.intent._helpers import wrap_errors
+        from ms365_intent_mcp.intent._shared import ErrorResponse
+
+        @wrap_errors("test_tool")
+        async def _raises(*args, **kwargs):
+            raise KeyError("unexpected_key")
+
+        result = await _raises()
+        assert isinstance(result, ErrorResponse)
+        assert result.code == "graph_api_error"
+        assert "KeyError" in result.message
+        assert result.retryable is False

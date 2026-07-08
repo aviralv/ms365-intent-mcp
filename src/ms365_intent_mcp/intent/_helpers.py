@@ -64,6 +64,12 @@ def wrap_errors(func_name: str):
                     message=f"{exc.error_code}: {exc.message}",
                     retryable=exc.status_code in (429, 503),
                 )
+            except Exception as exc:
+                return ErrorResponse(
+                    code="graph_api_error",
+                    message=f"unhandled exception: {type(exc).__name__}: {exc}",
+                    retryable=False,
+                )
 
         _wrapped.__name__ = func_name
         return _wrapped
