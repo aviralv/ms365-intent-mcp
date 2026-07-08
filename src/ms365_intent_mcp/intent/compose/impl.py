@@ -128,7 +128,7 @@ async def _handle_event(
         "subject": payload.subject,
         "start": payload.start.isoformat(),
         "end": payload.end.isoformat(),
-        "timezone": payload.timezone or config_default_tz,
+        "timezone": payload.timezone,
         "is_online_meeting": payload.is_online_meeting,
     }
     if payload.body:

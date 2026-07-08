@@ -95,8 +95,10 @@ class TestComposeV1Event:
     @pytest.mark.asyncio
     async def test_event_returns_typed_response(self, monkeypatch):
         ctx, _, _ = _mock_ctx()
+        captured_params = {}
 
         async def _fake(client_arg, perms_arg, action_type, params):
+            captured_params.update(params)
             return {"event_id": "evt-123", "subject": "Sync", "start": "2026-07-08T10:00:00Z", "end": "2026-07-08T11:00:00Z", "join_url": None}, "✅ Event created\n**Subject:** Sync"
 
         monkeypatch.setattr(
@@ -116,6 +118,8 @@ class TestComposeV1Event:
         assert isinstance(response, EventCreated)
         assert response.subject == "Sync"
         assert "Event created" in response.rendered_markdown
+        # The timezone passed to the composer must be payload.timezone, not the config default
+        assert captured_params["timezone"] == "Europe/Berlin"
 
 
 class TestComposeV1TeamsMessage:
