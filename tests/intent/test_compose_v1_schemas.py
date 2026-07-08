@@ -55,11 +55,12 @@ class TestComposeEmail:
                 "body": "Reply body",
             })
 
-    def test_forward_requires_message_id(self):
-        with pytest.raises(ValidationError, match="requires in_reply_to_message_id"):
+    def test_forward_mode_not_supported(self):
+        with pytest.raises(ValidationError, match="not yet supported"):
             ComposeEmail.model_validate({
                 "type": "email",
                 "mode": "forward",
+                "in_reply_to_message_id": "AAM123",
                 "body": "Forwarded content",
             })
 
