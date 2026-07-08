@@ -177,13 +177,14 @@ async def schedule(
     _logger.warning("legacy tool 'schedule' called — migrate to 'schedule_v1'")
     client: GraphClient = ctx.request_context.lifespan_context["client"]
     permissions: PermissionRegistry = ctx.request_context.lifespan_context["permissions"]
-    return await compose_schedule(
+    _, markdown = await compose_schedule(
         client=client,
         permissions=permissions,
         attendees=attendees,
         duration_minutes=duration_minutes,
         constraints=constraints,
     )
+    return markdown
 
 
 @mcp.tool()

@@ -31,7 +31,7 @@ class TestScheduleV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, attendees, duration_minutes, constraints):
-            return "## Meeting Suggestions\n- Monday 10am"
+            return {"suggestions": []}, "## Meeting Suggestions\n- Monday 10am"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.schedule.impl.compose_schedule",
@@ -47,7 +47,7 @@ class TestScheduleV1HappyPath:
         assert isinstance(response, ScheduleSuggestions)
         assert response.type == "schedule_suggestions"
         assert "Meeting Suggestions" in response.rendered_markdown
-        assert response.suggestions == []  # Task 12 placeholder
+        assert response.suggestions == []
 
     @pytest.mark.asyncio
     async def test_attendee_name_falls_back_to_email(self, monkeypatch):
@@ -57,7 +57,7 @@ class TestScheduleV1HappyPath:
 
         async def _fake(client, permissions, attendees, duration_minutes, constraints):
             captured_attendees.extend(attendees)
-            return "suggestions"
+            return {"suggestions": []}, "suggestions"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.schedule.impl.compose_schedule",
@@ -83,7 +83,7 @@ class TestScheduleV1AttendeeConversion:
 
         async def _fake(client, permissions, attendees, duration_minutes, constraints):
             captured_attendees.extend(attendees)
-            return "suggestions"
+            return {"suggestions": []}, "suggestions"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.schedule.impl.compose_schedule",
