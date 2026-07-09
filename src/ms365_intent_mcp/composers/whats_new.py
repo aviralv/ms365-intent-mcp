@@ -54,7 +54,10 @@ async def compose_whats_new(
 
     mail_unavailable = permissions.check("Mail.Read")
     if scope in ("mail", "all") and not mail_unavailable:
-        since_z = since if since.endswith("Z") else since + "Z"
+        # Graph's $filter parser requires RFC-3339 with a single UTC marker.
+        # Format from the parsed datetime so we don't have to guess whether the
+        # caller-supplied string ends in 'Z', '+00:00', or nothing at all.
+        since_z = since_dt.astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         tasks["messages"] = client.get("/me/messages", params={
             "$filter": f"receivedDateTime ge {since_z}",
             "$select": "subject,from,receivedDateTime,importance",
