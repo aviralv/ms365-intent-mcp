@@ -79,7 +79,43 @@ class TestWhatsNewAll:
         assert "Mail.Read" in result
 
 
-class TestWhatsNewTeamsPermalink:
+class TestWhatsNewMailFilterFormat:
+    """Regression for issue #27: mail $filter must be RFC-3339 (single UTC marker)."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("since", [
+        "2026-07-09T06:12:54Z",           # 'Z' shorthand
+        "2026-07-09T06:12:54+00:00",      # explicit UTC offset
+        "2026-07-09T06:12:54",            # naive, treated as UTC
+        "2026-07-09T08:12:54+02:00",      # non-UTC offset — same instant
+    ])
+    async def test_mail_filter_is_rfc3339_utc(self, full_permissions, since):
+        client = AsyncMock()
+        captured = {}
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if "/me/messages" in endpoint:
+                captured["params"] = params
+                return {"value": []}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        await compose_whats_new(
+            client=client,
+            permissions=full_permissions,
+            since=since,
+            scope="mail",
+            timezone="Europe/Berlin",
+        )
+
+        filter_clause = captured["params"]["$filter"]
+        assert filter_clause == "receivedDateTime ge 2026-07-09T06:12:54Z", filter_clause
+        # Never both markers concatenated (the specific shape Graph rejected)
+        assert "+00:00Z" not in filter_clause
+
+
+
     @pytest.mark.asyncio
     async def test_teams_section_includes_chat_web_url(self, full_permissions):
         client = AsyncMock()
