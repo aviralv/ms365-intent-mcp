@@ -213,7 +213,12 @@ class VroomClient:
             f"/streamContent?is=1&applymediaedits=false"
         )
         token = await self._token_for(url)
-        headers: dict[str, str] = {"authorization": f"Bearer {token}"}
+        # Override the client-level `accept: application/json` — streamContent
+        # returns text/vtt, and SharePoint 406s if we insist on JSON.
+        headers: dict[str, str] = {
+            "authorization": f"Bearer {token}",
+            "accept": "*/*",
+        }
 
         bytes_written = 0
         try:
@@ -228,7 +233,9 @@ class VroomClient:
                     if not _is_allowed_redirect(location):
                         raise VroomError(403, "Redirect to disallowed host")
                     await resp.aclose()
-                    return await self._stream_to_file(location, {}, dest_path)
+                    return await self._stream_to_file(
+                        location, {"accept": "*/*"}, dest_path
+                    )
 
                 self._log(url, resp.status_code)
                 if resp.status_code >= 400:
