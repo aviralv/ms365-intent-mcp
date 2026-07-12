@@ -32,3 +32,33 @@ class TestTokenManagerRefresh:
         mgr = TokenManager(config)
         with pytest.raises(AuthenticationError):
             mgr.ensure_authenticated()
+
+
+class TestSharePointTokenHostGuard:
+    """get_sharepoint_token interpolates host into the token scope, so it must
+    refuse non-SharePoint hosts even before touching the network (issue #29
+    review — defense-in-depth against a caller that skips VroomClient's guard)."""
+
+    def test_rejects_non_sharepoint_host(self, tmp_path):
+        config = Config(token_path=tmp_path / "token.json")
+        mgr = TokenManager(config)
+        with pytest.raises(ValueError, match="non-SharePoint host"):
+            mgr.get_sharepoint_token("evil.com")
+
+    def test_rejects_lookalike_host(self, tmp_path):
+        config = Config(token_path=tmp_path / "token.json")
+        mgr = TokenManager(config)
+        with pytest.raises(ValueError, match="non-SharePoint host"):
+            mgr.get_sharepoint_token("evilsharepoint.com")
+
+    def test_rejects_empty_host(self, tmp_path):
+        config = Config(token_path=tmp_path / "token.json")
+        mgr = TokenManager(config)
+        with pytest.raises(ValueError):
+            mgr.get_sharepoint_token("")
+
+    def test_returns_cached_spo_token_without_network(self, tmp_path):
+        config = Config(token_path=tmp_path / "token.json")
+        mgr = TokenManager(config)
+        mgr._spo_tokens["sap-my.sharepoint.com"] = ("spo-cached", time.time() + 3600)
+        assert mgr.get_sharepoint_token("sap-my.sharepoint.com") == "spo-cached"

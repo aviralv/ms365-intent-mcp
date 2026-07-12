@@ -11,6 +11,7 @@ from .config import Config
 from .graph import GraphClient
 from .permissions import PermissionRegistry
 from .resilience import CircuitBreaker
+from .vroom import VroomClient
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -38,11 +39,13 @@ async def lifespan(server: FastMCP):
     )
 
     async with GraphClient(config.graph_base_url, auth.get_access_token, cb=cb) as client:
-        yield {
-            "config": config,
-            "client": client,
-            "permissions": permissions,
-        }
+        async with VroomClient(auth.get_sharepoint_token) as vroom:
+            yield {
+                "config": config,
+                "client": client,
+                "permissions": permissions,
+                "vroom": vroom,
+            }
 
 
 mcp = FastMCP(
@@ -57,7 +60,8 @@ mcp = FastMCP(
         "- people: Look up a person (payload={query}).\n"
         "- whats_new: What changed since X (payload={since, scope?}).\n"
         "- find: Cross-source search (payload={query, entity_type?}).\n"
-        "- resolve: Resolve any M365 URL (payload={url}).\n\n"
+        "- resolve: Resolve any M365 URL (payload={url}).\n"
+        "- transcript: Download a meeting recording's VTT (payload={url?|name?, output_dir?}).\n\n"
         "Email drafts are saved to Drafts, never auto-sent.\n"
         "Teams messages require confirmation before sending."
     ),

@@ -1,9 +1,6 @@
 """Intent-oriented tool surface (v1) — payload={...} shape with typed responses.
 
-Every tool is registered under its ``<name>`` suffix so it can coexist
-with the legacy flat-kwargs tools during the v0.8.0 → v1.0.0 migration.
-Call ``register_all(mcp)`` from ``server.py`` to register all 8 tools in
-one line.
+``register_all(mcp)`` registers all 9 tools in one call.
 """
 
 from __future__ import annotations
@@ -22,6 +19,7 @@ def register_all(mcp: FastMCP) -> None:
     from .people import register as _r_people
     from .resolve import register as _r_resolve
     from .schedule import register as _r_schedule
+    from .transcript import register as _r_transcript
     from .whats_new import register as _r_whats_new
 
     _r_compose(mcp)
@@ -31,6 +29,7 @@ def register_all(mcp: FastMCP) -> None:
     _r_people(mcp)
     _r_resolve(mcp)
     _r_schedule(mcp)
+    _r_transcript(mcp)
     _r_whats_new(mcp)
 
 
