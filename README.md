@@ -16,10 +16,11 @@ Most Microsoft 365 MCP servers replicate Graph API endpoints as tools — one to
 | `find` | Search across all M365 data (mail, files, SharePoint, Teams) |
 | `people` | Person lookup with recent interaction context |
 | `schedule` | Find available meeting times using the scheduling assistant |
+| `transcript` | Download a meeting recording's VTT transcript (by URL or meeting name) to disk |
 
 ## Design Philosophy
 
-- **8 tools, not 76** — lean schema, loadable in any LLM session without bloat
+- **9 tools, not 76** — lean schema, loadable in any LLM session without bloat
 - **Composed internally** — each tool makes 2-10 parallel Graph calls and fuses results
 - **Decision-ready responses** — enough content to decide whether to engage, not just metadata
 - **Permission-aware** — discovers available scopes at startup, degrades gracefully
