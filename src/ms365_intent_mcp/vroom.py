@@ -75,7 +75,12 @@ def _is_allowed_host(host: str) -> bool:
 
 
 def _is_allowed_redirect(url: str) -> bool:
-    host = _host_of(url)
+    parsed = urlparse(url)
+    # Require https — never follow a redirect to a plaintext downgrade, even
+    # to an otherwise-allowed host.
+    if parsed.scheme != "https":
+        return False
+    host = parsed.hostname or ""
     return any(host.endswith(suffix) for suffix in _ALLOWED_REDIRECT_SUFFIXES)
 
 
@@ -227,8 +232,10 @@ class VroomClient:
             ) as resp:
                 # Follow one redirect hop to a pre-signed CDN URL. Drop the
                 # bearer token — the redirect target is signed, and forwarding
-                # the token to a CDN host would leak it.
-                if resp.status_code in (301, 302, 307, 308):
+                # the token to a CDN host would leak it. Catch the whole 3xx
+                # range (not just 301/302/307/308) so a 303/300 can't fall
+                # through the 2xx guard below and stream an empty body.
+                if 300 <= resp.status_code < 400:
                     location = resp.headers.get("location", "")
                     if not _is_allowed_redirect(location):
                         raise VroomError(403, "Redirect to disallowed host")
@@ -238,7 +245,7 @@ class VroomClient:
                     )
 
                 self._log(url, resp.status_code)
-                if resp.status_code >= 400:
+                if not (200 <= resp.status_code < 300):
                     body = await resp.aread()
                     raise VroomError(resp.status_code, body[:200].decode("utf-8", "replace"))
 
@@ -254,7 +261,13 @@ class VroomClient:
     async def _stream_to_file(
         self, url: str, headers: dict[str, str], dest_path: str
     ) -> int:
-        """Stream a (pre-signed) URL to disk. Used for the CDN-redirect hop."""
+        """Stream a (pre-signed) URL to disk. Used for the CDN-redirect hop.
+
+        This is the terminal hop — we do NOT follow further redirects. A 3xx
+        here would otherwise fall through the ``>= 400`` guard and yield an
+        empty body, silently writing a 0-byte file that looks like success. So
+        anything outside 2xx is an error.
+        """
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
         bytes_written = 0
@@ -263,9 +276,13 @@ class VroomClient:
                 "GET", url, headers=headers, timeout=_STREAM_TIMEOUT
             ) as resp:
                 self._log(url, resp.status_code)
-                if resp.status_code >= 400:
+                if not (200 <= resp.status_code < 300):
                     body = await resp.aread()
-                    raise VroomError(resp.status_code, body[:200].decode("utf-8", "replace"))
+                    raise VroomError(
+                        resp.status_code,
+                        body[:200].decode("utf-8", "replace")
+                        or "unexpected non-2xx from CDN redirect target",
+                    )
                 with open(dest_path, "wb") as fh:
                     async for chunk in resp.aiter_bytes():
                         fh.write(chunk)

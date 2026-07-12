@@ -22,6 +22,7 @@ parsing layer in ``transcripts``.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
 
@@ -43,6 +44,7 @@ GRAPH_SEARCH_BUDGET = 1000  # up to ~5 pages of 200 hits for a name lookup
 CHATS_PAGE_SIZE = 50
 MAX_CHATS = 200
 MESSAGES_PER_CHAT = 30
+CHAT_FETCH_CONCURRENCY = 8  # cap parallel per-chat message fetches
 
 
 class TranscriptResult:
@@ -106,7 +108,10 @@ async def compose_transcript(
     if not transcripts:
         return _fail(f"No transcript media found for {hint or 'this recording'}.")
 
-    dest = _dest_path(output_dir, hint, transcripts[0]["id"])
+    try:
+        dest = _dest_path(output_dir, hint, transcripts[0]["id"])
+    except ValueError as exc:
+        return _fail(str(exc))
     try:
         byte_count = await vroom.download_transcript_to_file(
             site_root, drive_id, item_id, transcripts[0]["id"], str(dest)
@@ -356,19 +361,33 @@ async def _discover_chats(graph: GraphClient) -> list[Recording]:
     except GraphAPIError:
         return []
 
+    chat_ids = [c.get("id", "") for c in chats if c.get("id")]
+    if not chat_ids:
+        return []
+
+    # Fetch per-chat messages concurrently (bounded) instead of serially —
+    # an active user can have 100+ chats, and one-at-a-time is the dominant
+    # latency of name-based discovery. Semaphore caps in-flight requests so we
+    # don't hammer Graph into 429s.
+    sem = asyncio.Semaphore(CHAT_FETCH_CONCURRENCY)
+
+    async def _fetch(chat_id: str) -> list[dict]:
+        async with sem:
+            try:
+                msgs = await graph.get(
+                    f"/chats/{chat_id}/messages", params={"$top": str(MESSAGES_PER_CHAT)}
+                )
+            except GraphAPIError:
+                return []
+        return msgs.get("value", [])
+
+    per_chat = await asyncio.gather(*(_fetch(cid) for cid in chat_ids))
+
+    # Dedup after gather, iterating in chat order for deterministic results.
     results: list[Recording] = []
     seen_call_ids: set[str] = set()
-    for chat in chats:
-        chat_id = chat.get("id", "")
-        if not chat_id:
-            continue
-        try:
-            msgs = await graph.get(
-                f"/chats/{chat_id}/messages", params={"$top": str(MESSAGES_PER_CHAT)}
-            )
-        except GraphAPIError:
-            continue
-        for msg in msgs.get("value", []):
+    for msgs in per_chat:
+        for msg in msgs:
             rec = recording_from_message(msg)
             if rec is None or rec.item_id in seen_call_ids:
                 continue
@@ -408,13 +427,20 @@ def _dest_path(output_dir: str | None, hint: str, transcript_id: str) -> Path:
         Path(output_dir).expanduser()
         if output_dir
         else Path.home() / ".cache" / "ms365-intent-mcp" / "transcripts"
-    )
+    ).resolve()
     base.mkdir(parents=True, exist_ok=True)
     meeting_name, meeting_date = _split_hint(hint)
     stem = _SANITIZE_RE.sub("_", meeting_name or "transcript").strip("_") or "transcript"
     date_part = f"-{meeting_date}" if meeting_date else ""
-    # Short transcript-id suffix disambiguates same-name/date recordings.
-    return base / f"{stem}{date_part}-{transcript_id[:8]}.vtt"
+    # Sanitize the id fragment too — it feeds the filename, and a stray '/' or
+    # '..' from an unexpected API shape must not let the name escape `base`.
+    id_frag = _SANITIZE_RE.sub("_", transcript_id[:8]) or "0"
+    dest = (base / f"{stem}{date_part}-{id_frag}.vtt").resolve()
+    # Containment guard: the resolved filename must stay under `base`. Both are
+    # already resolved, so this catches any traversal the sanitizers missed.
+    if base != dest.parent:
+        raise ValueError("Refusing to write transcript outside the output directory.")
+    return dest
 
 
 def _split_hint(hint: str) -> tuple[str, str]:

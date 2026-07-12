@@ -65,8 +65,15 @@ class TokenManager:
         recordings) are distinct audiences and must be minted separately.
 
         Raises ``AuthenticationError`` when no refresh token is available or the
-        exchange fails.
+        exchange fails, or ``ValueError`` if ``host`` is not a SharePoint host.
         """
+        # Defense-in-depth: `host` is interpolated into the token scope, so a
+        # caller passing an untrusted host would mint a token for an arbitrary
+        # resource. VroomClient already validates before calling, but guard
+        # here too so this public method is safe on its own.
+        if not (host and host.endswith(".sharepoint.com")):
+            raise ValueError(f"Refusing to mint a token for non-SharePoint host: {host!r}")
+
         cached = self._spo_tokens.get(host)
         if cached and time.time() < cached[1]:
             return cached[0]
