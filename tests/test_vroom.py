@@ -155,3 +155,65 @@ async def test_download_disallowed_redirect_blocked(tmp_path):
             "https://sap-my.sharepoint.com", "d", "i", "t", str(dest)
         )
     assert not dest.exists()
+
+
+# ---------- list_recordings_children: drive_id resolution ----------
+
+
+class _FakeJsonResponse:
+    """Stand-in for httpx's response for the non-streaming _get_json path."""
+
+    def __init__(self, status_code: int, payload: dict):
+        self.status_code = status_code
+        self._payload = payload
+        self.text = ""
+
+    def json(self):
+        return self._payload
+
+
+class _FakeJsonClient:
+    """Client whose .get() returns a queued fake JSON response."""
+
+    def __init__(self, response):
+        self._response = response
+        self.calls = []
+
+    async def get(self, url, headers=None):
+        self.calls.append(url)
+        return self._response
+
+
+@pytest.mark.asyncio
+async def test_list_recordings_children_drive_id_from_odata_context():
+    """When @odata.context carries a real drive id in /drives/{id}/ form, use it."""
+    payload = {
+        "@odata.context": "https://sap-my.sharepoint.com/x/_api/v2.1/$metadata#/drives/b!REALID/items",
+        "value": [{"id": "item1", "name": "A.mp4", "parentReference": {"driveId": "b!REALID"}}],
+    }
+    vc = VroomClient(lambda host: "tok")
+    vc._client = _FakeJsonClient(_FakeJsonResponse(200, payload))
+    items, drive_id = await vc.list_recordings_children("https://sap-my.sharepoint.com/personal/u")
+    assert drive_id == "b!REALID"
+    assert len(items) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_recordings_children_drive_id_falls_back_to_item_parent_ref():
+    """Regression (issue #31): Vroom /children returns @odata.context with the
+    `drives('default')` alias, which the /drives/{id}/ regex does NOT match.
+    The drive id must then fall back to the items' parentReference.driveId —
+    otherwise every own-drive recording carries an empty drive_id and the
+    download hop can't build a /drives/{id}/items/{id} URL."""
+    payload = {
+        "@odata.context": "https://sap-my.sharepoint.com/personal/u/_api/v2.1/$metadata#drives('default')/items('root')/children",
+        "value": [
+            {"id": "item1", "name": "A.mp4", "parentReference": {"driveId": "b!DERIVED"}},
+            {"id": "item2", "name": "B.mp4", "parentReference": {"driveId": "b!DERIVED"}},
+        ],
+    }
+    vc = VroomClient(lambda host: "tok")
+    vc._client = _FakeJsonClient(_FakeJsonResponse(200, payload))
+    items, drive_id = await vc.list_recordings_children("https://sap-my.sharepoint.com/personal/u")
+    assert drive_id == "b!DERIVED"
+    assert len(items) == 2

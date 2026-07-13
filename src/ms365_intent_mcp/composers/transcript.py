@@ -99,7 +99,7 @@ async def compose_transcript(
         return _fail(f"Graph error: {exc.error_code}")
 
     if not (site_root and drive_id and item_id):
-        return _fail(hint or "Could not locate the recording.")
+        return _fail(_unresolved_reason(hint, site_root, drive_id, item_id))
 
     try:
         transcripts = await vroom.list_transcripts(site_root, drive_id, item_id)
@@ -241,8 +241,10 @@ async def _resolve_from_name(
     if match.requires_share_resolution:
         if not match.web_url:
             return "", "", "", f"Recording '{match.meeting_name}' is missing a resolvable URL."
-        site_root, drive_id, item_id, _ = await _resolve_share(graph, match.web_url)
-        return site_root, drive_id, item_id, hint
+        site_root, drive_id, item_id, note = await _resolve_share(graph, match.web_url)
+        # If the share hop failed, surface its note (why) rather than letting
+        # the caller collapse to a generic name-echo — issue #31 ask #1.
+        return site_root, drive_id, item_id, hint if (site_root and drive_id and item_id) else note
 
     return match.personal_site, match.drive_id, match.item_id, hint
 
@@ -441,6 +443,33 @@ def _dest_path(output_dir: str | None, hint: str, transcript_id: str) -> Path:
     if base != dest.parent:
         raise ValueError("Refusing to write transcript outside the output directory.")
     return dest
+
+
+def _unresolved_reason(
+    hint: str, site_root: str, drive_id: str, item_id: str
+) -> str:
+    """Build a diagnostic message naming *which* coordinate failed to resolve.
+
+    The old guard echoed the meeting name (``hint``) verbatim, which made a
+    resolvable-but-incompletely-coordinated recording look like a discovery
+    miss — the opaque error in issue #31. Naming the missing piece
+    (site host / drive / item) points at the actual failing hop.
+    """
+    if not (site_root or drive_id or item_id):
+        # Nothing resolved at all — a genuine discovery miss.
+        return hint or "Could not locate the recording."
+    missing = []
+    if not site_root:
+        missing.append("site host")
+    if not drive_id:
+        missing.append("drive id")
+    if not item_id:
+        missing.append("item id")
+    label = hint.split("|", 1)[0] if hint else "this recording"
+    return (
+        f"Located '{label}' but could not resolve its {', '.join(missing)} — "
+        f"the recording was found but is not downloadable via SharePoint."
+    )
 
 
 def _split_hint(hint: str) -> tuple[str, str]:
