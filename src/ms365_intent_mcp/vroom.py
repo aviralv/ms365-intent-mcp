@@ -153,6 +153,19 @@ class VroomClient:
         items = payload.get("value", [])
         drive_match = re.search(r"/drives/([^/]+)/", payload.get("@odata.context", ""))
         drive_id = drive_match.group(1) if drive_match else ""
+        # Vroom /children returns @odata.context with the `drives('default')`
+        # alias rather than a real `/drives/{id}/` segment, so the regex above
+        # misses. Fall back to any item's parentReference.driveId — every
+        # child of the Recordings folder shares the same drive. Without this
+        # the own-drive discovery path yields empty drive_ids, which then
+        # shadow the correctly-resolved Search results during dedup and break
+        # the download hop (issue #31).
+        if not drive_id:
+            for item in items:
+                candidate = (item.get("parentReference") or {}).get("driveId", "")
+                if candidate:
+                    drive_id = candidate
+                    break
         return items, drive_id
 
     async def resolve_item_by_filename(

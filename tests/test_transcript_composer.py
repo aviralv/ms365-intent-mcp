@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from ms365_intent_mcp.composers.transcript import _dest_path
+from ms365_intent_mcp.composers.transcript import _dest_path, _unresolved_reason
 
 
 def test_dest_path_writes_under_base():
@@ -40,3 +40,41 @@ def test_dest_path_empty_name_falls_back_to_transcript():
     d = tempfile.mkdtemp()
     p = _dest_path(d, "", "abcd1234")
     assert p.name.startswith("transcript-")
+
+
+# ---------- _unresolved_reason: opaque-error fix (issue #31 ask #1) ----------
+
+
+def test_unresolved_reason_names_missing_drive_id():
+    """When the recording resolved a name+item but no drive id, the error must
+    say so — not echo the meeting name (the old opaque `hint`)."""
+    msg = _unresolved_reason(
+        hint="Call with Georgi, Dimitri|2026-07-13",
+        site_root="https://sap-my.sharepoint.com/personal/u",
+        drive_id="",
+        item_id="013KZ...",
+    )
+    assert "drive" in msg.lower()
+    assert "Call with Georgi, Dimitri" in msg  # still names the recording
+
+
+def test_unresolved_reason_names_missing_item_id():
+    msg = _unresolved_reason(
+        hint="Foo|2026-01-01",
+        site_root="https://sap-my.sharepoint.com/personal/u",
+        drive_id="b!x",
+        item_id="",
+    )
+    assert "item" in msg.lower()
+
+
+def test_unresolved_reason_names_missing_site_root():
+    msg = _unresolved_reason(
+        hint="Foo|2026-01-01", site_root="", drive_id="b!x", item_id="i"
+    )
+    assert "site" in msg.lower() or "host" in msg.lower()
+
+
+def test_unresolved_reason_falls_back_when_no_hint():
+    msg = _unresolved_reason(hint="", site_root="", drive_id="", item_id="")
+    assert msg  # non-empty; user-facing fallback
