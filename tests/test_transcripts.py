@@ -660,3 +660,53 @@ def test_find_match_no_match_returns_none_none():
     match, ambiguous = find_match([_make_rec_with_id("xyz")], "nonexistent")
     assert match is None
     assert ambiguous == []
+
+
+# ---------- find_match (name recency-rank + non-fatal alternatives, #34) ----------
+
+def _make_rec_dated(item_id: str, meeting_name: str, date_yyyymmdd: str) -> Recording:
+    """Recording whose Teams filename encodes a specific meeting date."""
+    return Recording(
+        name=f"{meeting_name}-{date_yyyymmdd}_120000-Meeting Recording.mp4",
+        item_id=item_id,
+        drive_id="d",
+        size=1,
+        created=f"{date_yyyymmdd[:4]}-{date_yyyymmdd[4:6]}-{date_yyyymmdd[6:8]}T12:00:00Z",
+        personal_site="https://example/personal/x",
+    )
+
+
+def test_find_match_name_multimatch_returns_most_recent():
+    """A stale 2-week-old file must never beat a same-day one (the incident)."""
+    stale = _make_rec_dated("old", "Meeting with Bawa Kulkarni", "20260701")
+    fresh = _make_rec_dated("new", "Meeting with Bawa Kulkarni", "20260714")
+    match, alternatives = find_match([stale, fresh], "Bawa")
+    assert match is fresh
+
+
+def test_find_match_name_multimatch_surfaces_alternatives_non_fatally():
+    """Multiple name matches return the freshest AS the match (not None) plus
+    the losers as alternatives — a soft signal, not a hard ambiguity error."""
+    stale = _make_rec_dated("old", "Meeting with Bawa Kulkarni", "20260701")
+    fresh = _make_rec_dated("new", "Meeting with Bawa Kulkarni", "20260714")
+    match, alternatives = find_match([stale, fresh], "Bawa")
+    assert match is fresh
+    assert alternatives == [stale]
+
+
+def test_find_match_name_single_match_has_no_alternatives():
+    a = _make_rec_dated("uuid-a", "Sprint Review", "20260714")
+    b = _make_rec_dated("uuid-b", "Backlog Refinement", "20260714")
+    match, alternatives = find_match([a, b], "Sprint")
+    assert match is a
+    assert alternatives == []
+
+
+def test_find_match_prefix_ambiguity_still_hard_error():
+    """ID-prefix ambiguity stays a hard error (match None) — distinct from the
+    soft name-multimatch signal — so the caller can branch on `match is None`."""
+    a = _make_rec_with_id("abc-123")
+    b = _make_rec_with_id("abc-456")
+    match, candidates = find_match([a, b], "abc")
+    assert match is None
+    assert {r.item_id for r in candidates} == {"abc-123", "abc-456"}

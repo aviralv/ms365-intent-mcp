@@ -61,6 +61,7 @@ class TranscriptResult:
         byte_count: int = 0,
         has_speaker_tags: bool = False,
         message: str = "",
+        alternatives_count: int = 0,
     ):
         self.status = status
         self.file_path = file_path
@@ -70,6 +71,7 @@ class TranscriptResult:
         self.byte_count = byte_count
         self.has_speaker_tags = has_speaker_tags
         self.message = message
+        self.alternatives_count = alternatives_count
 
 
 async def compose_transcript(
@@ -80,23 +82,53 @@ async def compose_transcript(
     url: str | None,
     name: str | None,
     output_dir: str | None,
+    item_id: str | None = None,
+    drive_id: str | None = None,
+    site_root: str | None = None,
+    list_recordings: bool = False,
 ) -> tuple[dict, str]:
-    """Resolve a recording and download its VTT. Returns ``(data, markdown)``."""
+    """Resolve a recording and download its VTT. Returns ``(data, markdown)``.
+
+    Five input modes (validated mutually-exclusive upstream in the schema):
+      * ``list_recordings=True`` — enumerate discovered recordings, newest
+        first; no download. Ferret ``list`` parity, and the escape hatch for
+        the counterpart-naming gap (issue #34): an ad-hoc call titled from the
+        other side ("Call with Vaid, Aviral") shows up here by date even when
+        a counterpart-name search can't match it.
+      * ``item_id`` + ``drive_id`` + ``site_root`` — deterministic by-coords
+        download, zero discovery (issue #33).
+      * ``url`` — a recording URL.
+      * ``name`` — filename discovery + best-match.
+    """
     scope_msg = permissions.check("Sites.Read.All")
     if scope_msg:
         return _fail(scope_msg)
 
+    if list_recordings:
+        return await _compose_list(graph, vroom)
+
+    alternatives: list[Recording] = []
     try:
-        if url:
-            site_root, drive_id, item_id, hint = await _resolve_from_url(graph, vroom, url)
+        if item_id and drive_id and site_root:
+            resolved_site, resolved_drive, resolved_item, hint = (
+                site_root, drive_id, item_id, "",
+            )
+        elif url:
+            resolved_site, resolved_drive, resolved_item, hint = await _resolve_from_url(
+                graph, vroom, url
+            )
         elif name:
-            site_root, drive_id, item_id, hint = await _resolve_from_name(graph, vroom, name)
+            resolved_site, resolved_drive, resolved_item, hint, alternatives = (
+                await _resolve_from_name(graph, vroom, name)
+            )
         else:
-            return _fail("Provide either `url` or `name`.")
+            return _fail("Provide `url`, `name`, an item_id+drive_id+site_root triple, or list=true.")
     except VroomError as exc:
         return _fail(_vroom_reason(exc))
     except GraphAPIError as exc:
         return _fail(f"Graph error: {exc.error_code}")
+
+    site_root, drive_id, item_id = resolved_site, resolved_drive, resolved_item
 
     if not (site_root and drive_id and item_id):
         return _fail(_unresolved_reason(hint, site_root, drive_id, item_id))
@@ -130,8 +162,9 @@ async def compose_transcript(
         line_count=line_count,
         byte_count=byte_count,
         has_speaker_tags=has_tags,
+        alternatives_count=len(alternatives),
     )
-    return _render(result)
+    return _render(result, alternatives=alternatives)
 
 
 # ---------------------------------------------------------------------------
@@ -208,18 +241,21 @@ async def _resolve_share(graph: GraphClient, share_url: str) -> tuple[str, str, 
 # ---------------------------------------------------------------------------
 
 
-async def _resolve_from_name(
-    graph: GraphClient, vroom: VroomClient, name: str
-) -> tuple[str, str, str, str]:
-    """Discover recordings by filename across three sources, best-match ``name``,
-    then resolve the match to downloadable coords."""
+async def _discover_all_recordings(
+    graph: GraphClient, vroom: VroomClient
+) -> list[Recording]:
+    """Run 3-source discovery (own-drive + Graph Search + Teams chats), dedupe
+    by item_id, and return newest-first.
+
+    Shared by the ``name`` best-match path and the ``list`` enumeration path.
+    Own-drive/Search resolved shapes come before chat share-only shapes, so a
+    resolved Recording wins dedup over its share-only twin.
+    """
     recordings: list[Recording] = []
     recordings.extend(await _discover_own_drive(graph, vroom))
     recordings.extend(await _discover_search(graph))
     recordings.extend(await _discover_chats(graph))
 
-    # Dedupe by item_id, keeping the first (own-drive/Search resolved shapes
-    # come before chat share-only shapes, so resolved wins).
     seen: set[str] = set()
     deduped: list[Recording] = []
     for r in recordings:
@@ -228,25 +264,71 @@ async def _resolve_from_name(
         seen.add(r.item_id)
         deduped.append(r)
 
-    match, ambiguous = find_match(deduped, name)
-    if ambiguous:
-        listing = "; ".join(f"{r.meeting_name} ({r.meeting_date})" for r in ambiguous[:5])
-        return "", "", "", f"'{name}' is ambiguous — matches: {listing}. Be more specific."
-    if not match:
-        return "", "", "", f"No recording found matching '{name}'."
+    deduped.sort(key=lambda r: r.meeting_date, reverse=True)
+    return deduped
+
+
+async def _compose_list(graph: GraphClient, vroom: VroomClient) -> tuple[dict, str]:
+    """List discovered recordings, newest first — ferret ``list`` parity."""
+    recordings = await _discover_all_recordings(graph, vroom)
+    rows = [
+        {
+            "meeting_date": r.meeting_date,
+            "meeting_name": r.meeting_name,
+            "id": r.item_id,
+        }
+        for r in recordings
+    ]
+    data = {"status": "ok", "recordings": rows, "message": ""}
+    if not rows:
+        return data, "No recordings found."
+    lines = ["📼 **Recordings** (newest first)", ""]
+    lines.append("| Date | Meeting | ID |")
+    lines.append("|---|---|---|")
+    for row in rows:
+        lines.append(f"| {row['meeting_date']} | {row['meeting_name']} | `{row['id']}` |")
+    lines.append("")
+    lines.append(
+        f"{len(rows)} recording(s). Download one with "
+        "`transcript(payload={\"name\": \"<meeting>\"})` or its `id`."
+    )
+    return data, "\n".join(lines)
+
+
+async def _resolve_from_name(
+    graph: GraphClient, vroom: VroomClient, name: str
+) -> tuple[str, str, str, str, list[Recording]]:
+    """Discover recordings by filename across three sources, best-match ``name``,
+    then resolve the match to downloadable coords.
+
+    Returns ``(site_root, drive_id, item_id, hint, alternatives)``. When several
+    recordings match the name, ``alternatives`` holds the runner-up matches
+    (freshest already chosen as the match) so the caller can surface them — a
+    stale pick is never silent (issue #34)."""
+    deduped = await _discover_all_recordings(graph, vroom)
+
+    match, alternatives = find_match(deduped, name)
+    # A None match with candidates is the hard ID-prefix ambiguity case.
+    if match is None and alternatives:
+        listing = "; ".join(f"{r.meeting_name} ({r.meeting_date})" for r in alternatives[:5])
+        return "", "", "", f"'{name}' is ambiguous — matches: {listing}. Be more specific.", []
+    if match is None:
+        return "", "", "", f"No recording found matching '{name}'.", []
 
     hint = f"{match.meeting_name}|{match.meeting_date}"
 
     # Share-only (chat-discovered) — resolve via the /shares hop.
     if match.requires_share_resolution:
         if not match.web_url:
-            return "", "", "", f"Recording '{match.meeting_name}' is missing a resolvable URL."
+            return "", "", "", f"Recording '{match.meeting_name}' is missing a resolvable URL.", []
         site_root, drive_id, item_id, note = await _resolve_share(graph, match.web_url)
         # If the share hop failed, surface its note (why) rather than letting
         # the caller collapse to a generic name-echo — issue #31 ask #1.
-        return site_root, drive_id, item_id, hint if (site_root and drive_id and item_id) else note
+        if site_root and drive_id and item_id:
+            return site_root, drive_id, item_id, hint, alternatives
+        return "", "", "", note, []
 
-    return match.personal_site, match.drive_id, match.item_id, hint
+    return match.personal_site, match.drive_id, match.item_id, hint, alternatives
 
 
 async def _discover_own_drive(graph: GraphClient, vroom: VroomClient) -> list[Recording]:
@@ -504,7 +586,9 @@ def _fail(message: str) -> tuple[dict, str]:
     return _render(TranscriptResult(status="error", message=message))
 
 
-def _render(result: TranscriptResult) -> tuple[dict, str]:
+def _render(
+    result: TranscriptResult, alternatives: list[Recording] | None = None
+) -> tuple[dict, str]:
     data = {
         "status": result.status,
         "file_path": result.file_path,
@@ -514,6 +598,7 @@ def _render(result: TranscriptResult) -> tuple[dict, str]:
         "byte_count": result.byte_count,
         "has_speaker_tags": result.has_speaker_tags,
         "message": result.message,
+        "alternatives_count": result.alternatives_count,
     }
     if result.status != "ok":
         return data, f"❌ {result.message}"
@@ -527,4 +612,14 @@ def _render(result: TranscriptResult) -> tuple[dict, str]:
         f"- Saved to: `{result.file_path}`\n"
         f"- {result.line_count} lines, {result.byte_count:,} bytes ({tags})"
     )
+    # A stale-pick guard (#34): when the name matched more than one recording,
+    # name the freshest-first alternatives so the caller can sanity-check that
+    # the downloaded one is the intended meeting.
+    if alternatives:
+        listing = "; ".join(f"{r.meeting_name} ({r.meeting_date})" for r in alternatives[:5])
+        markdown += (
+            f"\n\n⚠️ {len(alternatives)} other recording(s) also matched — "
+            f"downloaded the most recent. Others: {listing}. "
+            f"Pass the `id` from `list=true` to pick a specific one."
+        )
     return data, markdown

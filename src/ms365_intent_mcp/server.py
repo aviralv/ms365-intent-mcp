@@ -61,7 +61,8 @@ mcp = FastMCP(
         "- whats_new: What changed since X (payload={since, scope?}).\n"
         "- find: Cross-source search (payload={query, entity_type?}).\n"
         "- resolve: Resolve any M365 URL (payload={url}).\n"
-        "- transcript: Download a meeting recording's VTT (payload={url?|name?, output_dir?}).\n\n"
+        "- transcript: Download a meeting recording's VTT "
+        "(payload={url?|name?|item_id+drive_id+site_root?|list?, output_dir?}).\n\n"
         "Email drafts are saved to Drafts, never auto-sent.\n"
         "Teams messages require confirmation before sending."
     ),

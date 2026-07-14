@@ -25,7 +25,11 @@ async def _transcript_impl(
         permissions,
         url=payload.url,
         name=payload.name,
+        item_id=payload.item_id,
+        drive_id=payload.drive_id,
+        site_root=payload.site_root,
         output_dir=payload.output_dir,
+        list_recordings=payload.list,
     )
 
     return TranscriptResultResponse(
@@ -36,6 +40,8 @@ async def _transcript_impl(
         line_count=data.get("line_count", 0),
         byte_count=data.get("byte_count", 0),
         has_speaker_tags=data.get("has_speaker_tags", False),
+        alternatives_count=data.get("alternatives_count", 0),
+        recordings=data.get("recordings"),
         message=data.get("message") or None,
         rendered_markdown=markdown,
     )

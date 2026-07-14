@@ -423,16 +423,25 @@ def find_match(
 ) -> tuple[Optional[Recording], list[Recording]]:
     """Locate a recording by exact ID, ID prefix, or meeting-name substring.
 
-    Returns `(match, ambiguous)`:
-      - `(match, [])` — exactly one ID/prefix match OR exactly one
+    Returns `(match, extra)`:
+      - `(match, [])` — exactly one ID/prefix match, or exactly one
         name-substring match. Caller proceeds.
-      - `(None, candidates)` — multiple ID-prefix matches. Caller surfaces
-        an ambiguity error so the user can disambiguate with a longer prefix.
+      - `(match, alternatives)` — several name-substring matches. `match` is
+        the most recent by `meeting_date`; `alternatives` are the losers,
+        most-recent first. This is a *soft* signal: the caller proceeds with
+        `match` but can surface the alternatives so a stale pick isn't silent
+        (issue #34).
+      - `(None, candidates)` — multiple ID-prefix matches. A *hard* ambiguity
+        error: the caller must ask for a longer prefix.
       - `(None, [])` — no match at all.
 
-    ID-exact match wins outright. Name-substring matching is fall-back-only
-    and keeps first-match-wins semantics — ambiguity detection there would
-    fire on every recurring meeting and break ergonomics.
+    Branch on `match is None` to tell the hard prefix-ambiguity case from the
+    soft name-multimatch case.
+
+    ID-exact match wins outright. Name-substring matching is fall-back-only.
+    It previously kept first-match-wins over `recordings` in arbitrary order,
+    which let a stale 2-week-old recording beat a same-day one with no signal
+    (issue #34) — now the freshest wins and the rest are surfaced.
     """
     target_lower = target.lower()
     exact = [r for r in recordings if r.item_id == target]
@@ -445,8 +454,8 @@ def find_match(
     if len(prefix) > 1:
         return None, prefix
 
-    for r in recordings:
-        if target_lower in r.meeting_name.lower():
-            return r, []
-
-    return None, []
+    name_matches = [r for r in recordings if target_lower in r.meeting_name.lower()]
+    if not name_matches:
+        return None, []
+    name_matches.sort(key=lambda r: r.meeting_date, reverse=True)
+    return name_matches[0], name_matches[1:]
