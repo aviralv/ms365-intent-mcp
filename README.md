@@ -16,7 +16,7 @@ Most Microsoft 365 MCP servers replicate Graph API endpoints as tools — one to
 | `find` | Search across all M365 data (mail, files, SharePoint, Teams) |
 | `people` | Person lookup with recent interaction context |
 | `schedule` | Find available meeting times using the scheduling assistant |
-| `transcript` | Download a meeting recording's VTT transcript (by URL or meeting name) to disk |
+| `transcript` | Download a meeting recording's VTT (by URL, meeting name, or item_id+drive_id+site_root), or `list=true` to enumerate recordings newest-first |
 
 ## Design Philosophy
 
