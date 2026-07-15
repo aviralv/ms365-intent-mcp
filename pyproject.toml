@@ -1,6 +1,6 @@
 [project]
 name = "ms365-intent-mcp"
-version = "1.1.0"
+version = "1.2.0"
 description = "Intent-oriented MCP server for Microsoft 365"
 readme = "README.md"
 license = "MIT"
