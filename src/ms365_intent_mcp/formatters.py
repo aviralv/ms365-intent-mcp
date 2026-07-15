@@ -306,9 +306,11 @@ def format_people_markdown(
     if recent_chat:
         preview = (recent_chat.get("lastMessagePreview") or {})
         body = preview.get("body", {}).get("content", "") if preview else ""
+        chat_url = recent_chat.get("webUrl", "")
+        link = f" — [open chat]({chat_url})" if chat_url else ""
         if body:
             text = _strip_teams_html(body)[:80]
-            lines.append(f"\n**Recent Teams chat:** {text}")
+            lines.append(f"\n**Recent Teams chat:** {text}{link}")
     return "\n".join(lines)
 
 

@@ -152,6 +152,8 @@ def _build_extra(url_type: str, url: str, match: re.Match) -> dict[str, str]:
     """Extract additional context needed by the composer."""
     if url_type == "chat_thread":
         return {"chat_id": match.group(1)}
+    if url_type == "chat_message":
+        return {"chat_id": match.group(1)}
     if url_type == "meeting":
         return {"thread_id": urllib.parse.unquote(match.group(1))}
     if url_type == "sharepoint_page":

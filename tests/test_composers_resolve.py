@@ -205,6 +205,24 @@ class TestChatMessageResolve:
         _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Teams Message" in result
 
+    @pytest.mark.asyncio
+    async def test_chat_message_surfaces_parent_thread_url(self, full_permissions):
+        """#37 Option 3: resolving a chat message link must hand back the
+        parent chat thread URL so the caller can re-resolve the whole thread."""
+        url = "https://teams.microsoft.com/l/message/19:somechat@unq.gbl.spaces/1234567890.123456"
+
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "body": {"content": "Hey team"},
+            "from": {"user": {"displayName": "Bob"}},
+            "createdDateTime": "2026-01-01T09:00:00Z",
+        })
+
+        structured, _ = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        data = structured["data"]
+        assert data["chat_id"] == "19:somechat@unq.gbl.spaces"
+        assert data["chat_url"] == "https://teams.microsoft.com/l/chat/19:somechat@unq.gbl.spaces"
+
 
 # ---------------------------------------------------------------------------
 # meeting

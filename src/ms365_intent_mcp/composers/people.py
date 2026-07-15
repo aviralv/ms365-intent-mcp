@@ -80,6 +80,8 @@ async def compose_people(
         "recent_chat": {
             "body": ((recent_chat.get("lastMessagePreview") or {}).get("body") or {}).get("content", ""),
             "last_message_at": (recent_chat.get("lastMessagePreview") or {}).get("createdDateTime"),
+            "chat_id": recent_chat.get("id", ""),
+            "chat_url": recent_chat.get("webUrl", ""),
         } if recent_chat else None,
     }
     return data, markdown

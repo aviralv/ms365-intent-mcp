@@ -487,12 +487,13 @@ async def compose_resolve(
         return {"url": url, "kind": resolved.url_type, "data": {}}, markdown
 
     markdown = format_resolved_content_markdown(resolved.url_type, data)
-    structured_data = _build_structured_data(resolved.url_type, data)
+    structured_data = _build_structured_data(resolved.url_type, data, resolved.extra)
     return {"url": url, "kind": resolved.url_type, "data": structured_data}, markdown
 
 
-def _build_structured_data(url_type: str, data: dict) -> dict:
+def _build_structured_data(url_type: str, data: dict, extra: dict | None = None) -> dict:
     """Extract structured fields from the raw Graph response for the given URL type."""
+    extra = extra or {}
     if url_type == "email":
         return {
             "kind": "email",
@@ -512,11 +513,14 @@ def _build_structured_data(url_type: str, data: dict) -> dict:
             "recent_message_count": msg_count,
         }
     elif url_type == "chat_message":
+        chat_id = extra.get("chat_id", "")
         return {
             "kind": "chat_message",
             "sender": (data.get("from") or {}).get("user", {}).get("displayName", ""),
             "body": (data.get("body") or {}).get("content", ""),
             "created": data.get("createdDateTime"),
+            "chat_id": chat_id,
+            "chat_url": f"https://teams.microsoft.com/l/chat/{chat_id}" if chat_id else "",
         }
     elif url_type == "channel_message":
         return {
