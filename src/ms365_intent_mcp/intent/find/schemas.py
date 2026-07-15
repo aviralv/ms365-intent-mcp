@@ -40,6 +40,8 @@ class MessageHit(BaseModel):
     sender: str
     body_preview: str
     created: datetime | None = None
+    chat_id: str = ""
+    chat_url: str = ""
 
 
 class PageHit(BaseModel):

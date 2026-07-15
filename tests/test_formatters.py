@@ -538,6 +538,17 @@ class TestFormatResolvedContentMarkdown:
         assert "Hello team" in result
         assert "2026-05-29T10:00 UTC" in result
 
+    def test_chat_message_renders_open_chat_link_when_url_given(self):
+        data = {
+            "body": {"content": "Hello team"},
+            "from": {"user": {"displayName": "Alice"}},
+            "createdDateTime": "2026-05-29T10:00:00.035Z",
+        }
+        url = "https://teams.microsoft.com/l/chat/19:x@unq.gbl.spaces"
+        result = format_resolved_content_markdown("chat_message", data, chat_url=url)
+        assert "open chat" in result
+        assert url in result
+
 
 class TestFormatResolvedChatThread:
     def _data(self, **overrides):

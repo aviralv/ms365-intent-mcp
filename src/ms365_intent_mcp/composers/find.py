@@ -126,8 +126,8 @@ def _to_search_hit(msg: dict) -> dict:
             "from": msg.get("from") or {},
             "body": msg.get("body") or {},
             "createdDateTime": msg.get("createdDateTime", ""),
-            "_chat_id": msg.get("_chat_id", ""),
-            "_chat_web_url": msg.get("_chat_web_url", ""),
+            "chat_id": msg.get("_chat_id", ""),
+            "chat_url": msg.get("_chat_web_url", ""),
         },
     }
 
@@ -147,8 +147,8 @@ def _hit_to_structured(hit: dict) -> dict | None:
             "sender": sender,
             "body_preview": _strip_teams_html(body_html)[:200],
             "created": resource.get("createdDateTime"),
-            "chat_id": resource.get("_chat_id", ""),
-            "chat_url": resource.get("_chat_web_url", ""),
+            "chat_id": resource.get("chat_id", ""),
+            "chat_url": resource.get("chat_url", ""),
         }
     elif "message" in odata_type:
         return {

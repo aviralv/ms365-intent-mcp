@@ -486,8 +486,10 @@ async def compose_resolve(
         markdown = format_section_error("Resolve", data["_error"])
         return {"url": url, "kind": resolved.url_type, "data": {}}, markdown
 
-    markdown = format_resolved_content_markdown(resolved.url_type, data)
     structured_data = _build_structured_data(resolved.url_type, data, resolved.extra)
+    markdown = format_resolved_content_markdown(
+        resolved.url_type, data, chat_url=structured_data.get("chat_url", "")
+    )
     return {"url": url, "kind": resolved.url_type, "data": structured_data}, markdown
 
 

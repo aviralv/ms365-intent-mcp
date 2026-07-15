@@ -5,6 +5,16 @@
       "title": "Body Preview",
       "type": "string"
     },
+    "chat_id": {
+      "default": "",
+      "title": "Chat Id",
+      "type": "string"
+    },
+    "chat_url": {
+      "default": "",
+      "title": "Chat Url",
+      "type": "string"
+    },
     "created": {
       "anyOf": [
         {

@@ -148,3 +148,38 @@ class TestFindV1Happy:
         assert response.code == "rate_limited"
         assert response.retryable is True
         assert "ServiceUnavailable" in response.message
+
+
+class TestFindChatUrlThroughSchema:
+    """#37: a Teams message hit carrying chat_id/chat_url must survive
+    MessageHit.model_validate — otherwise the impl silently drops every
+    Teams hit (extra='forbid' regression)."""
+
+    @pytest.mark.asyncio
+    async def test_message_hit_with_chat_url_survives(self, monkeypatch):
+        ctx, _, _ = _mock_ctx()
+
+        async def _fake(client, permissions, query, search_type):
+            return {
+                "query": query,
+                "hits": [
+                    {
+                        "kind": "message",
+                        "sender": "Diana",
+                        "body_preview": "second brain idea",
+                        "created": None,
+                        "chat_id": "chat-diana",
+                        "chat_url": "https://teams.microsoft.com/l/chat/19:x@thread.v2/0",
+                    }
+                ],
+            }, "### Results"
+
+        monkeypatch.setattr("ms365_intent_mcp.intent.find.impl.compose_find", _fake)
+
+        payload = FindPayload(query="diana second brain", entity_type="message")
+        response = await _find_impl(ctx, payload)
+
+        assert isinstance(response, FindResults)
+        assert len(response.hits) == 1
+        assert response.hits[0].chat_id == "chat-diana"
+        assert response.hits[0].chat_url == "https://teams.microsoft.com/l/chat/19:x@thread.v2/0"
