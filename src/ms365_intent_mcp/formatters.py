@@ -24,17 +24,44 @@ def _truncate_email_body(text: str) -> str:
     return truncated + f"\n\n…[truncated at {_MAX_EMAIL_BODY_BYTES // 1024} KB]"
 
 
-def _strip_teams_html(body: str) -> str:
+def _strip_teams_html(body: str, preserve_links: bool = False) -> str:
     """Strip Teams HTML for plain-text rendering.
 
     Replaces <at id="...">@Name</at> mention tags with their inner text so
-    mention-only messages don't render as empty. Then strips all remaining tags.
+    mention-only messages don't render as empty, then strips all remaining tags.
+
+    When `preserve_links=True`, anchors are first converted to markdown links so
+    URLs (to other conversations, pages, files) survive — Teams bodies carry
+    links as <a href="URL">text</a> and dropping the href makes the referent
+    invisible. When the display text equals the href (or is empty), the bare URL
+    is emitted to avoid [url](url). Default is False (plain text) because most
+    callers truncate the result with a hard slice, which would cut markdown link
+    syntax mid-token; opt in only where the full, untruncated body is rendered.
     """
     if not body:
         return ""
+    if preserve_links:
+        body = re.sub(
+            r'<a\b[^>]*\bhref="([^"]*)"[^>]*>(.*?)</a>',
+            _anchor_to_markdown,
+            body,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
     body = re.sub(r"<at\b[^>]*>(.*?)</at>", r"\1", body, flags=re.IGNORECASE | re.DOTALL)
     body = re.sub(r"<[^>]+>", "", body)
     return body.strip()
+
+
+def _anchor_to_markdown(match: re.Match) -> str:
+    """Render an <a href> match as markdown '[text](url)', or bare url when the
+    inner text is empty or already equals the href."""
+    url = match.group(1).strip()
+    text = re.sub(r"<[^>]+>", "", match.group(2)).strip()
+    if not url:
+        return text
+    if not text or text == url:
+        return url
+    return f"[{text}]({url})"
 
 
 def _format_event_time_range(start: dict, end: dict) -> str:
@@ -489,8 +516,19 @@ def _format_chat_entry(entry: dict) -> str:
     if kind == "message":
         sender = entry.get("sender") or "Unknown"
         if entry.get("is_body_empty"):
-            return f"- **{sender}** ({ts_with_tz}): _(no text)_"
-        return f"- **{sender}** ({ts_with_tz}): {entry.get('body', '')}"
+            main = f"- **{sender}** ({ts_with_tz}): _(no text)_"
+        else:
+            main = f"- **{sender}** ({ts_with_tz}): {entry.get('body', '')}"
+        sub_lines: list[str] = []
+        reply = entry.get("reply_to")
+        if reply:
+            r_sender = reply.get("sender") or "Unknown"
+            r_preview = reply.get("preview") or ""
+            sub_lines.append(f"  - ↩️ replying to **{r_sender}**: {r_preview}")
+        sub_lines.extend(_format_attachment_links(entry.get("attachments")))
+        if sub_lines:
+            return "\n".join([main] + sub_lines)
+        return main
 
     if kind == "call":
         raw_end = (entry.get("end_ts") or "")[:16]
@@ -533,6 +571,24 @@ def _format_chat_entry(entry: dict) -> str:
         return f"- ⚙️ {entry.get('summary', 'system event')} ({ts_with_tz})"
 
     return f"- _(unknown entry: {kind})_"
+
+
+def _format_attachment_links(attachments: list[dict] | None) -> list[str]:
+    """Render shared-file/recording attachments as 📎 link sub-bullets.
+
+    Returns [] when there are no attachments. Each entry is a {name, url} dict
+    from _extract_reference_attachments — a fetchable SharePoint link that would
+    otherwise read as unrecoverable pasted media (issue #36)."""
+    if not attachments:
+        return []
+    lines = []
+    for att in attachments:
+        url = att.get("url")
+        if not url:
+            continue
+        name = att.get("name") or url
+        lines.append(f"  - 📎 [{name}]({url})")
+    return lines
 
 
 def _format_recording_details(entry: dict) -> list[str]:
