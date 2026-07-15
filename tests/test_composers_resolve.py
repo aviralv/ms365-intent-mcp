@@ -1073,6 +1073,22 @@ class TestForwardedMessageExtraction:
         entry = _message_entry(msg, {})
         assert entry["is_body_empty"] is True
 
+    def test_forwarded_non_dict_json_falls_through(self):
+        """content that is valid JSON but not an object (list/string/number)
+        must not crash — the entry degrades to empty body."""
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        for payload in ("[1,2,3]", '"just a string"', "42"):
+            msg = {
+                "createdDateTime": "2025-06-05T09:52:38Z",
+                "from": {"user": {"id": "u1", "displayName": "Alice"}},
+                "body": {"content": '<attachment id="123"></attachment>'},
+                "attachments": [
+                    {"contentType": "forwardedMessageReference", "content": payload}
+                ],
+            }
+            entry = _message_entry(msg, {})
+            assert entry["is_body_empty"] is True
+
     def test_non_forwarded_attachment_does_not_inject_body(self):
         """An image/file attachment without 'forwardedMessageReference' should
         not be misread as a forwarded message — body stays empty."""

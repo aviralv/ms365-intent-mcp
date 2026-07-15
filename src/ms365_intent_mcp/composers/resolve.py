@@ -132,6 +132,8 @@ def _extract_forwarded_message_text(msg: dict) -> str:
             parsed = json.loads(raw)
         except (json.JSONDecodeError, TypeError):
             continue
+        if not isinstance(parsed, dict):
+            continue
         inner = parsed.get("originalMessageContent") or ""
         if inner:
             return _strip_teams_html(inner)
