@@ -85,14 +85,16 @@ async def _search_chat_messages(client: GraphClient, query: str) -> str:
 
     semaphore = asyncio.Semaphore(_MESSAGE_SEMAPHORE_LIMIT)
 
-    async def _bounded_fetch(chat_id: str) -> list[dict]:
+    async def _bounded_fetch(chat: dict) -> list[dict]:
         async with semaphore:
+            chat_id = chat["id"]
+            chat_web_url = chat.get("webUrl", "")
             if not needles:
-                return await _recent_chat_messages(client, chat_id)
-            return await _fetch_chat_messages(client, chat_id, needles)
+                return await _recent_chat_messages(client, chat_id, chat_web_url=chat_web_url)
+            return await _fetch_chat_messages(client, chat_id, needles, chat_web_url=chat_web_url)
 
     results = await asyncio.gather(
-        *[_bounded_fetch(c["id"]) for c in chats],
+        *[_bounded_fetch(c) for c in chats],
         return_exceptions=True,
     )
 
@@ -124,6 +126,8 @@ def _to_search_hit(msg: dict) -> dict:
             "from": msg.get("from") or {},
             "body": msg.get("body") or {},
             "createdDateTime": msg.get("createdDateTime", ""),
+            "_chat_id": msg.get("_chat_id", ""),
+            "_chat_web_url": msg.get("_chat_web_url", ""),
         },
     }
 
@@ -143,6 +147,8 @@ def _hit_to_structured(hit: dict) -> dict | None:
             "sender": sender,
             "body_preview": _strip_teams_html(body_html)[:200],
             "created": resource.get("createdDateTime"),
+            "chat_id": resource.get("_chat_id", ""),
+            "chat_url": resource.get("_chat_web_url", ""),
         }
     elif "message" in odata_type:
         return {
@@ -189,14 +195,16 @@ async def _search_chat_messages_with_hits(client: GraphClient, query: str) -> tu
 
     semaphore = asyncio.Semaphore(_MESSAGE_SEMAPHORE_LIMIT)
 
-    async def _bounded_fetch(chat_id: str) -> list[dict]:
+    async def _bounded_fetch(chat: dict) -> list[dict]:
         async with semaphore:
+            chat_id = chat["id"]
+            chat_web_url = chat.get("webUrl", "")
             if not needles:
-                return await _recent_chat_messages(client, chat_id)
-            return await _fetch_chat_messages(client, chat_id, needles)
+                return await _recent_chat_messages(client, chat_id, chat_web_url=chat_web_url)
+            return await _fetch_chat_messages(client, chat_id, needles, chat_web_url=chat_web_url)
 
     results = await asyncio.gather(
-        *[_bounded_fetch(c["id"]) for c in chats],
+        *[_bounded_fetch(c) for c in chats],
         return_exceptions=True,
     )
 
@@ -345,12 +353,14 @@ async def _fetch_chat_messages(
     chat_id: str,
     needles: list[str],
     limit: int = 50,
+    chat_web_url: str = "",
 ) -> list[dict]:
     """Fetch chat messages and filter client-side against a set of needles.
 
     A message matches if ANY needle appears (case-insensitive substring) in
-    its HTML-stripped, entity-decoded body. `_chat_id` is added to each hit.
-    Empty needles or empty stripped set returns [] without fetching.
+    its HTML-stripped, entity-decoded body. `_chat_id` and `_chat_web_url`
+    are added to each hit. Empty needles or empty stripped set returns []
+    without fetching.
     """
     lowered = [n.strip().lower() for n in needles if n and n.strip()]
     if not lowered:
@@ -367,7 +377,7 @@ async def _fetch_chat_messages(
         body_html = (msg.get("body") or {}).get("content", "")
         text = html.unescape(_strip_teams_html(body_html)).lower()
         if any(n in text for n in lowered):
-            hits.append({**msg, "_chat_id": chat_id})
+            hits.append({**msg, "_chat_id": chat_id, "_chat_web_url": chat_web_url})
     return hits
 
 
@@ -375,6 +385,7 @@ async def _recent_chat_messages(
     client: GraphClient,
     chat_id: str,
     limit: int = 20,
+    chat_web_url: str = "",
 ) -> list[dict]:
     """Return the N most recent messages from a chat, unfiltered.
 
@@ -394,5 +405,5 @@ async def _recent_chat_messages(
         body_html = (msg.get("body") or {}).get("content", "")
         if not _strip_teams_html(body_html):
             continue
-        hits.append({**msg, "_chat_id": chat_id})
+        hits.append({**msg, "_chat_id": chat_id, "_chat_web_url": chat_web_url})
     return hits

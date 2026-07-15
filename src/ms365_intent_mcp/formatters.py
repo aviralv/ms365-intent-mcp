@@ -323,7 +323,9 @@ def format_search_results_markdown(query: str, hits: list[dict]) -> str:
             sender = (resource.get("from") or {}).get("user", {}).get("displayName", "?")
             body_html = (resource.get("body") or {}).get("content", "")
             text = _strip_teams_html(body_html)[:200]
-            lines.append(f"- **[Teams]** {sender}: {text}")
+            chat_url = resource.get("_chat_web_url", "")
+            link = f" — [open chat]({chat_url})" if chat_url else ""
+            lines.append(f"- **[Teams]** {sender}: {text}{link}")
         elif "message" in odata_type:
             subject = resource.get("subject", "(no subject)")
             sender = (resource.get("from") or {}).get("emailAddress", {}).get("name", "?")

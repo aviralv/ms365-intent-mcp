@@ -391,3 +391,67 @@ class TestSearchChatMessages:
             search_type="message",
         )
         assert "Find unavailable" in result or "unavailable" in result
+
+
+class TestFindChatUrl:
+    """#37: find(entity_type='message') must give a deterministic path to the
+    chat thread URL that resolve() consumes. The chat's webUrl is a
+    teams.microsoft.com/l/chat/ permalink already carried by /me/chats."""
+
+    _CHAT_URL = "https://teams.microsoft.com/l/chat/19:abc123@thread.v2/0?tenantId=t"
+
+    def _chats_and_messages(self):
+        chats_response = {
+            "value": [
+                {
+                    "id": "chat-diana",
+                    "webUrl": self._CHAT_URL,
+                    "members": [{"displayName": "Diana Veit"}, {"displayName": "Me"}],
+                    "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"},
+                },
+            ]
+        }
+        messages = {
+            "value": [
+                {"id": "m1", "body": {"content": "<p>Second brain idea</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+            ]
+        }
+
+        async def _get(path, params=None):
+            if path == "/me/chats":
+                return chats_response
+            if path == "/chats/chat-diana/messages":
+                return messages
+            return {"value": []}
+
+        return _get
+
+    @pytest.mark.asyncio
+    async def test_structured_hit_includes_chat_id_and_url(self, full_permissions):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=self._chats_and_messages())
+
+        structured, _ = await compose_find(
+            client=client,
+            permissions=full_permissions,
+            query="Diana second brain",
+            search_type="message",
+        )
+        hits = structured["hits"]
+        assert len(hits) == 1
+        assert hits[0]["chat_id"] == "chat-diana"
+        assert hits[0]["chat_url"] == self._CHAT_URL
+
+    @pytest.mark.asyncio
+    async def test_markdown_includes_open_chat_link(self, full_permissions):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=self._chats_and_messages())
+
+        _, markdown = await compose_find(
+            client=client,
+            permissions=full_permissions,
+            query="Diana second brain",
+            search_type="message",
+        )
+        assert "open chat" in markdown
+        assert self._CHAT_URL in markdown
