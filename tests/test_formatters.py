@@ -747,6 +747,40 @@ class TestStripTeamsHtml:
         from ms365_intent_mcp.formatters import _strip_teams_html
         assert _strip_teams_html("  <p>hi</p>  ") == "hi"
 
+    def test_anchor_preserved_as_markdown_link(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        body = 'See <a href="https://example.com/doc">the doc</a> now'
+        assert _strip_teams_html(body, preserve_links=True) == "See [the doc](https://example.com/doc) now"
+
+    def test_anchor_dropped_by_default(self):
+        """Default (preserve_links=False) keeps only the anchor text — callers
+        that hard-truncate the result must not receive markdown link syntax."""
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        body = 'See <a href="https://example.com/doc">the doc</a> now'
+        assert _strip_teams_html(body) == "See the doc now"
+
+    def test_anchor_with_url_as_text_renders_bare_url(self):
+        """When display text equals the href, don't produce [url](url)."""
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        body = '<a href="https://example.com/x">https://example.com/x</a>'
+        assert _strip_teams_html(body, preserve_links=True) == "https://example.com/x"
+
+    def test_anchor_empty_text_renders_bare_url(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        body = '<a href="https://example.com/x"></a>'
+        assert _strip_teams_html(body, preserve_links=True) == "https://example.com/x"
+
+    def test_teams_conversation_link_preserved(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        url = "https://teams.microsoft.com/l/message/19:abc@thread.v2/123"
+        body = f'ref: <a href="{url}">this thread</a>'
+        assert _strip_teams_html(body, preserve_links=True) == f"ref: [this thread]({url})"
+
+    def test_multiple_anchors_preserved(self):
+        from ms365_intent_mcp.formatters import _strip_teams_html
+        body = '<a href="https://a.com">A</a> and <a href="https://b.com">B</a>'
+        assert _strip_teams_html(body, preserve_links=True) == "[A](https://a.com) and [B](https://b.com)"
+
 
 class TestFormatChatEntry:
     def test_message_basic(self):
@@ -777,6 +811,78 @@ class TestFormatChatEntry:
         line = _format_chat_entry(entry)
         assert "_(no text)_" in line
         assert "_(deleted)_" not in line
+
+    def test_message_with_reference_attachment_renders_link(self):
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "message",
+            "ts": "2026-07-15T10:25:00Z",
+            "sender": "Alice",
+            "body": "",
+            "is_body_empty": True,
+            "attachments": [
+                {"name": "Meeting Recording.mp4", "url": "https://x/rec.mp4"}
+            ],
+        }
+        line = _format_chat_entry(entry)
+        assert "📎 [Meeting Recording.mp4](https://x/rec.mp4)" in line
+        assert line.split("\n")[0].startswith("- **Alice**")
+
+    def test_message_with_text_and_attachment_renders_both(self):
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "message",
+            "ts": "2026-07-15T10:25:00Z",
+            "sender": "Alice",
+            "body": "Here is the recording",
+            "is_body_empty": False,
+            "attachments": [
+                {"name": "rec.mp4", "url": "https://x/rec.mp4"}
+            ],
+        }
+        line = _format_chat_entry(entry)
+        assert "Here is the recording" in line
+        assert "📎 [rec.mp4](https://x/rec.mp4)" in line
+
+    def test_message_without_attachments_no_paperclip(self):
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "message",
+            "ts": "2026-07-15T10:25:00Z",
+            "sender": "Alice",
+            "body": "hi",
+            "is_body_empty": False,
+        }
+        line = _format_chat_entry(entry)
+        assert "📎" not in line
+
+    def test_message_with_reply_context_renders_quote(self):
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "message",
+            "ts": "2026-07-15T10:25:00Z",
+            "sender": "Alice",
+            "body": "Yes, agreed",
+            "is_body_empty": False,
+            "reply_to": {"sender": "Bob", "preview": "the original question"},
+        }
+        line = _format_chat_entry(entry)
+        assert "↩️" in line
+        assert "Bob" in line
+        assert "the original question" in line
+        assert "Yes, agreed" in line
+
+    def test_message_without_reply_context_no_quote(self):
+        from ms365_intent_mcp.formatters import _format_chat_entry
+        entry = {
+            "kind": "message",
+            "ts": "2026-07-15T10:25:00Z",
+            "sender": "Alice",
+            "body": "hi",
+            "is_body_empty": False,
+        }
+        line = _format_chat_entry(entry)
+        assert "↩️" not in line
 
     def test_call_with_initiator_duration_recording_transcript(self):
         from ms365_intent_mcp.formatters import _format_chat_entry

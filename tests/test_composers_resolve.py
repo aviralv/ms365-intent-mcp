@@ -723,6 +723,101 @@ class TestResolveChatThread:
         oldest_pos = result.find("OLDEST")
         assert 0 <= newest_pos < middle_pos < oldest_pos
 
+    @pytest.mark.asyncio
+    async def test_shared_recording_link_surfaced_end_to_end(
+        self, full_permissions, chat_meta, event_payload
+    ):
+        """Issue #36: a recording shared in a chat must reach the rendered
+        markdown as a fetchable link, not be dropped as unrecoverable media."""
+        rec_url = (
+            "https://tenant-my.sharepoint.com/personal/u/Documents/"
+            "Microsoft Teams Chat Files/Bi-weekly-20260715_102544-Meeting Recording.mp4"
+        )
+        messages = {
+            "value": [
+                {
+                    "from": {"user": {"displayName": "Bob"}},
+                    "body": {"content": "Here is a recording of what he has asked today, 15.07 10:25.<attachment id=\"a1\"></attachment>"},
+                    "createdDateTime": "2026-07-15T10:25:00Z",
+                    "attachments": [
+                        {
+                            "id": "a1",
+                            "contentType": "reference",
+                            "contentUrl": rec_url,
+                            "content": None,
+                            "name": "Bi-weekly-20260715_102544-Meeting Recording.mp4",
+                        }
+                    ],
+                },
+            ]
+        }
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint == "/chats/19:abc@thread.v2":
+                return chat_meta
+            if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
+                return messages
+            if endpoint == "/me/events/AAMkevent123":
+                return event_payload
+            raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="chat_thread",
+                graph_endpoint="/chats/19:abc@thread.v2",
+                required_scope="Chat.ReadWrite",
+                extra={"chat_id": "19:abc@thread.v2"},
+            )
+            _, result = await compose_resolve(
+                client=client,
+                permissions=full_permissions,
+                url="https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            )
+
+        assert "📎" in result
+        assert rec_url in result
+        assert "Meeting Recording.mp4" in result
+
+
+class TestTruncateBody:
+    """_truncate_body caps length but must never cut a markdown link mid-token,
+    which would leave a dangling '[label](htt…'."""
+
+    def test_short_text_unchanged(self):
+        from ms365_intent_mcp.composers.resolve import _truncate_body
+        assert _truncate_body("hello", 500) == "hello"
+
+    def test_plain_text_truncated_with_ellipsis(self):
+        from ms365_intent_mcp.composers.resolve import _truncate_body
+        out = _truncate_body("x" * 600, 500)
+        assert out == "x" * 500 + "…"
+
+    def test_at_limit_no_ellipsis(self):
+        from ms365_intent_mcp.composers.resolve import _truncate_body
+        assert _truncate_body("x" * 500, 500) == "x" * 500
+
+    def test_does_not_cut_link_mid_token(self):
+        from ms365_intent_mcp.composers.resolve import _truncate_body
+        # A link straddles the limit: cutting at 500 would land inside (url).
+        pre = "y" * 490
+        link = "[the doc](https://example.com/a/very/long/path/that/keeps/going)"
+        out = _truncate_body(pre + link + " trailing", 500)
+        # The link must be intact if present, or dropped entirely — never half.
+        assert "](htt" not in out or out.count("[") == out.count("]")
+        # Specifically: no dangling open-paren link.
+        import re as _re
+        assert not _re.search(r"\]\([^)]*$", out)
+
+    def test_keeps_whole_link_when_it_fits_before_limit(self):
+        from ms365_intent_mcp.composers.resolve import _truncate_body
+        link = "[doc](https://x.com/y)"
+        text = link + " " + "z" * 600
+        out = _truncate_body(text, 500)
+        assert link in out
+
 
 # ---------------------------------------------------------------------------
 # _parse_iso_duration
@@ -1009,6 +1104,237 @@ class TestForwardedMessageExtraction:
         }
         entry = _message_entry(msg, {})
         assert entry["body"] == "Real body"
+
+
+class TestReferenceAttachmentExtraction:
+    """Issue #36: shared files/recordings arrive as reference-type attachments
+    (contentType='reference', name + contentUrl). These must be surfaced, not
+    silently dropped — otherwise a fetchable recording reads as unrecoverable
+    pasted media."""
+
+    def test_reference_attachment_surfaced(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<div><attachment id=\"abc\"></attachment></div>"},
+            "attachments": [
+                {
+                    "id": "abc",
+                    "contentType": "reference",
+                    "contentUrl": "https://tenant-my.sharepoint.com/personal/u/Documents/Microsoft%20Teams%20Chat%20Files/Meeting%20Recording.mp4",
+                    "content": None,
+                    "name": "Meeting Recording.mp4",
+                }
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["attachments"] == [
+            {
+                "name": "Meeting Recording.mp4",
+                "url": "https://tenant-my.sharepoint.com/personal/u/Documents/Microsoft%20Teams%20Chat%20Files/Meeting%20Recording.mp4",
+            }
+        ]
+
+    def test_message_with_only_attachment_still_carries_it(self):
+        """Body is just the <attachment> placeholder (empty after strip); the
+        file must still surface even though is_body_empty is True."""
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<div><attachment id=\"abc\"></attachment></div>"},
+            "attachments": [
+                {
+                    "id": "abc",
+                    "contentType": "reference",
+                    "contentUrl": "https://tenant-my.sharepoint.com/personal/u/rec.mp4",
+                    "name": "rec.mp4",
+                }
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["is_body_empty"] is True
+        assert len(entry["attachments"]) == 1
+        assert entry["attachments"][0]["url"].endswith("rec.mp4")
+
+    def test_message_with_text_and_attachment(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<p>Here is the recording</p><attachment id=\"abc\"></attachment>"},
+            "attachments": [
+                {
+                    "contentType": "reference",
+                    "contentUrl": "https://tenant-my.sharepoint.com/personal/u/rec.mp4",
+                    "name": "rec.mp4",
+                }
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["body"] == "Here is the recording"
+        assert entry["is_body_empty"] is False
+        assert entry["attachments"] == [
+            {"name": "rec.mp4", "url": "https://tenant-my.sharepoint.com/personal/u/rec.mp4"}
+        ]
+
+    def test_multiple_reference_attachments(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<div></div>"},
+            "attachments": [
+                {"contentType": "reference", "contentUrl": "https://x/a.mp4", "name": "a.mp4"},
+                {"contentType": "reference", "contentUrl": "https://x/b.pdf", "name": "b.pdf"},
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert len(entry["attachments"]) == 2
+        assert entry["attachments"][0]["name"] == "a.mp4"
+        assert entry["attachments"][1]["name"] == "b.pdf"
+
+    def test_no_attachments_yields_empty_list(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<p>hi</p>"},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["attachments"] == []
+
+    def test_forwarded_reference_only_not_treated_as_file(self):
+        """forwardedMessageReference is not a shared file — it must not leak
+        into the attachments list."""
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<attachment id=\"123\"></attachment>"},
+            "attachments": [
+                {
+                    "contentType": "forwardedMessageReference",
+                    "content": '{"originalMessageContent": "<p>fwd</p>"}',
+                }
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["attachments"] == []
+
+    def test_reference_without_url_skipped(self):
+        """A reference attachment missing contentUrl is not renderable — skip it."""
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<div></div>"},
+            "attachments": [
+                {"contentType": "reference", "name": "orphan.mp4"}
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["attachments"] == []
+
+
+class TestReplyContextExtraction:
+    """A reply/quote surfaces as a messageReference attachment whose `content`
+    is a JSON string with messagePreview + messageSender. Surface it as context
+    so the reply is readable on its own (user request on issue #36)."""
+
+    def _reply_msg(self, sender="Bob", preview="the original question"):
+        import json as _json
+        return {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<p>Yes, agreed</p>"},
+            "attachments": [
+                {
+                    "id": "1728422677844",
+                    "contentType": "messageReference",
+                    "contentUrl": None,
+                    "content": _json.dumps({
+                        "messageId": "1728422677844",
+                        "messagePreview": preview,
+                        "messageSender": {
+                            "user": {"id": "x", "displayName": sender}
+                        },
+                    }),
+                }
+            ],
+        }
+
+    def test_reply_context_extracted(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        entry = _message_entry(self._reply_msg(), {})
+        assert entry["body"] == "Yes, agreed"
+        assert entry["reply_to"] == {
+            "sender": "Bob",
+            "preview": "the original question",
+        }
+
+    def test_reply_context_absent_yields_none(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<p>hi</p>"},
+        }
+        entry = _message_entry(msg, {})
+        assert entry["reply_to"] is None
+
+    def test_reply_context_unparseable_content_yields_none(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<p>hi</p>"},
+            "attachments": [
+                {"contentType": "messageReference", "content": "{not json"}
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["reply_to"] is None
+
+    def test_reply_context_non_dict_json_yields_none(self):
+        """content that is valid JSON but not an object (list/string/number)
+        must not crash — a malformed reference should degrade to None."""
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        for payload in ("[1,2,3]", '"just a string"', "42"):
+            msg = {
+                "createdDateTime": "2026-07-15T10:25:00Z",
+                "from": {"user": {"id": "u1", "displayName": "Alice"}},
+                "body": {"content": "<p>hi</p>"},
+                "attachments": [
+                    {"contentType": "messageReference", "content": payload}
+                ],
+            }
+            entry = _message_entry(msg, {})
+            assert entry["reply_to"] is None
+
+    def test_reply_preview_truncated(self):
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        entry = _message_entry(self._reply_msg(preview="x" * 300), {})
+        assert entry["reply_to"]["preview"].endswith("…")
+        assert len(entry["reply_to"]["preview"]) == 201
+
+    def test_reply_sender_falls_back_when_missing(self):
+        import json as _json
+        from ms365_intent_mcp.composers.resolve import _message_entry
+        msg = {
+            "createdDateTime": "2026-07-15T10:25:00Z",
+            "from": {"user": {"id": "u1", "displayName": "Alice"}},
+            "body": {"content": "<p>reply</p>"},
+            "attachments": [
+                {
+                    "contentType": "messageReference",
+                    "content": _json.dumps({"messagePreview": "context"}),
+                }
+            ],
+        }
+        entry = _message_entry(msg, {})
+        assert entry["reply_to"] == {"sender": "Unknown", "preview": "context"}
 
 
 # ---------------------------------------------------------------------------

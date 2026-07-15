@@ -138,6 +138,82 @@ def _extract_forwarded_message_text(msg: dict) -> str:
     return ""
 
 
+def _extract_reference_attachments(msg: dict) -> list[dict]:
+    """Pull shared files/recordings from a message's reference-type attachments.
+
+    Teams surfaces a shared SharePoint file (including meeting recordings under
+    "Microsoft Teams Chat Files") as an attachment with contentType='reference',
+    the filename in `name`, and the SharePoint URL in `contentUrl`. Returns a
+    list of {name, url} dicts. Attachments missing contentUrl are skipped (not
+    renderable). Non-reference types (forwardedMessageReference, inline cards)
+    are ignored. Returns [] when none.
+    """
+    attachments = msg.get("attachments") or []
+    result: list[dict] = []
+    for att in attachments:
+        if att.get("contentType") != "reference":
+            continue
+        url = att.get("contentUrl") or ""
+        if not url:
+            continue
+        result.append({"name": att.get("name") or url, "url": url})
+    return result
+
+
+def _extract_reply_context(msg: dict) -> dict | None:
+    """Pull the quoted-message context from a reply's messageReference attachment.
+
+    A Teams reply/quote carries a `messageReference` attachment whose `content`
+    is a JSON string with `messagePreview` (plain-text snippet of the quoted
+    message) and `messageSender.user.displayName`. Returns {sender, preview}
+    with the preview truncated to 200 chars, or None when there is no reply
+    reference or its content is unparseable/empty.
+    """
+    for att in msg.get("attachments") or []:
+        if att.get("contentType") != "messageReference":
+            continue
+        raw = att.get("content") or ""
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        preview = (parsed.get("messagePreview") or "").strip()
+        if not preview:
+            return None
+        if len(preview) > 200:
+            preview = preview[:200] + "…"
+        sender_field = (parsed.get("messageSender") or {}).get("user") or {}
+        sender = sender_field.get("displayName") or "Unknown"
+        return {"sender": sender, "preview": preview}
+    return None
+
+
+_MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\([^)]*\)")
+
+
+def _truncate_body(text: str, limit: int) -> str:
+    """Truncate `text` to `limit` chars + '…', without cutting a markdown link.
+
+    _strip_teams_html(preserve_links=True) can embed '[label](url)' tokens. A
+    naive slice at `limit` could land inside one, leaving a dangling '[label](htt'.
+    If the cut point falls inside a link span, back the cut up to the link's start
+    so the whole link is dropped rather than mangled. Returns text unchanged when
+    already within limit.
+    """
+    if len(text) <= limit:
+        return text
+    cut = limit
+    for m in _MARKDOWN_LINK_RE.finditer(text):
+        if m.start() < cut < m.end():
+            cut = m.start()
+            break
+        if m.start() >= cut:
+            break
+    return text[:cut].rstrip() + "…"
+
+
 def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
     """Classify a real chat message into a typed entry.
 
@@ -145,7 +221,11 @@ def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
     application.displayName -> 'Unknown'. Body is stripped via _strip_teams_html
     and truncated to 500 chars + '…'. is_body_empty=True if stripped body is empty.
     Forwarded-message attachments (body=`<attachment id=...>`) have their inner
-    text extracted from attachments[0].content as a fallback.
+    text extracted from attachments[0].content as a fallback. Shared files and
+    recordings (reference-type attachments) are surfaced in `attachments` as
+    {name, url} dicts — even when the body is empty, since the file IS the content.
+    Reply/quote context (messageReference attachment) is surfaced in `reply_to`
+    as {sender, preview} so a reply is readable on its own.
     """
     from_field = msg.get("from") or {}
     user_field = from_field.get("user") or {}
@@ -160,12 +240,11 @@ def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
     )
 
     body_content = (msg.get("body") or {}).get("content", "")
-    text = _strip_teams_html(body_content)
+    text = _strip_teams_html(body_content, preserve_links=True)
     if not text:
         text = _extract_forwarded_message_text(msg)
     is_body_empty = not text
-    if len(text) > 500:
-        text = text[:500] + "…"
+    text = _truncate_body(text, 500)
 
     return {
         "kind": "message",
@@ -173,6 +252,8 @@ def _message_entry(msg: dict, name_map: dict[str, str]) -> dict:
         "sender": sender,
         "body": text,
         "is_body_empty": is_body_empty,
+        "attachments": _extract_reference_attachments(msg),
+        "reply_to": _extract_reply_context(msg),
     }
 
 
