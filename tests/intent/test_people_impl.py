@@ -151,3 +151,37 @@ class TestPeopleV1Impl:
 
         with pytest.raises(ValidationError):
             PeoplePayload.model_validate({"query": "Avi", "unexpected": "field"})
+
+
+class TestPeopleChatUrlThroughSchema:
+    """#37: recent_chat carrying chat_id/chat_url must survive
+    ChatPreview.model_validate — otherwise the whole people() call raises
+    (extra='forbid' regression, no try/except in impl)."""
+
+    @pytest.mark.asyncio
+    async def test_recent_chat_with_chat_url_survives(self, monkeypatch):
+        ctx, _, _ = _mock_ctx()
+
+        async def _fake(client_arg, perms_arg, query):
+            return {
+                "name": "Alice Smith",
+                "email": "alice@example.com",
+                "job_title": None,
+                "recent_mail": [],
+                "recent_chat": {
+                    "body": "hi there",
+                    "last_message_at": None,
+                    "chat_id": "chat-alice",
+                    "chat_url": "https://teams.microsoft.com/l/chat/19:alice@unq.gbl.spaces/0",
+                },
+            }, "## Alice Smith"
+
+        monkeypatch.setattr("ms365_intent_mcp.intent.people.impl.compose_people", _fake)
+
+        payload = PeoplePayload(query="alice")
+        response = await _people_impl(ctx, payload)
+
+        assert isinstance(response, PersonDetail)
+        assert response.recent_chat is not None
+        assert response.recent_chat.chat_id == "chat-alice"
+        assert response.recent_chat.chat_url == "https://teams.microsoft.com/l/chat/19:alice@unq.gbl.spaces/0"

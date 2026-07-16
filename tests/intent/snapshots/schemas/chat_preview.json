@@ -5,6 +5,16 @@
       "title": "Body",
       "type": "string"
     },
+    "chat_id": {
+      "default": "",
+      "title": "Chat Id",
+      "type": "string"
+    },
+    "chat_url": {
+      "default": "",
+      "title": "Chat Url",
+      "type": "string"
+    },
     "last_message_at": {
       "anyOf": [
         {

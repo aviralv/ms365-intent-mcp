@@ -37,6 +37,8 @@ class ChatPreview(BaseModel):
     model_config = ConfigDict(extra="forbid")
     body: str
     last_message_at: datetime | None = None
+    chat_id: str = ""
+    chat_url: str = ""
 
 
 class PersonDetail(BaseResponse):

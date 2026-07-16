@@ -69,6 +69,8 @@ class ChatMessageContent(BaseModel):
     sender: str
     body: str
     created: datetime | None = None
+    chat_id: str = ""
+    chat_url: str = ""
 
 
 class ChannelMessageContent(BaseModel):

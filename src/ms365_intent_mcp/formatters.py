@@ -6,6 +6,15 @@ import re
 _MAX_EMAIL_BODY_BYTES = 200 * 1024
 
 
+def _teams_open_chat_link(chat_url: str) -> str:
+    """Render a trailing ' — [open chat](url)' suffix, or '' when no url.
+
+    Shared by the Teams-activity, people, and search-hit formatters so the
+    link label and separator live in one place.
+    """
+    return f" — [open chat]({chat_url})" if chat_url else ""
+
+
 def _truncate_email_body(text: str) -> str:
     """Cap an email body at ~200 KB to protect the LLM context.
 
@@ -272,7 +281,7 @@ def format_teams_activity_markdown(messages: list[dict]) -> str:
         if len(text) > 500:
             text = text[:500] + "…"
         web_url = msg.get("_chat_web_url", "")
-        link = f" — [open chat]({web_url})" if web_url else ""
+        link = _teams_open_chat_link(web_url)
         lines.append(f"- **{sender}:** {text}{link}")
     return "\n".join(lines)
 
@@ -306,9 +315,11 @@ def format_people_markdown(
     if recent_chat:
         preview = (recent_chat.get("lastMessagePreview") or {})
         body = preview.get("body", {}).get("content", "") if preview else ""
+        chat_url = recent_chat.get("webUrl", "")
+        link = _teams_open_chat_link(chat_url)
         if body:
             text = _strip_teams_html(body)[:80]
-            lines.append(f"\n**Recent Teams chat:** {text}")
+            lines.append(f"\n**Recent Teams chat:** {text}{link}")
     return "\n".join(lines)
 
 
@@ -323,7 +334,8 @@ def format_search_results_markdown(query: str, hits: list[dict]) -> str:
             sender = (resource.get("from") or {}).get("user", {}).get("displayName", "?")
             body_html = (resource.get("body") or {}).get("content", "")
             text = _strip_teams_html(body_html)[:200]
-            lines.append(f"- **[Teams]** {sender}: {text}")
+            link = _teams_open_chat_link(resource.get("chat_url", ""))
+            lines.append(f"- **[Teams]** {sender}: {text}{link}")
         elif "message" in odata_type:
             subject = resource.get("subject", "(no subject)")
             sender = (resource.get("from") or {}).get("emailAddress", {}).get("name", "?")
@@ -373,7 +385,7 @@ def format_meeting_times_markdown(suggestions: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def format_resolved_content_markdown(url_type: str, data: dict) -> str:
+def format_resolved_content_markdown(url_type: str, data: dict, chat_url: str = "") -> str:
     if url_type == "email":
         subject = data.get("subject", "(no subject)")
         sender = data.get("from", {}).get("emailAddress", {}).get("name", "?")
@@ -399,7 +411,8 @@ def format_resolved_content_markdown(url_type: str, data: dict) -> str:
         text = _strip_teams_html(body)[:300]
         sender = data.get("from", {}).get("user", {}).get("displayName", "?")
         created = _format_offset_datetime(data.get("createdDateTime", ""))
-        return f"### Teams Message\n**From:** {sender}  |  **At:** {created}\n\n{text}"
+        link = _teams_open_chat_link(chat_url)
+        return f"### Teams Message\n**From:** {sender}  |  **At:** {created}{link}\n\n{text}"
     elif url_type == "meeting":
         return format_event_detail_markdown(data)
     elif url_type == "chat_thread":

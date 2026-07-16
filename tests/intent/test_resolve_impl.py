@@ -204,3 +204,41 @@ class TestResolveV1HappyPath:
         assert response.code == "rate_limited"
         assert response.retryable is True
         assert "ServiceUnavailable" in response.message
+
+
+class TestResolveChatMessageUrlThroughSchema:
+    """#37: chat_message content carrying chat_id/chat_url must survive
+    ChatMessageContent.model_validate — otherwise resolve() fails with
+    IntentError('validation_error') (extra='forbid' regression)."""
+
+    @pytest.mark.asyncio
+    async def test_chat_message_with_thread_url_survives(self, monkeypatch):
+        from ms365_intent_mcp.intent.resolve.schemas import ChatMessageContent
+
+        ctx, _, _ = _mock_ctx()
+
+        async def _fake(client, permissions, url):
+            return {
+                "url": url,
+                "kind": "chat_message",
+                "data": {
+                    "kind": "chat_message",
+                    "sender": "Bob",
+                    "body": "hey team",
+                    "created": None,
+                    "chat_id": "19:somechat@unq.gbl.spaces",
+                    "chat_url": "https://teams.microsoft.com/l/chat/19:somechat@unq.gbl.spaces",
+                },
+            }, "**Teams Message** from Bob"
+
+        monkeypatch.setattr("ms365_intent_mcp.intent.resolve.impl.compose_resolve", _fake)
+
+        payload = ResolvePayload.model_validate({
+            "url": "https://teams.microsoft.com/l/message/19:somechat@unq.gbl.spaces/1234567890.123456"
+        })
+        response = await _resolve_impl(ctx, payload)
+
+        assert isinstance(response, ResolvedContent)
+        assert isinstance(response.data, ChatMessageContent)
+        assert response.data.chat_id == "19:somechat@unq.gbl.spaces"
+        assert response.data.chat_url == "https://teams.microsoft.com/l/chat/19:somechat@unq.gbl.spaces"

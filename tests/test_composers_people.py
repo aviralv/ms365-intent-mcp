@@ -74,6 +74,54 @@ class TestPeopleBasic:
         assert "Alice Smith" in result
 
 
+class TestPeopleChatUrl:
+    """#37 Option 2: when people() finds a 1:1 chat with the person, it must
+    surface that chat's thread URL (webUrl) so the caller can render it via
+    resolve() — not just the last-message preview."""
+
+    _CHAT_URL = "https://teams.microsoft.com/l/chat/19:alice@unq.gbl.spaces/0"
+
+    def _client(self):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return _mock_people_response()
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if "/me/chats" in endpoint:
+                return {
+                    "value": [
+                        {
+                            "id": "chat-alice",
+                            "webUrl": self._CHAT_URL,
+                            "members": [{"displayName": "Alice Smith", "email": "alice@example.com"}],
+                            "lastMessagePreview": {
+                                "body": {"content": "<p>hi there</p>"},
+                                "createdDateTime": "2026-06-30T10:00:00Z",
+                            },
+                        }
+                    ]
+                }
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        return client
+
+    @pytest.mark.asyncio
+    async def test_structured_recent_chat_includes_chat_id_and_url(self, full_permissions):
+        data, _ = await compose_people(client=self._client(), permissions=full_permissions, query="alice")
+        assert data["recent_chat"] is not None
+        assert data["recent_chat"]["chat_id"] == "chat-alice"
+        assert data["recent_chat"]["chat_url"] == self._CHAT_URL
+
+    @pytest.mark.asyncio
+    async def test_markdown_includes_open_chat_link(self, full_permissions):
+        _, result = await compose_people(client=self._client(), permissions=full_permissions, query="alice")
+        assert "open chat" in result
+        assert self._CHAT_URL in result
+
+
 def _mock_people_response():
     return {
         "value": [
