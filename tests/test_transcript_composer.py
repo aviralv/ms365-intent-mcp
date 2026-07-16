@@ -16,6 +16,7 @@ from ms365_intent_mcp.composers.transcript import (
     _dest_path,
     _unresolved_reason,
     compose_transcript,
+    RECAP_LINK_HINT,
 )
 from ms365_intent_mcp.permissions import PermissionRegistry
 from ms365_intent_mcp.transcripts import Recording
@@ -219,3 +220,63 @@ async def test_name_multimatch_surfaces_alternatives_in_result(full_permissions)
     assert data["meeting_date"] == "2026-07-14"  # freshest downloaded
     assert data["alternatives_count"] == 1
     assert "2026-07-01" in markdown  # the stale alternative is named
+
+
+# ---------- colleague-hosted recording: recap-link hint (#43) ----------
+
+
+@pytest.mark.asyncio
+async def test_name_miss_surfaces_recap_link_hint(full_permissions):
+    """A name that matches nothing points the caller at the url= recap-link
+    workaround — the colleague-hosted-recording dead-end from #43."""
+    with patch(
+        "ms365_intent_mcp.composers.transcript._discover_all_recordings",
+        AsyncMock(return_value=[]),
+    ):
+        data, markdown = await compose_transcript(
+            AsyncMock(), AsyncMock(), full_permissions,
+            url=None, name="DPDHL Regular Check-In",
+            item_id=None, drive_id=None, site_root=None,
+            output_dir=None, list_recordings=False,
+        )
+
+    assert data["status"] == "error"
+    assert RECAP_LINK_HINT in data["message"]
+    assert "url=" in markdown
+
+
+@pytest.mark.asyncio
+async def test_populated_list_footer_carries_recap_hint(full_permissions):
+    """The #43 repro: list returns many recordings but not the target one (it's
+    on a colleague's drive). The populated-list footer must still point at the
+    recap-link workaround, not just the empty-list case."""
+    recs = [_rec("a", "Some Other Meeting", "20260715")]
+    with patch(
+        "ms365_intent_mcp.composers.transcript._discover_all_recordings",
+        AsyncMock(return_value=recs),
+    ):
+        data, markdown = await compose_transcript(
+            AsyncMock(), AsyncMock(), full_permissions,
+            url=None, name=None, item_id=None, drive_id=None, site_root=None,
+            output_dir=None, list_recordings=True,
+        )
+
+    assert data["status"] == "ok"
+    assert len(data["recordings"]) == 1
+    assert RECAP_LINK_HINT in markdown
+
+
+@pytest.mark.asyncio
+async def test_empty_list_carries_recap_hint(full_permissions):
+    """Empty discovery still surfaces the recap-link workaround."""
+    with patch(
+        "ms365_intent_mcp.composers.transcript._discover_all_recordings",
+        AsyncMock(return_value=[]),
+    ):
+        _, markdown = await compose_transcript(
+            AsyncMock(), AsyncMock(), full_permissions,
+            url=None, name=None, item_id=None, drive_id=None, site_root=None,
+            output_dir=None, list_recordings=True,
+        )
+
+    assert RECAP_LINK_HINT in markdown

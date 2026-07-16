@@ -33,7 +33,11 @@ class TranscriptPayload(BaseModel):
             description=(
                 "A recording URL — Teams recap link, SharePoint share/sharable "
                 "link, or meeting()'s vroom_url. Fast path when it carries "
-                "drive/item IDs."
+                "drive/item IDs. Use this for recordings made by another "
+                "attendee (invisible to name/list discovery): copy the "
+                "recording's link from the Teams Recap UI — it carries the "
+                "driveId+driveItemId that resolve the item directly, and file "
+                "access survives even after you lose access to the meeting chat."
             ),
         ),
     ]

@@ -46,6 +46,22 @@ MAX_CHATS = 200
 MESSAGES_PER_CHAT = 30
 CHAT_FETCH_CONCURRENCY = 8  # cap parallel per-chat message fetches
 
+# Appended to discovery dead-ends (name-miss, empty list). A recording made by
+# another attendee lives on *their* personal drive and is invisible to all three
+# discovery paths — own-drive enumeration, Graph Search (indexes only the
+# caller's own drive), and Teams chat events (the meeting chat drops out of
+# /me/chats once an attendee's temporary membership is revoked after the call).
+# The recap link carries an explicit driveId+driveItemId that resolves the item
+# directly, bypassing discovery — and file access survives even after chat
+# access is lost (issue #43). It can only be copied from the Teams recap UI.
+RECAP_LINK_HINT = (
+    "If this meeting was recorded by someone else (common for customer/cross-team "
+    "calls you attend but don't organize), the recording is on their drive and "
+    "isn't discoverable by name or in the list — especially if you were removed "
+    "from the meeting chat after the call. Open the meeting's Recap in Teams → "
+    "Copy link on the recording → retry with transcript(url='<that link>')."
+)
+
 
 class TranscriptResult:
     """Lightweight carrier for the composer's structured output."""
@@ -281,7 +297,7 @@ async def _compose_list(graph: GraphClient, vroom: VroomClient) -> tuple[dict, s
     ]
     data = {"status": "ok", "recordings": rows, "message": ""}
     if not rows:
-        return data, "No recordings found."
+        return data, f"No recordings found. {RECAP_LINK_HINT}"
     lines = ["📼 **Recordings** (newest first)", ""]
     lines.append("| Date | Meeting | ID |")
     lines.append("|---|---|---|")
@@ -292,6 +308,8 @@ async def _compose_list(graph: GraphClient, vroom: VroomClient) -> tuple[dict, s
         f"{len(rows)} recording(s). Download one with "
         "`transcript(payload={\"name\": \"<meeting>\"})` or its `id`."
     )
+    lines.append("")
+    lines.append(f"_Don't see the meeting you want? {RECAP_LINK_HINT}_")
     return data, "\n".join(lines)
 
 
@@ -313,7 +331,7 @@ async def _resolve_from_name(
         listing = "; ".join(f"{r.meeting_name} ({r.meeting_date})" for r in alternatives[:5])
         return "", "", "", f"'{name}' is ambiguous — matches: {listing}. Be more specific.", []
     if match is None:
-        return "", "", "", f"No recording found matching '{name}'.", []
+        return "", "", "", f"No recording found matching '{name}'. {RECAP_LINK_HINT}", []
 
     hint = f"{match.meeting_name}|{match.meeting_date}"
 
