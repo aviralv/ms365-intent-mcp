@@ -179,37 +179,6 @@ async def _search_chat_messages_with_hits(client: GraphClient, query: str) -> tu
     return markdown, structured
 
 
-async def _search_single(client: GraphClient, query: str, entity_types: list[str]) -> str:
-    request: dict = {
-        "entityTypes": entity_types,
-        "query": {"queryString": query},
-        "from": 0,
-        "size": 10,
-    }
-    fields = _fields_for(entity_types)
-    if fields:
-        request["fields"] = fields
-    payload = {"requests": [request]}
-
-    try:
-        response = await client.post("/search/query", payload)
-    except GraphAPIError as exc:
-        reason = _error_reason(exc)
-        if "ChannelMessage" in exc.message or "ChatMessage" in exc.message:
-            reason = (
-                "Graph search for chat messages requires admin-consent "
-                "ChannelMessage.Read.All, which this app doesn't have. "
-                "Alternatives that work with the current Chat.Read scope: "
-                "resolve(<chat URL>) for a specific chat's history; "
-                "people(query='<name>') for recent chats/mail with someone; "
-                "whats_new(scope='teams', since=...) for recent Teams activity"
-            )
-        return format_section_error("Find", reason)
-
-    hits = _extract_hits(response)
-    return format_search_results_markdown(query, hits)
-
-
 async def _search_single_raw(client: GraphClient, query: str, entity_types: list[str]) -> list[dict]:
     request: dict = {
         "entityTypes": entity_types,
