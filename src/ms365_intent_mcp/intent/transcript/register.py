@@ -24,7 +24,10 @@ def register(mcp: FastMCP) -> None:
             "`item_id`+`drive_id`+`site_root` triple (deterministic, zero "
             "discovery), or `list=true` (enumerate recordings newest-first — "
             "use to find ad-hoc calls that name-search can't match). Optional "
-            "`output_dir`.",
+            "`output_dir`. If `name`/`list` can't find a recording made by "
+            "another attendee (it lives on their drive, invisible to "
+            "discovery), copy the recording's link from the Teams Recap UI and "
+            "pass it via `url` — that resolves it directly.",
         ],
     ) -> TranscriptResultResponse:
         """Get the VTT transcript for a meeting recording (or list recordings). Writes the file to disk and returns the path."""
