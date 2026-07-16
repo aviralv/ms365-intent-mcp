@@ -52,63 +52,6 @@ _MAX_CHATS_TO_SEARCH = 20
 _MAX_HITS = 10
 
 
-async def _search_chat_messages(client: GraphClient, query: str) -> str:
-    """Search user's chat messages via enumeration.
-
-    Delegated-scope alternative to POST /search/query (which requires
-    admin-consent ChannelMessage.Read.All). Lists /me/chats, prefilters by
-    member displayName when the query looks person-shaped, then fetches
-    messages in parallel with a bounded semaphore.
-
-    Content matching uses each significant word (3+ chars) as an independent
-    needle so that "Diana second brain" matches messages containing "second brain"
-    even when "diana" matches the chat member name rather than message content.
-    Words that already matched a chat member's displayName are dropped from
-    the needle set so a person-only query like "Diana" returns her recent
-    messages instead of demanding her name appear in message bodies.
-    """
-    try:
-        chats = await _list_user_chats(client)
-    except GraphAPIError as exc:
-        return format_section_error("Find", _error_reason(exc))
-    if not chats:
-        return format_search_results_markdown(query, [])
-
-    chats, matched_words = _prefilter_chats_by_query(chats, query)
-    chats = chats[:_MAX_CHATS_TO_SEARCH]
-
-    all_words = [w for w in query.split() if len(w) >= 3]
-    needles = [w for w in all_words if w.lower() not in matched_words]
-    if not all_words:
-        stripped = query.strip()
-        needles = [stripped] if stripped else []
-
-    semaphore = asyncio.Semaphore(_MESSAGE_SEMAPHORE_LIMIT)
-
-    async def _bounded_fetch(chat: dict) -> list[dict]:
-        async with semaphore:
-            chat_id = chat["id"]
-            chat_web_url = chat.get("webUrl", "")
-            if not needles:
-                return await _recent_chat_messages(client, chat_id, chat_web_url=chat_web_url)
-            return await _fetch_chat_messages(client, chat_id, needles, chat_web_url=chat_web_url)
-
-    results = await asyncio.gather(
-        *[_bounded_fetch(c) for c in chats],
-        return_exceptions=True,
-    )
-
-    hits: list[dict] = []
-    for result in results:
-        if isinstance(result, list):
-            hits.extend(result)
-
-    hits.sort(key=lambda m: m.get("createdDateTime") or "", reverse=True)
-    hits = hits[:_MAX_HITS]
-
-    return format_search_results_markdown(query, [_to_search_hit(m) for m in hits])
-
-
 def _to_search_hit(msg: dict) -> dict:
     """Adapt a chatMessage dict into the hit shape expected by
     format_search_results_markdown.
@@ -176,7 +119,20 @@ def _hit_to_structured(hit: dict) -> dict | None:
 
 
 async def _search_chat_messages_with_hits(client: GraphClient, query: str) -> tuple[str, list[dict]]:
-    """Like _search_chat_messages but also returns the raw hit list for structured output."""
+    """Search user's chat messages via enumeration, returning markdown + structured hits.
+
+    Delegated-scope alternative to POST /search/query (which requires
+    admin-consent ChannelMessage.Read.All). Lists /me/chats, prefilters by
+    member displayName when the query looks person-shaped, then fetches
+    messages in parallel with a bounded semaphore.
+
+    Content matching uses each significant word (3+ chars) as an independent
+    needle so that "Diana second brain" matches messages containing "second brain"
+    even when "diana" matches the chat member name rather than message content.
+    Words that already matched a chat member's displayName are dropped from
+    the needle set so a person-only query like "Diana" returns her recent
+    messages instead of demanding her name appear in message bodies.
+    """
     try:
         chats = await _list_user_chats(client)
     except GraphAPIError as exc:
@@ -221,37 +177,6 @@ async def _search_chat_messages_with_hits(client: GraphClient, query: str) -> tu
     structured = [_hit_to_structured(h) for h in search_hits]
     structured = [s for s in structured if s is not None]
     return markdown, structured
-
-
-async def _search_single(client: GraphClient, query: str, entity_types: list[str]) -> str:
-    request: dict = {
-        "entityTypes": entity_types,
-        "query": {"queryString": query},
-        "from": 0,
-        "size": 10,
-    }
-    fields = _fields_for(entity_types)
-    if fields:
-        request["fields"] = fields
-    payload = {"requests": [request]}
-
-    try:
-        response = await client.post("/search/query", payload)
-    except GraphAPIError as exc:
-        reason = _error_reason(exc)
-        if "ChannelMessage" in exc.message or "ChatMessage" in exc.message:
-            reason = (
-                "Graph search for chat messages requires admin-consent "
-                "ChannelMessage.Read.All, which this app doesn't have. "
-                "Alternatives that work with the current Chat.Read scope: "
-                "resolve(<chat URL>) for a specific chat's history; "
-                "people(query='<name>') for recent chats/mail with someone; "
-                "whats_new(scope='teams', since=...) for recent Teams activity"
-            )
-        return format_section_error("Find", reason)
-
-    hits = _extract_hits(response)
-    return format_search_results_markdown(query, hits)
 
 
 async def _search_single_raw(client: GraphClient, query: str, entity_types: list[str]) -> list[dict]:
