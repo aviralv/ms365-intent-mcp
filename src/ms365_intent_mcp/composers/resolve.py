@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from ..formatters import _strip_teams_html, format_resolved_content_markdown, format_section_error
 from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
-from ..resolver import ResolvedUrl, UrlParseError, resolve_url
+from ..resolver import ResolvedUrl, UrlParseError, build_chat_thread_url, resolve_url
 from ._utils import _error_reason, _escape_odata
 
 
@@ -522,7 +522,7 @@ def _build_structured_data(url_type: str, data: dict, extra: dict | None = None)
             "body": (data.get("body") or {}).get("content", ""),
             "created": data.get("createdDateTime"),
             "chat_id": chat_id,
-            "chat_url": f"https://teams.microsoft.com/l/chat/{chat_id}" if chat_id else "",
+            "chat_url": build_chat_thread_url(chat_id),
         }
     elif url_type == "channel_message":
         return {

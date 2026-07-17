@@ -21,6 +21,23 @@ class ResolvedUrl:
     extra: dict[str, str] = field(default_factory=dict)
 
 
+# Base of the Teams "deep link to a chat" URL format. Single source of truth
+# for both the chat_thread parse pattern below and build_chat_thread_url() —
+# keeping parse and build next to each other so the l/chat/ format can't drift.
+_CHAT_THREAD_URL_BASE = "https://teams.microsoft.com/l/chat/"
+
+
+def build_chat_thread_url(chat_id: str) -> str:
+    """Construct a Teams chat-thread deep link from a chat_id.
+
+    Inverse of the chat_thread parse pattern. The reconstructed URL round-trips
+    through resolve_url() but lacks the ?tenantId= query param that Graph's real
+    webUrl carries — that only matters for cross-tenant/guest scenarios and would
+    require an extra /chats/{id} fetch to obtain. Returns '' for a falsy chat_id.
+    """
+    return f"{_CHAT_THREAD_URL_BASE}{chat_id}" if chat_id else ""
+
+
 _PATTERNS: list[tuple[str, re.Pattern, str]] = [
     (
         "channel_message",

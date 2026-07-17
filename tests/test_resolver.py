@@ -1,10 +1,18 @@
 """Tests for URL resolver dispatch table."""
 
+import re
 import urllib.parse
 
 import pytest
 
-from ms365_intent_mcp.resolver import resolve_url, UrlParseError, _decode_upn
+from ms365_intent_mcp.resolver import (
+    _CHAT_THREAD_URL_BASE,
+    _PATTERNS,
+    UrlParseError,
+    _decode_upn,
+    build_chat_thread_url,
+    resolve_url,
+)
 
 
 def _ctx(payload: dict) -> str:
@@ -223,3 +231,31 @@ class TestChatThread:
         result = resolve_url(url)
         assert result.url_type == "chat_thread"
         assert result.extra["chat_id"] == "19:meeting_ZmMxNDhi@thread.v2"
+
+    def test_build_chat_thread_url_round_trips_through_resolve(self):
+        # build_chat_thread_url is the inverse of the chat_thread parse pattern:
+        # a URL it produces must parse back to the same chat_id.
+        chat_id = "19:abc123@unq.gbl.spaces"
+        built = build_chat_thread_url(chat_id)
+        assert resolve_url(built).extra["chat_id"] == chat_id
+
+    def test_build_chat_thread_url_empty_for_falsy_id(self):
+        assert build_chat_thread_url("") == ""
+
+    def test_build_chat_thread_url_omits_tenant_id(self):
+        # The reconstructed URL intentionally omits ?tenantId= (documented
+        # trade-off in build_chat_thread_url). Lock that so it isn't "fixed"
+        # by accident without revisiting the extra-Graph-call cost.
+        assert "tenantId" not in build_chat_thread_url("19:abc@thread.v2")
+
+    def test_chat_thread_regex_prefix_matches_url_base(self):
+        # build and parse hardcode the l/chat/ literal separately (a regex
+        # can't interpolate the constant). Guard against drift: the host+path
+        # of the base URL must appear in the chat_thread parse pattern. The
+        # regex omits the https:// scheme by design (so .search matches
+        # anywhere), so compare the post-scheme portion.
+        host_path = _CHAT_THREAD_URL_BASE.split("://", 1)[1]
+        chat_thread_pattern = next(
+            pat for name, pat, _ in _PATTERNS if name == "chat_thread"
+        )
+        assert re.escape(host_path) in chat_thread_pattern.pattern
