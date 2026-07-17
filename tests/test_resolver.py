@@ -4,7 +4,7 @@ import urllib.parse
 
 import pytest
 
-from ms365_intent_mcp.resolver import resolve_url, UrlParseError, _decode_upn
+from ms365_intent_mcp.resolver import resolve_url, UrlParseError, _decode_upn, build_chat_thread_url
 
 
 def _ctx(payload: dict) -> str:
@@ -223,3 +223,13 @@ class TestChatThread:
         result = resolve_url(url)
         assert result.url_type == "chat_thread"
         assert result.extra["chat_id"] == "19:meeting_ZmMxNDhi@thread.v2"
+
+    def test_build_chat_thread_url_round_trips_through_resolve(self):
+        # build_chat_thread_url is the inverse of the chat_thread parse pattern:
+        # a URL it produces must parse back to the same chat_id.
+        chat_id = "19:abc123@unq.gbl.spaces"
+        built = build_chat_thread_url(chat_id)
+        assert resolve_url(built).extra["chat_id"] == chat_id
+
+    def test_build_chat_thread_url_empty_for_falsy_id(self):
+        assert build_chat_thread_url("") == ""
