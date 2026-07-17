@@ -118,7 +118,7 @@ async def _get_me_id(client: GraphClient) -> str:
     """
     try:
         me = await client.get("/me", params={"$select": "id"})
-    except GraphAPIError:
+    except Exception:
         return ""
     return (me or {}).get("id", "")
 

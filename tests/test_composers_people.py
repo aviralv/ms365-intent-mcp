@@ -353,3 +353,25 @@ class TestPeopleChatFallback:
             client=client, permissions=full_permissions, query="alice")
         assert "Alice Smith" in markdown
         assert counter["chats"] == 1
+
+    @pytest.mark.asyncio
+    async def test_me_identity_failure_still_resolves_via_fallback(self, full_permissions):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return {"value": []}
+            if "/me/contacts" in endpoint:
+                return {"value": []}
+            if endpoint == "/me":
+                raise TimeoutError("me timed out")
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if "/me/chats" in endpoint:
+                return {"value": [self._YEV_CHAT]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        _, markdown = await compose_people(
+            client=client, permissions=full_permissions, query="Yevhen")
+        assert "Yevhen Kushnirenko" in markdown
