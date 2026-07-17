@@ -1,6 +1,4 @@
-"""people composer — person lookup with parallel email + Teams context."""
-
-import asyncio
+"""people composer — person lookup with chat-membership fallback."""
 
 from ..formatters import format_people_markdown
 from ..graph import GraphClient, GraphAPIError
@@ -14,6 +12,20 @@ async def compose_people(
     query: str,
 ) -> tuple[dict, str]:
     people = await _lookup_person(client, permissions, query)
+
+    # Fetch the chat list once, up front: it powers both the person fallback
+    # (when People/contacts miss) and recent_chat enrichment below.
+    chats: list[dict] = []
+    if permissions.has("Chat.ReadWrite"):
+        try:
+            chats = await _list_user_chats(client)
+        except GraphAPIError:
+            chats = []
+
+    if not people and chats:
+        me_id = await _get_me_id(client)
+        people = _lookup_person_via_chats(chats, query, me_id)
+
     if not people:
         markdown = f"### People\nNo results for '{query}'."
         data: dict = {
@@ -32,37 +44,20 @@ async def compose_people(
     if email_addresses:
         email_addr = email_addresses[0].get("address", "")
 
-    tasks = {}
-    if email_addr and permissions.has("Mail.Read"):
-        tasks["emails"] = client.get("/me/messages", params={
-            "$filter": f"from/emailAddress/address eq '{_escape_odata(email_addr)}'",
-            "$select": "subject,from,receivedDateTime",
-            "$orderby": "receivedDateTime desc",
-            "$top": "5",
-        })
-
-    if permissions.has("Chat.ReadWrite"):
-        tasks["chats"] = client.get("/me/chats", params={
-            "$expand": "members,lastMessagePreview",
-            "$top": "20",
-        })
-
     recent_emails: list[dict] = []
-    recent_chat: dict | None = None
-
-    if tasks:
-        keys = list(tasks.keys())
-        results_list = await asyncio.gather(*tasks.values(), return_exceptions=True)
-        results = dict(zip(keys, results_list))
-
-        emails_result = results.get("emails")
-        if emails_result and not isinstance(emails_result, BaseException):
+    if email_addr and permissions.has("Mail.Read"):
+        try:
+            emails_result = await client.get("/me/messages", params={
+                "$filter": f"from/emailAddress/address eq '{_escape_odata(email_addr)}'",
+                "$select": "subject,from,receivedDateTime",
+                "$orderby": "receivedDateTime desc",
+                "$top": "5",
+            })
             recent_emails = (emails_result or {}).get("value", [])
+        except GraphAPIError:
+            recent_emails = []
 
-        chats_result = results.get("chats")
-        if chats_result and not isinstance(chats_result, BaseException):
-            chats = (chats_result or {}).get("value", [])
-            recent_chat = _find_chat_with_person(chats, display_name, email_addr)
+    recent_chat = _find_chat_with_person(chats, display_name, email_addr)
 
     markdown = format_people_markdown(query, people, recent_emails, recent_chat)
     data = {

@@ -255,3 +255,101 @@ class TestLookupPersonViaChats:
         from ms365_intent_mcp.composers.people import _lookup_person_via_chats
         chats = [{"id": "a", "members": [{"displayName": ""}]}]
         assert _lookup_person_via_chats(chats, "anything", me_id="") == []
+
+
+class TestPeopleChatFallback:
+    def _client(self, chats_value, count_holder=None):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return {"value": []}
+            if "/me/contacts" in endpoint:
+                return {"value": []}
+            if endpoint == "/me":
+                return {"id": "me-id"}
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if "/me/chats" in endpoint:
+                if count_holder is not None:
+                    count_holder["chats"] = count_holder.get("chats", 0) + 1
+                return {"value": chats_value}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        return client
+
+    _YEV_CHAT = {
+        "id": "chat-yev",
+        "webUrl": "https://teams.microsoft.com/l/chat/19:yev@unq.gbl.spaces/0",
+        "members": [
+            {"displayName": "Me", "userId": "me-id"},
+            {"displayName": "Yevhen Kushnirenko", "userId": "yev-id",
+             "email": "yevhen.k@sap.com"},
+        ],
+        "lastMessagePreview": {
+            "body": {"content": "<p>ping</p>"},
+            "createdDateTime": "2026-07-16T09:00:00Z",
+        },
+    }
+
+    @pytest.mark.asyncio
+    async def test_yevhen_resolved_via_chat(self, full_permissions):
+        client = self._client([self._YEV_CHAT])
+        data, markdown = await compose_people(
+            client=client, permissions=full_permissions, query="Yevhen")
+        assert "Yevhen Kushnirenko" in markdown
+        assert data["recent_chat"] is not None
+        assert data["recent_chat"]["chat_url"] == self._YEV_CHAT["webUrl"]
+
+    @pytest.mark.asyncio
+    async def test_chats_fetched_exactly_once(self, full_permissions):
+        counter: dict = {}
+        client = self._client([self._YEV_CHAT], count_holder=counter)
+        await compose_people(client=client, permissions=full_permissions, query="Yevhen")
+        assert counter["chats"] == 1
+
+    @pytest.mark.asyncio
+    async def test_no_chat_read_scope_returns_not_found(self):
+        perms = PermissionRegistry(["People.Read", "Mail.Read"])
+        client = self._client([self._YEV_CHAT])
+        _, markdown = await compose_people(
+            client=client, permissions=perms, query="Yevhen")
+        assert "No results" in markdown
+
+    @pytest.mark.asyncio
+    async def test_chat_enumeration_error_returns_not_found(self, full_permissions):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/chats" in endpoint:
+                raise GraphAPIError(500, "InternalError", "chats down")
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        _, markdown = await compose_people(
+            client=client, permissions=full_permissions, query="Yevhen")
+        assert "No results" in markdown
+
+    @pytest.mark.asyncio
+    async def test_people_hit_still_works_and_fetches_chats_once(self, full_permissions):
+        counter: dict = {}
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return _mock_people_response()
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if endpoint == "/me":
+                return {"id": "me-id"}
+            if "/me/chats" in endpoint:
+                counter["chats"] = counter.get("chats", 0) + 1
+                return {"value": []}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        _, markdown = await compose_people(
+            client=client, permissions=full_permissions, query="alice")
+        assert "Alice Smith" in markdown
+        assert counter["chats"] == 1
