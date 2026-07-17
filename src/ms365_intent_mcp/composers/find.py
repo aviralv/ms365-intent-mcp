@@ -6,7 +6,7 @@ import html
 from ..formatters import _strip_teams_html, format_search_results_markdown, format_section_error
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
-from ._utils import _error_reason
+from ._utils import _error_reason, _list_user_chats, _prefilter_chats_by_query
 
 _TYPE_MAP = {
     "email": ["message"],
@@ -221,56 +221,6 @@ def _extract_hits(response: dict) -> list[dict]:
             for hit in container.get("hits", []):
                 hits.append(hit)
     return hits
-
-
-async def _list_user_chats(client: GraphClient) -> list[dict]:
-    """List user's chats, sorted by last-message recency (newest first).
-
-    Returns up to 50 chats. Raises GraphAPIError on failure — caller
-    formats an error message rather than confusing "no chats" with
-    "call failed".
-    """
-    response = await client.get("/me/chats", params={
-        "$expand": "members,lastMessagePreview",
-        "$top": "50",
-    })
-    chats = (response or {}).get("value", [])
-    chats.sort(
-        key=lambda c: (c.get("lastMessagePreview") or {}).get("createdDateTime") or "",
-        reverse=True,
-    )
-    return chats
-
-
-def _prefilter_chats_by_query(chats: list[dict], query: str) -> tuple[list[dict], set[str]]:
-    """Narrow chats to those whose members plausibly match the query.
-
-    Returns (chats, matched_words). matched_words is the set of query words
-    that positively matched at least one member displayName in the resulting
-    chats. If no member matched any query word, the fallback returns
-    (all_chats, set()).
-    """
-    words = [w.lower() for w in query.split() if len(w) >= 3]
-    if not words:
-        return chats, set()
-
-    matched: list[dict] = []
-    matched_words: set[str] = set()
-    for chat in chats:
-        member_names = " ".join(
-            (m.get("displayName") or "").lower()
-            for m in chat.get("members") or []
-        )
-        chat_matched = False
-        for word in words:
-            if word in member_names:
-                chat_matched = True
-                matched_words.add(word)
-        if chat_matched:
-            matched.append(chat)
-    if matched:
-        return matched, matched_words
-    return chats, set()
 
 
 async def _fetch_chat_messages(

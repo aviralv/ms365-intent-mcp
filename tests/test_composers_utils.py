@@ -56,3 +56,24 @@ class TestBuildMailSummary:
         assert len(summary["high_importance"]) == 1
         assert summary["high_importance"][0]["subject"] == "Important"
         assert "github.com" in NOISE_PATTERNS
+
+
+def test_chat_enumeration_helpers_live_in_utils():
+    """Task 1 move: both helpers are importable from _utils (shared boundary)."""
+    from ms365_intent_mcp.composers._utils import (
+        _list_user_chats,
+        _prefilter_chats_by_query,
+    )
+    assert callable(_list_user_chats)
+    assert callable(_prefilter_chats_by_query)
+
+
+def test_prefilter_narrows_by_member_name():
+    from ms365_intent_mcp.composers._utils import _prefilter_chats_by_query
+    chats = [
+        {"id": "1", "members": [{"displayName": "Yevhen Kushnirenko"}]},
+        {"id": "2", "members": [{"displayName": "Bob Jones"}]},
+    ]
+    matched, words = _prefilter_chats_by_query(chats, "Yevhen")
+    assert [c["id"] for c in matched] == ["1"]
+    assert words == {"yevhen"}
