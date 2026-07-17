@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.0 — 2026-07-17
+
+### Added
+- **`people()` chat-membership fallback (#44).** When `/me/people` and `/me/contacts` both miss — as they do for first-name-only or SAP-internal queries like `people(query='Yevhen')` — `people()` now enumerates the user's Teams chats and synthesizes matched people from chat members, so a live 1:1 chat resolves the person and surfaces its `chat_url`. Self-exclusion and dedup key on the AAD object id (`member.userId`), falling back to email then displayName. The `/me/chats` list is fetched once and reused for both the fallback and `recent_chat` enrichment.
+
 ## 1.0.0 — 2026-07-08
 
 ### Removed

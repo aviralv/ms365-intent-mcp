@@ -1,11 +1,9 @@
-"""people composer — person lookup with parallel email + Teams context."""
-
-import asyncio
+"""people composer — person lookup with chat-membership fallback."""
 
 from ..formatters import format_people_markdown
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
-from ._utils import _escape_odata
+from ._utils import _escape_odata, _list_user_chats, _prefilter_chats_by_query
 
 
 async def compose_people(
@@ -14,6 +12,20 @@ async def compose_people(
     query: str,
 ) -> tuple[dict, str]:
     people = await _lookup_person(client, permissions, query)
+
+    # Fetch the chat list once, up front: it powers both the person fallback
+    # (when People/contacts miss) and recent_chat enrichment below.
+    chats: list[dict] = []
+    if permissions.has("Chat.ReadWrite"):
+        try:
+            chats = await _list_user_chats(client)
+        except GraphAPIError:
+            chats = []
+
+    if not people and chats:
+        me_id = await _get_me_id(client)
+        people = _lookup_person_via_chats(chats, query, me_id)
+
     if not people:
         markdown = f"### People\nNo results for '{query}'."
         data: dict = {
@@ -32,37 +44,20 @@ async def compose_people(
     if email_addresses:
         email_addr = email_addresses[0].get("address", "")
 
-    tasks = {}
-    if email_addr and permissions.has("Mail.Read"):
-        tasks["emails"] = client.get("/me/messages", params={
-            "$filter": f"from/emailAddress/address eq '{_escape_odata(email_addr)}'",
-            "$select": "subject,from,receivedDateTime",
-            "$orderby": "receivedDateTime desc",
-            "$top": "5",
-        })
-
-    if permissions.has("Chat.ReadWrite"):
-        tasks["chats"] = client.get("/me/chats", params={
-            "$expand": "members,lastMessagePreview",
-            "$top": "20",
-        })
-
     recent_emails: list[dict] = []
-    recent_chat: dict | None = None
-
-    if tasks:
-        keys = list(tasks.keys())
-        results_list = await asyncio.gather(*tasks.values(), return_exceptions=True)
-        results = dict(zip(keys, results_list))
-
-        emails_result = results.get("emails")
-        if emails_result and not isinstance(emails_result, BaseException):
+    if email_addr and permissions.has("Mail.Read"):
+        try:
+            emails_result = await client.get("/me/messages", params={
+                "$filter": f"from/emailAddress/address eq '{_escape_odata(email_addr)}'",
+                "$select": "subject,from,receivedDateTime",
+                "$orderby": "receivedDateTime desc",
+                "$top": "5",
+            })
             recent_emails = (emails_result or {}).get("value", [])
+        except GraphAPIError:
+            recent_emails = []
 
-        chats_result = results.get("chats")
-        if chats_result and not isinstance(chats_result, BaseException):
-            chats = (chats_result or {}).get("value", [])
-            recent_chat = _find_chat_with_person(chats, display_name, email_addr)
+    recent_chat = _find_chat_with_person(chats, display_name, email_addr)
 
     markdown = format_people_markdown(query, people, recent_emails, recent_chat)
     data = {
@@ -112,6 +107,63 @@ def _find_chat_with_person(
             if target_words.issubset(member_words):
                 return chat
     return None
+
+
+async def _get_me_id(client: GraphClient) -> str:
+    """Return the signed-in user's AAD object id, or '' on failure.
+
+    Used for self-exclusion in the chat-membership fallback: a chat member's
+    `userId` is the same AAD object id, so equality is reliable (unlike
+    UPN-vs-email comparison, which diverges in real tenants).
+    """
+    try:
+        me = await client.get("/me", params={"$select": "id"})
+    except Exception:
+        return ""
+    return (me or {}).get("id", "")
+
+
+def _lookup_person_via_chats(
+    chats: list[dict], query: str, me_id: str
+) -> list[dict]:
+    """Synthesize matched people from chat members (pure — no API call).
+
+    Third fallback tier for compose_people: used when /me/people and
+    /me/contacts both miss. Matches a member when ALL query words are a subset
+    of the member's displayName words (case-insensitive), so 'Avi' does not
+    match 'Aviral'. The signed-in user is excluded by `me_id` (their member
+    `userId`). Results are deduped by userId → email → displayName and ordered
+    by chat recency (chats arrive newest-first).
+    """
+    narrowed, _ = _prefilter_chats_by_query(chats, query)
+    target_words = {w for w in query.lower().split() if w}
+    if not target_words:
+        return []
+
+    me_id_lower = (me_id or "").lower()
+    seen: set[str] = set()
+    people: list[dict] = []
+    for chat in narrowed:
+        for member in chat.get("members", []):
+            user_id = (member.get("userId") or "")
+            if me_id_lower and user_id.lower() == me_id_lower:
+                continue
+            display_name = member.get("displayName") or ""
+            member_words = set(display_name.lower().split())
+            if not target_words.issubset(member_words):
+                continue
+            email = member.get("email") or ""
+            key = user_id.lower() or email.lower() or display_name.lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            people.append({
+                "displayName": display_name,
+                "emailAddresses": [{"address": email}] if email else [],
+                "jobTitle": None,
+                "_source_chat": chat,
+            })
+    return people
 
 
 async def _lookup_person(
