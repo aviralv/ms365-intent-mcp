@@ -5,7 +5,7 @@ import asyncio
 from ..formatters import format_people_markdown
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
-from ._utils import _escape_odata
+from ._utils import _escape_odata, _list_user_chats, _prefilter_chats_by_query
 
 
 async def compose_people(
@@ -112,6 +112,63 @@ def _find_chat_with_person(
             if target_words.issubset(member_words):
                 return chat
     return None
+
+
+async def _get_me_id(client: GraphClient) -> str:
+    """Return the signed-in user's AAD object id, or '' on failure.
+
+    Used for self-exclusion in the chat-membership fallback: a chat member's
+    `userId` is the same AAD object id, so equality is reliable (unlike
+    UPN-vs-email comparison, which diverges in real tenants).
+    """
+    try:
+        me = await client.get("/me", params={"$select": "id"})
+    except GraphAPIError:
+        return ""
+    return (me or {}).get("id", "")
+
+
+def _lookup_person_via_chats(
+    chats: list[dict], query: str, me_id: str
+) -> list[dict]:
+    """Synthesize matched people from chat members (pure — no API call).
+
+    Third fallback tier for compose_people: used when /me/people and
+    /me/contacts both miss. Matches a member when ALL query words are a subset
+    of the member's displayName words (case-insensitive), so 'Avi' does not
+    match 'Aviral'. The signed-in user is excluded by `me_id` (their member
+    `userId`). Results are deduped by userId → email → displayName and ordered
+    by chat recency (chats arrive newest-first).
+    """
+    narrowed, _ = _prefilter_chats_by_query(chats, query)
+    target_words = {w for w in query.lower().split() if w}
+    if not target_words:
+        return []
+
+    me_id_lower = (me_id or "").lower()
+    seen: set[str] = set()
+    people: list[dict] = []
+    for chat in narrowed:
+        for member in chat.get("members", []):
+            user_id = (member.get("userId") or "")
+            if me_id_lower and user_id.lower() == me_id_lower:
+                continue
+            display_name = member.get("displayName") or ""
+            member_words = set(display_name.lower().split())
+            if not target_words.issubset(member_words):
+                continue
+            email = member.get("email") or ""
+            key = user_id.lower() or email.lower() or display_name.lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            people.append({
+                "displayName": display_name,
+                "emailAddresses": [{"address": email}] if email else [],
+                "jobTitle": None,
+                "_source_chat": chat,
+            })
+    return people
 
 
 async def _lookup_person(

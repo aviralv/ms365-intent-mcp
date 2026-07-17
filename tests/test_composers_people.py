@@ -181,3 +181,77 @@ class TestFindChatWithPerson:
         from ms365_intent_mcp.composers.people import _find_chat_with_person
         chats = [{"id": "1", "members": [{"displayName": "Alice", "email": "a@b.com"}]}]
         assert _find_chat_with_person(chats, "", "") is None
+
+
+class TestLookupPersonViaChats:
+    def test_synthesizes_person_from_chat_member(self):
+        from ms365_intent_mcp.composers.people import _lookup_person_via_chats
+        chats = [
+            {
+                "id": "chat-y",
+                "webUrl": "https://teams.microsoft.com/l/chat/19:yev/0",
+                "members": [
+                    {"displayName": "Me", "userId": "me-id"},
+                    {"displayName": "Yevhen Kushnirenko", "userId": "yev-id",
+                     "email": "yevhen.k@sap.com"},
+                ],
+                "lastMessagePreview": {"createdDateTime": "2026-07-16T09:00:00Z"},
+            }
+        ]
+        people = _lookup_person_via_chats(chats, "Yevhen", me_id="me-id")
+        assert len(people) == 1
+        assert people[0]["displayName"] == "Yevhen Kushnirenko"
+        assert people[0]["emailAddresses"] == [{"address": "yevhen.k@sap.com"}]
+        assert people[0]["_source_chat"]["id"] == "chat-y"
+
+    def test_self_excluded_by_user_id(self):
+        from ms365_intent_mcp.composers.people import _lookup_person_via_chats
+        chats = [
+            {"id": "g", "members": [
+                {"displayName": "Aviral Vaid", "userId": "me-id"},
+                {"displayName": "Aviral Kumar", "userId": "other-id"},
+            ]}
+        ]
+        people = _lookup_person_via_chats(chats, "Aviral", me_id="me-id")
+        assert [p["displayName"] for p in people] == ["Aviral Kumar"]
+
+    def test_avi_does_not_match_aviral(self):
+        from ms365_intent_mcp.composers.people import _lookup_person_via_chats
+        chats = [{"id": "1", "members": [{"displayName": "Aviral Patel", "userId": "x"}]}]
+        assert _lookup_person_via_chats(chats, "Avi", me_id="") == []
+
+    def test_dedup_prefers_user_id_then_email_then_name(self):
+        from ms365_intent_mcp.composers.people import _lookup_person_via_chats
+        chats = [
+            {"id": "a", "members": [{"displayName": "Sam Lee", "userId": "sam"}]},
+            {"id": "b", "members": [{"displayName": "Sam Lee", "userId": "sam"}]},
+            {"id": "c", "members": [{"displayName": "Sam Lee", "email": "sam@x.com"}]},
+        ]
+        people = _lookup_person_via_chats(chats, "Sam Lee", me_id="")
+        # userId "sam" dedups a+b to one; email-only "sam@x.com" is a distinct key
+        assert len(people) == 2
+        assert people[0]["_source_chat"]["id"] == "a"
+
+    def test_multiple_distinct_people_ordered_by_recency(self):
+        from ms365_intent_mcp.composers.people import _lookup_person_via_chats
+        chats = [
+            {"id": "recent", "members": [{"displayName": "Dana First", "userId": "d1"}]},
+            {"id": "older", "members": [{"displayName": "Dana Second", "userId": "d2"}]},
+        ]
+        people = _lookup_person_via_chats(chats, "Dana", me_id="")
+        assert [p["displayName"] for p in people] == ["Dana First", "Dana Second"]
+
+    def test_member_without_userid_or_email_deduped_by_name(self):
+        from ms365_intent_mcp.composers.people import _lookup_person_via_chats
+        chats = [
+            {"id": "a", "members": [{"displayName": "Guest Person"}]},
+            {"id": "b", "members": [{"displayName": "Guest Person"}]},
+        ]
+        people = _lookup_person_via_chats(chats, "Guest Person", me_id="")
+        assert len(people) == 1
+        assert people[0]["emailAddresses"] == []
+
+    def test_member_with_no_synthesizable_identity_skipped(self):
+        from ms365_intent_mcp.composers.people import _lookup_person_via_chats
+        chats = [{"id": "a", "members": [{"displayName": ""}]}]
+        assert _lookup_person_via_chats(chats, "anything", me_id="") == []
