@@ -2111,3 +2111,35 @@ class TestResolveEmailAttachments:
             )
         assert data["data"]["attachments"] == []
         assert "s" in md  # body still renders (subject present)
+
+    @pytest.mark.asyncio
+    async def test_non_graph_error_in_download_degrades_gracefully(self, full_permissions, tmp_path):
+        """Non-GraphAPIError (e.g. RuntimeError, httpx.TimeoutException) from
+        download_attachments must not propagate — body + subject still render."""
+        import base64
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=[
+            {"subject": "Crash report", "from": {"emailAddress": {"name": "B"}},
+             "receivedDateTime": "2026-07-20T09:00:00Z",
+             "body": {"contentType": "text", "content": "body text here"},
+             "hasAttachments": True},
+            {"value": [{"@odata.type": "#microsoft.graph.fileAttachment",
+                        "name": "crash.log", "contentType": "text/plain", "size": 3,
+                        "isInline": False, "contentBytes": base64.b64encode(b"err").decode(),
+                        "id": "AT9"}]},
+        ])
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve, \
+             patch("ms365_intent_mcp.composers.resolve.download_attachments",
+                   side_effect=RuntimeError("boom")) as mock_dl:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="email", graph_endpoint="/me/messages/M5", required_scope="Mail.Read",
+            )
+            data, md = await compose_resolve(
+                client=client, permissions=full_permissions,
+                url="https://outlook.office365.com/mail/id/M5",
+                output_dir=str(tmp_path),
+            )
+        mock_dl.assert_called_once()
+        assert "Crash report" in md
+        assert "body text here" in md or "B" in md
+        assert data["data"]["subject"] == "Crash report"

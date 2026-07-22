@@ -623,9 +623,12 @@ async def _fetch_resolved(
         if message.get("hasAttachments") or body_has_cid(body_text):
             entries, enum_error = await enumerate_attachments(client, endpoint)
             if entries and output_dir is not None:
-                await download_attachments(client, endpoint, entries, output_dir)
+                try:
+                    await download_attachments(client, endpoint, entries, output_dir)
+                except Exception as exc:
+                    message["_attachments_error"] = f"attachment download failed: {exc}"
             message["_attachments"] = entries
-            message["_attachments_error"] = enum_error
+            message["_attachments_error"] = message.get("_attachments_error") or enum_error
         else:
             message["_attachments"] = []
             message["_attachments_error"] = None
