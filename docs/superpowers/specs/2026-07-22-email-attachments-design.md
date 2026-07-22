@@ -175,8 +175,9 @@ constants:
   `size` across qualifying attachments before downloading; if the total exceeds the
   cap, download up to the cap and note the remainder as skipped. Prevents a single
   resolve from writing arbitrarily large volumes.
-- The `$value` path streams to disk (no full in-memory buffer), so a large single
-  file within the cap doesn't spike memory.
+- The `$value` path buffers the full response in memory (bounded by the 100 MB
+  per-file cap); true streaming to disk without a full in-memory buffer is deferred
+  as a future improvement.
 
 ## Filename collision handling
 

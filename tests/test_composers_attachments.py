@@ -165,8 +165,19 @@ class TestEnumerateAttachments:
         assert err and "403" in err
 
     @pytest.mark.asyncio
+    async def test_non_graph_error_does_not_propagate(self):
+        """A non-GraphAPIError (e.g. network/transport error) must not raise — returns ([], note)."""
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=RuntimeError("network down"))
+        entries, err = await enumerate_attachments(client, "/me/messages/M1")
+        assert entries == []
+        assert err is not None
+        assert "network down" in err or err  # some note must be present
+
+    @pytest.mark.asyncio
     async def test_enum_max_pages_cap(self):
-        """Pagination stops at _ENUM_MAX_PAGES even when nextLink is always present."""
+        """Pagination stops at _ENUM_MAX_PAGES even when nextLink is always present.
+        When the cap is hit with nextLink still set, a truncation note is returned."""
         client = AsyncMock()
         infinite_page = {
             "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
@@ -176,7 +187,8 @@ class TestEnumerateAttachments:
         client.get = AsyncMock(return_value=infinite_page)
         entries, err = await enumerate_attachments(client, "/me/messages/M1")
         assert client.get.await_count == _ENUM_MAX_PAGES
-        assert err is None
+        assert err is not None
+        assert "incomplete" in err or "truncat" in err or "pages" in err
 
 
 def _file_entry(name, cid="", content_bytes: str | None = "AA==", size=1, aid="i", ct="image/png"):

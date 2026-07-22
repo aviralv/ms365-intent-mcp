@@ -194,7 +194,11 @@ async def download_attachments(
 
 async def _fetch_bytes(client: GraphClient, message_endpoint: str, entry: dict) -> bytes:
     """Return the attachment's bytes: decode inline contentBytes if present,
-    else stream the $value endpoint. Raises on decode/transport failure."""
+    else fetch the $value endpoint. Raises on decode/transport failure.
+
+    Note: bytes are buffered in memory, bounded by MAX_ATTACHMENT_BYTES; true
+    streaming (without a full in-memory buffer) is a future improvement.
+    """
     raw = entry.get("_content_bytes")
     if raw:
         return base64.b64decode(raw, validate=True)
@@ -229,11 +233,14 @@ async def enumerate_attachments(
     while next_url and pages < _ENUM_MAX_PAGES:
         try:
             resp = await client.get(next_url)
-        except GraphAPIError as exc:
+        except Exception as exc:
             reason = _error_reason(exc)
-            return entries, f"attachment enumeration failed ({exc.status_code}): {reason}"
+            status_part = f" ({exc.status_code})" if isinstance(exc, GraphAPIError) else ""
+            return entries, f"attachment enumeration failed{status_part}: {reason}"
         for raw in resp.get("value", []):
             entries.append(classify_attachment(raw))
         next_url = resp.get("@odata.nextLink") or None
         pages += 1
+    if next_url is not None:
+        return entries, f"attachment list may be incomplete — stopped after {_ENUM_MAX_PAGES} pages"
     return entries, None

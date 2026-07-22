@@ -614,11 +614,11 @@ def _format_attachment_links(attachments: list[dict] | None) -> list[str]:
 
 
 def _human_size(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if n < 1024 or unit == "GB":
+    for unit in ("B", "KB", "MB"):
+        if n < 1024:
             return f"{int(n)} {unit}" if unit == "B" else f"{n:.1f} {unit}"
         n /= 1024
-    return f"{n:.1f} GB"  # unreachable: the unit == "GB" branch always fires first
+    return f"{n:.1f} GB"
 
 
 def _format_email_attachment_line(a: dict) -> str:
