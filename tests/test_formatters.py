@@ -1218,3 +1218,48 @@ class TestFormatEventDatetime:
         from ms365_intent_mcp.formatters import _format_event_datetime
         dt = {"timeZone": "UTC"}
         assert _format_event_datetime(dt) == " UTC"
+
+
+class TestEmailAttachmentRendering:
+    def test_renders_attachment_lines(self):
+        data = {
+            "subject": "Bug", "from": {"emailAddress": {"name": "Cust"}},
+            "receivedDateTime": "2026-07-20T00:00:00Z",
+            "body": {"contentType": "text", "content": "see attached"},
+            "_attachments": [
+                {"name": "shot.png", "content_type": "image/png", "size": 20480,
+                 "is_inline": True, "cid": "a@1", "attachment_id": "i",
+                 "kind": "file", "local_path": "/tmp/shot.png", "note": None},
+                {"name": "notes.docx", "content_type": "", "size": 0,
+                 "is_inline": False, "cid": "", "attachment_id": "j",
+                 "kind": "item", "local_path": None,
+                 "note": "embedded item — not a downloadable file"},
+            ],
+        }
+        md = format_resolved_content_markdown("email", data)
+        assert "shot.png" in md
+        assert "/tmp/shot.png" in md
+        assert "notes.docx" in md
+        assert "not a downloadable file" in md
+
+    def test_no_attachment_section_when_empty(self):
+        data = {
+            "subject": "plain", "from": {"emailAddress": {"name": "A"}},
+            "receivedDateTime": "2026-07-20T00:00:00Z",
+            "body": {"contentType": "text", "content": "hi"},
+            "_attachments": [],
+        }
+        md = format_resolved_content_markdown("email", data)
+        assert "📎" not in md
+
+    def test_attachments_error_warning_rendered(self):
+        data = {
+            "subject": "err", "from": {"emailAddress": {"name": "B"}},
+            "receivedDateTime": "2026-07-20T00:00:00Z",
+            "body": {"contentType": "text", "content": "hi"},
+            "_attachments": [],
+            "_attachments_error": "403 Forbidden",
+        }
+        md = format_resolved_content_markdown("email", data)
+        assert "403 Forbidden" in md
+        assert "⚠️" in md

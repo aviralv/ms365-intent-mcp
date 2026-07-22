@@ -405,10 +405,15 @@ def format_resolved_content_markdown(url_type: str, data: dict, chat_url: str = 
         if rendered:
             lines.append("")
             lines.append(rendered)
-        for att in (data.get("_attachments") or []):
-            name = att.get("name") or ""
-            if name:
-                lines.append(f"📎 {name}")
+        attachments = data.get("_attachments") or []
+        if attachments:
+            lines.append("")
+            lines.append("**Attachments:**")
+            for a in attachments:
+                lines.append(_format_email_attachment_line(a))
+        att_error = data.get("_attachments_error")
+        if att_error:
+            lines.append(f"⚠️ Some attachments could not be retrieved: {att_error}")
         return "\n".join(lines)
     elif url_type in ("channel_message", "chat_message"):
         body = data.get("body", {}).get("content", "")
@@ -606,6 +611,27 @@ def _format_attachment_links(attachments: list[dict] | None) -> list[str]:
         name = att.get("name") or url
         lines.append(f"  - 📎 [{name}]({url})")
     return lines
+
+
+def _human_size(n: float) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{int(n)} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+
+
+def _format_email_attachment_line(a: dict) -> str:
+    """One 📎 line for an email attachment: name · size · inline/file · path|note."""
+    parts = [a.get("name") or "(unnamed)"]
+    size = a.get("size") or 0
+    if size:
+        parts.append(_human_size(size))
+    parts.append("inline" if a.get("is_inline") else "file")
+    if a.get("local_path"):
+        parts.append(f"saved: `{a['local_path']}`")
+    elif a.get("note"):
+        parts.append(a["note"])
+    return "📎 " + " · ".join(parts)
 
 
 def _format_recording_details(entry: dict) -> list[str]:
