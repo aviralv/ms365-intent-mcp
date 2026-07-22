@@ -242,3 +242,30 @@ class TestResolveChatMessageUrlThroughSchema:
         assert isinstance(response.data, ChatMessageContent)
         assert response.data.chat_id == "19:somechat@unq.gbl.spaces"
         assert response.data.chat_url == "https://teams.microsoft.com/l/chat/19:somechat@unq.gbl.spaces"
+
+
+from ms365_intent_mcp.intent.resolve.schemas import AttachmentInfo  # noqa: E402
+
+
+class TestAttachmentSchema:
+    def test_email_content_accepts_attachments(self):
+        from ms365_intent_mcp.intent.resolve.schemas import EmailContent
+        ec = EmailContent(
+            kind="email", subject="s", sender="a@b.com", body="",
+            attachments=[AttachmentInfo(name="x.png", cid="a@1", is_inline=True,
+                                        size=10, attachment_id="i", local_path="/tmp/x.png")],
+        )
+        assert ec.attachments[0].name == "x.png"
+        assert ec.attachments[0].local_path == "/tmp/x.png"
+
+    def test_email_content_attachments_default_empty(self):
+        from ms365_intent_mcp.intent.resolve.schemas import EmailContent
+        ec = EmailContent(kind="email", subject="s", sender="a@b.com", body="")
+        assert ec.attachments == []
+
+    def test_payload_accepts_output_dir(self):
+        p = ResolvePayload.model_validate({
+            "url": "https://outlook.office.com/mail/id/AA123",
+            "output_dir": "/tmp/out",
+        })
+        assert p.output_dir == "/tmp/out"

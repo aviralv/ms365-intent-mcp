@@ -34,11 +34,35 @@ class ResolvePayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     url: HttpUrl
+    output_dir: str | None = Field(
+        default=None,
+        description=(
+            "For email URLs: download the email's attachments (inline images + "
+            "regular files) to this directory and return each file's local path. "
+            "Metadata is always returned; passing output_dir triggers the byte "
+            "download. Defaults to ~/.cache/ms365-intent-mcp/attachments when "
+            "download is requested. No-op for non-email URLs."
+        ),
+    )
 
 
 # ============================================================
 # Content type variants (discriminated on ``kind``)
 # ============================================================
+
+
+class AttachmentInfo(BaseModel):
+    """One email attachment — metadata always; local_path only after download."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    content_type: str = ""
+    size: int = 0
+    is_inline: bool = False
+    cid: str = ""
+    attachment_id: str = ""
+    local_path: str | None = None
+    note: str | None = None
 
 
 class EmailContent(BaseModel):
@@ -49,6 +73,7 @@ class EmailContent(BaseModel):
     subject: str
     sender: str
     body: str
+    attachments: list[AttachmentInfo] = []
 
 
 class ChatThreadContent(BaseModel):
