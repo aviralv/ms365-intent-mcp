@@ -25,6 +25,7 @@ import re
 from pathlib import Path
 
 from ..graph import GraphAPIError, GraphClient
+from ._utils import _error_reason
 
 ATTACHMENT_FILE_TYPE = "#microsoft.graph.fileAttachment"
 _ITEM_TYPE = "#microsoft.graph.itemAttachment"
@@ -35,6 +36,8 @@ MAX_TOTAL_ATTACHMENT_BYTES = 250 * 1024 * 1024
 
 _SANITIZE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 _MAX_FILENAME_LEN = 255
+_CID_RE = re.compile(r"cid:", re.IGNORECASE)
+_ENUM_MAX_PAGES = 5
 
 
 def classify_attachment(raw: dict) -> dict:
@@ -106,3 +109,38 @@ def safe_filename(name: str, index: int, existing: set[str]) -> str:
         if candidate not in existing:
             return candidate
         n += 1
+
+
+def body_has_cid(body_text: str) -> bool:
+    """True if the body references an inline attachment via a cid: token.
+
+    Works on both HTML bodies (``src="cid:..."``) and the plain-text body Graph
+    returns under the ``outlook.body-content-type="text"`` Prefer header, where
+    inline refs survive as ``[cid:...]`` tokens.
+    """
+    return bool(body_text) and _CID_RE.search(body_text) is not None
+
+
+async def enumerate_attachments(
+    client: GraphClient, message_endpoint: str
+) -> tuple[list[dict], str | None]:
+    """List a message's attachments as classified metadata dicts.
+
+    Returns ``(entries, error_note)``. Follows ``@odata.nextLink`` defensively
+    (the attachments collection has no documented page size). A GraphAPIError
+    on any page returns whatever was collected plus a reason note — enumeration
+    never raises to the caller.
+    """
+    entries: list[dict] = []
+    next_url: str | None = f"{message_endpoint}/attachments?$top=100"
+    pages = 0
+    while next_url and pages < _ENUM_MAX_PAGES:
+        try:
+            resp = await client.get(next_url)
+        except GraphAPIError as exc:
+            return entries, f"attachment enumeration failed ({exc.status_code}): {_error_reason(exc)}"
+        for raw in resp.get("value", []):
+            entries.append(classify_attachment(raw))
+        next_url = resp.get("@odata.nextLink") or None
+        pages += 1
+    return entries, None

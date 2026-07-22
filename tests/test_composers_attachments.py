@@ -1,9 +1,13 @@
 import pytest
+from unittest.mock import AsyncMock
 
 from ms365_intent_mcp.composers.attachments import (
+    body_has_cid,
     classify_attachment,
+    enumerate_attachments,
     safe_filename,
 )
+from ms365_intent_mcp.graph import GraphAPIError
 
 
 class TestClassifyAttachment:
@@ -98,3 +102,58 @@ class TestSafeFilename:
         out = safe_filename(long, 0, set())
         assert len(out) <= 255
         assert out.endswith(".png")
+
+
+class TestBodyHasCid:
+    def test_detects_cid_token(self):
+        assert body_has_cid('see <img src="cid:image001@01DD">') is True
+
+    def test_detects_bracketed_cid_text(self):
+        assert body_has_cid("inline [cid:image001.png@01DD.CD8E]") is True
+
+    def test_no_cid(self):
+        assert body_has_cid("just plain text") is False
+
+
+class TestEnumerateAttachments:
+    @pytest.mark.asyncio
+    async def test_single_page(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "value": [
+                {"@odata.type": "#microsoft.graph.fileAttachment",
+                 "name": "a.png", "size": 10, "isInline": True,
+                 "contentId": "a@1", "contentBytes": "AA==", "id": "i1"},
+            ]
+        })
+        entries, err = await enumerate_attachments(client, "/me/messages/M1")
+        assert err is None
+        assert len(entries) == 1
+        assert entries[0]["cid"] == "a@1"
+        client.get.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_follows_next_link(self):
+        client = AsyncMock()
+        page1 = {
+            "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
+                       "name": "a.png", "size": 1, "id": "i1", "contentBytes": "AA=="}],
+            "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/messages/M1/attachments?$skip=100",
+        }
+        page2 = {
+            "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
+                       "name": "b.png", "size": 1, "id": "i2", "contentBytes": "AA=="}],
+        }
+        client.get = AsyncMock(side_effect=[page1, page2])
+        entries, err = await enumerate_attachments(client, "/me/messages/M1")
+        assert err is None
+        assert [e["name"] for e in entries] == ["a.png", "b.png"]
+        assert client.get.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_graph_error_returns_note(self):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=GraphAPIError(403, "ErrorAccessDenied", "no"))
+        entries, err = await enumerate_attachments(client, "/me/messages/M1")
+        assert entries == []
+        assert err and "403" in err
