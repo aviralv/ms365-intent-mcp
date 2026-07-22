@@ -2006,3 +2006,108 @@ class TestPaginateChatMessages:
         messages, err = await _paginate_chat_messages(client, "chat1", max_pages=3)
         assert client.get.call_count == 3
         assert err is None
+
+
+# ---------------------------------------------------------------------------
+# Email attachment wiring
+# ---------------------------------------------------------------------------
+
+class TestResolveEmailAttachments:
+    @pytest.mark.asyncio
+    async def test_enumerates_when_has_attachments(self, full_permissions):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=[
+            {  # message fetch
+                "subject": "Bug report", "from": {"emailAddress": {"name": "Cust"}},
+                "receivedDateTime": "2026-07-20T08:00:00Z",
+                "body": {"contentType": "text", "content": "see [cid:img1@01DD]"},
+                "hasAttachments": True,
+            },
+            {  # /attachments
+                "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
+                           "name": "shot.png", "contentType": "image/png",
+                           "size": 12, "isInline": True, "contentId": "img1@01DD",
+                           "contentBytes": "AA==", "id": "AT1"}],
+            },
+        ])
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="email", graph_endpoint="/me/messages/M1", required_scope="Mail.Read",
+            )
+            data, md = await compose_resolve(
+                client=client, permissions=full_permissions,
+                url="https://outlook.office365.com/mail/id/M1",
+            )
+        atts = data["data"]["attachments"]
+        assert len(atts) == 1
+        assert atts[0]["cid"] == "img1@01DD"
+        assert atts[0]["local_path"] is None  # no output_dir → metadata only
+        assert "_content_bytes" not in atts[0]  # internal field stripped
+        assert "shot.png" in md
+
+    @pytest.mark.asyncio
+    async def test_no_extra_call_when_no_attachments_no_cid(self, full_permissions):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value={
+            "subject": "plain", "from": {"emailAddress": {"name": "A"}},
+            "receivedDateTime": "2026-07-20T08:00:00Z",
+            "body": {"contentType": "text", "content": "no images here"},
+            "hasAttachments": False,
+        })
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="email", graph_endpoint="/me/messages/M2", required_scope="Mail.Read",
+            )
+            data, _ = await compose_resolve(
+                client=client, permissions=full_permissions,
+                url="https://outlook.office365.com/mail/id/M2",
+            )
+        assert client.get.await_count == 1  # message only, no /attachments
+        assert data["data"]["attachments"] == []
+
+    @pytest.mark.asyncio
+    async def test_downloads_when_output_dir_given(self, full_permissions, tmp_path):
+        import base64
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=[
+            {"subject": "s", "from": {"emailAddress": {"name": "A"}},
+             "receivedDateTime": "2026-07-20T08:00:00Z",
+             "body": {"contentType": "text", "content": "x"}, "hasAttachments": True},
+            {"value": [{"@odata.type": "#microsoft.graph.fileAttachment",
+                        "name": "r.pdf", "contentType": "application/pdf", "size": 5,
+                        "isInline": False, "contentBytes": base64.b64encode(b"hello").decode(),
+                        "id": "AT2"}]},
+        ])
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="email", graph_endpoint="/me/messages/M3", required_scope="Mail.Read",
+            )
+            data, _ = await compose_resolve(
+                client=client, permissions=full_permissions,
+                url="https://outlook.office365.com/mail/id/M3",
+                output_dir=str(tmp_path),
+            )
+        lp = data["data"]["attachments"][0]["local_path"]
+        assert lp is not None
+        from pathlib import Path
+        assert Path(lp).read_bytes() == b"hello"
+
+    @pytest.mark.asyncio
+    async def test_enumeration_error_degrades(self, full_permissions):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=[
+            {"subject": "s", "from": {"emailAddress": {"name": "A"}},
+             "receivedDateTime": "2026-07-20T08:00:00Z",
+             "body": {"contentType": "text", "content": "x"}, "hasAttachments": True},
+            GraphAPIError(403, "ErrorAccessDenied", "no"),
+        ])
+        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
+            mock_resolve.return_value = ResolvedUrl(
+                url_type="email", graph_endpoint="/me/messages/M4", required_scope="Mail.Read",
+            )
+            data, md = await compose_resolve(
+                client=client, permissions=full_permissions,
+                url="https://outlook.office365.com/mail/id/M4",
+            )
+        assert data["data"]["attachments"] == []
+        assert "s" in md  # body still renders (subject present)

@@ -405,6 +405,10 @@ def format_resolved_content_markdown(url_type: str, data: dict, chat_url: str = 
         if rendered:
             lines.append("")
             lines.append(rendered)
+        for att in (data.get("_attachments") or []):
+            name = att.get("name") or ""
+            if name:
+                lines.append(f"📎 {name}")
         return "\n".join(lines)
     elif url_type in ("channel_message", "chat_message"):
         body = data.get("body", {}).get("content", "")

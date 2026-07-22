@@ -2,6 +2,19 @@
   "additionalProperties": false,
   "description": "Resolve any M365 URL.",
   "properties": {
+    "output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "For email URLs: download the email's attachments (inline images + regular files) to this directory and return each file's local path. Metadata is always returned; passing output_dir triggers the byte download. Defaults to ~/.cache/ms365-intent-mcp/attachments when download is requested. No-op for non-email URLs.",
+      "title": "Output Dir"
+    },
     "url": {
       "format": "uri",
       "maxLength": 2083,
