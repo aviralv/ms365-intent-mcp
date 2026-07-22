@@ -179,7 +179,7 @@ class TestEnumerateAttachments:
         assert err is None
 
 
-def _file_entry(name, cid="", content_bytes="AA==", size=1, aid="i", ct="image/png"):
+def _file_entry(name, cid="", content_bytes: str | None = "AA==", size=1, aid="i", ct="image/png"):
     return {
         "name": name, "content_type": ct, "size": size, "is_inline": bool(cid),
         "cid": cid, "attachment_id": aid, "kind": "file",
@@ -275,3 +275,13 @@ class TestDownloadAttachments:
         await download_attachments(client, "/me/messages/M1", entries, str(f))
         assert entries[0]["local_path"] is None
         assert entries[0]["note"]
+
+    @pytest.mark.asyncio
+    async def test_zero_size_no_inline_bytes_skipped_no_value_call(self, tmp_path):
+        """A fileAttachment with null contentBytes AND size==0 must not call $value."""
+        client = AsyncMock()
+        entries = [_file_entry("empty.bin", content_bytes=None, size=0, aid="Z1")]
+        await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
+        client.get_content.assert_not_awaited()
+        assert entries[0]["local_path"] is None
+        assert entries[0]["note"] is not None

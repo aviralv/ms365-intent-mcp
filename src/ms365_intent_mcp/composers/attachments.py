@@ -165,6 +165,10 @@ async def download_attachments(
             e["note"] = "skipped — per-request size cap reached"
             continue
 
+        if not e.get("_content_bytes") and size == 0:
+            e["note"] = "skipped — no content (zero-size attachment with no inline bytes)"
+            continue
+
         try:
             data = await _fetch_bytes(client, message_endpoint, e)
         except (GraphAPIError, binascii.Error, ValueError) as exc:
