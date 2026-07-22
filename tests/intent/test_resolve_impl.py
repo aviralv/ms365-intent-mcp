@@ -8,6 +8,7 @@ from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.intent._shared import ErrorResponse
 from ms365_intent_mcp.intent.resolve.impl import _resolve_impl
 from ms365_intent_mcp.intent.resolve.schemas import (
+    AttachmentInfo,
     ChatThreadContent,
     EmailContent,
     OneDriveFileContent,
@@ -244,7 +245,6 @@ class TestResolveChatMessageUrlThroughSchema:
         assert response.data.chat_url == "https://teams.microsoft.com/l/chat/19:somechat@unq.gbl.spaces"
 
 
-from ms365_intent_mcp.intent.resolve.schemas import AttachmentInfo  # noqa: E402
 
 
 class TestAttachmentSchema:
@@ -298,4 +298,5 @@ class TestResolveOutputDir:
         })
         response = await _resolve_impl(ctx, payload)
         assert seen["output_dir"] == "/tmp/out"
+        assert isinstance(response.data, EmailContent)
         assert response.data.attachments[0].local_path == "/tmp/out/x.png"

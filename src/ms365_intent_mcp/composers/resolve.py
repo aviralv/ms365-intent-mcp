@@ -619,7 +619,9 @@ async def _fetch_resolved(
             },
             headers={"Prefer": 'outlook.body-content-type="text"'},
         )
-        body_text = (message.get("body") or {}).get("content", "") or (message.get("bodyPreview") or "")
+        body_text = (message.get("body") or {}).get("content", "") or (
+            message.get("bodyPreview") or ""
+        )
         if message.get("hasAttachments") or body_has_cid(body_text):
             entries, enum_error = await enumerate_attachments(client, endpoint)
             if entries and output_dir is not None:

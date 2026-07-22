@@ -230,7 +230,8 @@ async def enumerate_attachments(
         try:
             resp = await client.get(next_url)
         except GraphAPIError as exc:
-            return entries, f"attachment enumeration failed ({exc.status_code}): {_error_reason(exc)}"
+            reason = _error_reason(exc)
+            return entries, f"attachment enumeration failed ({exc.status_code}): {reason}"
         for raw in resp.get("value", []):
             entries.append(classify_attachment(raw))
         next_url = resp.get("@odata.nextLink") or None
