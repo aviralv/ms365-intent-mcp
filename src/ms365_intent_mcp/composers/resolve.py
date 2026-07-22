@@ -12,6 +12,7 @@ from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ..resolver import ResolvedUrl, UrlParseError, build_chat_thread_url, resolve_url
 from ._utils import _error_reason, _escape_odata
+from .attachments import body_has_cid, download_attachments, enumerate_attachments
 
 
 def _encode_share_url(url: str) -> str:
@@ -465,6 +466,7 @@ async def compose_resolve(
     client: GraphClient,
     permissions: PermissionRegistry,
     url: str,
+    output_dir: str | None = None,
 ) -> tuple[dict, str]:
     try:
         resolved = resolve_url(url)
@@ -477,7 +479,7 @@ async def compose_resolve(
         return {"url": url, "kind": resolved.url_type, "data": {}}, scope_msg
 
     try:
-        data = await _fetch_resolved(client, resolved)
+        data = await _fetch_resolved(client, resolved, output_dir)
     except GraphAPIError as exc:
         markdown = format_section_error("Resolve", _error_reason(exc))
         return {"url": url, "kind": resolved.url_type, "data": {}}, markdown
@@ -497,11 +499,17 @@ def _build_structured_data(url_type: str, data: dict, extra: dict | None = None)
     """Extract structured fields from the raw Graph response for the given URL type."""
     extra = extra or {}
     if url_type == "email":
+        raw_atts = data.get("_attachments") or []
+        attachments = [
+            {k: v for k, v in a.items() if k not in ("_content_bytes", "kind")}
+            for a in raw_atts
+        ]
         return {
             "kind": "email",
             "subject": data.get("subject", ""),
             "sender": (data.get("from") or {}).get("emailAddress", {}).get("name", ""),
             "body": (data.get("body") or {}).get("content", "") or (data.get("bodyPreview") or ""),
+            "attachments": attachments,
         }
     elif url_type == "chat_thread":
         chat = data.get("chat") or {}
@@ -597,18 +605,36 @@ async def _get_event_by_id(client: GraphClient, event_id: str) -> dict | None:
         return None
 
 
-async def _fetch_resolved(client: GraphClient, resolved: ResolvedUrl) -> dict:
+async def _fetch_resolved(
+    client: GraphClient, resolved: ResolvedUrl, output_dir: str | None = None
+) -> dict:
     url_type = resolved.url_type
     endpoint = resolved.graph_endpoint
 
     if url_type == "email":
-        return await client.get(
+        message = await client.get(
             endpoint,
             params={
-                "$select": "subject,from,receivedDateTime,bodyPreview,body,toRecipients,ccRecipients,webLink",
+                "$select": "subject,from,receivedDateTime,bodyPreview,body,toRecipients,ccRecipients,webLink,hasAttachments",
             },
             headers={"Prefer": 'outlook.body-content-type="text"'},
         )
+        body_text = (message.get("body") or {}).get("content", "") or (
+            message.get("bodyPreview") or ""
+        )
+        if message.get("hasAttachments") or body_has_cid(body_text):
+            entries, enum_error = await enumerate_attachments(client, endpoint)
+            if entries and output_dir is not None:
+                try:
+                    await download_attachments(client, endpoint, entries, output_dir)
+                except Exception as exc:
+                    message["_attachments_error"] = f"attachment download failed: {exc}"
+            message["_attachments"] = entries
+            message["_attachments_error"] = message.get("_attachments_error") or enum_error
+        else:
+            message["_attachments"] = []
+            message["_attachments_error"] = None
+        return message
 
     elif url_type == "channel_message":
         return await client.get(endpoint, params={

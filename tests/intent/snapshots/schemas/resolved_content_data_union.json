@@ -1,5 +1,69 @@
 {
   "$defs": {
+    "AttachmentInfo": {
+      "additionalProperties": false,
+      "description": "One email attachment \u2014 metadata always; local_path only after download.",
+      "properties": {
+        "attachment_id": {
+          "default": "",
+          "title": "Attachment Id",
+          "type": "string"
+        },
+        "cid": {
+          "default": "",
+          "title": "Cid",
+          "type": "string"
+        },
+        "content_type": {
+          "default": "",
+          "title": "Content Type",
+          "type": "string"
+        },
+        "is_inline": {
+          "default": false,
+          "title": "Is Inline",
+          "type": "boolean"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Path"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "size": {
+          "default": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "AttachmentInfo",
+      "type": "object"
+    },
     "ChannelMessageContent": {
       "additionalProperties": false,
       "description": "Content for a resolved Teams channel message.",
@@ -129,6 +193,14 @@
       "additionalProperties": false,
       "description": "Content for a resolved email message.",
       "properties": {
+        "attachments": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AttachmentInfo"
+          },
+          "title": "Attachments",
+          "type": "array"
+        },
         "body": {
           "title": "Body",
           "type": "string"

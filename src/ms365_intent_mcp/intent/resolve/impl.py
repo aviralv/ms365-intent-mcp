@@ -46,7 +46,9 @@ async def _resolve_impl(ctx: Context, payload: ResolvePayload) -> ResolvedConten
         raise IntentError("invalid_id", str(exc))
 
     url_type = resolved.url_type
-    data_dict, markdown = await compose_resolve(client, permissions, str(payload.url))
+    data_dict, markdown = await compose_resolve(
+        client, permissions, str(payload.url), payload.output_dir
+    )
 
     kind = data_dict.get("kind", url_type)
     structured_data = data_dict.get("data", {})
