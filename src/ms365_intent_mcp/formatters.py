@@ -618,6 +618,7 @@ def _human_size(n: float) -> str:
         if n < 1024 or unit == "GB":
             return f"{int(n)} {unit}" if unit == "B" else f"{n:.1f} {unit}"
         n /= 1024
+    return f"{n:.1f} GB"  # unreachable: the unit == "GB" branch always fires first
 
 
 def _format_email_attachment_line(a: dict) -> str:
