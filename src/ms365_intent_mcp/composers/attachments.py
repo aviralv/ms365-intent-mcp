@@ -121,6 +121,94 @@ def body_has_cid(body_text: str) -> bool:
     return bool(body_text) and _CID_RE.search(body_text) is not None
 
 
+def _resolve_output_base(output_dir: str | None) -> Path:
+    base = (
+        Path(output_dir).expanduser()
+        if output_dir
+        else Path.home() / ".cache" / "ms365-intent-mcp" / "attachments"
+    ).resolve()
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+async def download_attachments(
+    client: GraphClient,
+    message_endpoint: str,
+    entries: list[dict],
+    output_dir: str | None,
+) -> None:
+    """Materialize fileAttachment bytes to disk; mutate entries in place.
+
+    Each ``kind == "file"`` entry gets a ``local_path`` on success or a ``note``
+    on skip/failure. Non-file kinds keep their classification note. Enforces the
+    per-attachment and per-request byte caps. Never raises for a single
+    attachment — failures are per-entry notes.
+    """
+    try:
+        base = _resolve_output_base(output_dir)
+    except (OSError, ValueError) as exc:
+        for e in entries:
+            if e["kind"] == "file":
+                e["note"] = f"could not prepare output dir: {exc}"
+        return
+
+    used_names: set[str] = set()
+    total = 0
+    for index, e in enumerate(entries):
+        if e["kind"] != "file":
+            continue
+        size = e.get("size") or 0
+        if size > MAX_ATTACHMENT_BYTES:
+            e["note"] = f"skipped — too large ({size} bytes > per-file cap)"
+            continue
+        if total + size > MAX_TOTAL_ATTACHMENT_BYTES:
+            e["note"] = "skipped — per-request size cap reached"
+            continue
+
+        try:
+            data = await _fetch_bytes(client, message_endpoint, e)
+        except (GraphAPIError, binascii.Error, ValueError) as exc:
+            e["note"] = f"download failed: {exc}"
+            continue
+
+        fname = safe_filename(e["name"], index, used_names)
+        dest = (base / fname).resolve()
+        if dest.parent != base:
+            e["note"] = "skipped — resolved path escaped output dir"
+            continue
+        try:
+            dest.write_bytes(data)
+        except OSError as exc:
+            e["note"] = f"write failed: {exc}"
+            continue
+
+        used_names.add(fname)
+        e["local_path"] = str(dest)
+        total += len(data)
+        _note_extension_mismatch(e)
+
+
+async def _fetch_bytes(client: GraphClient, message_endpoint: str, entry: dict) -> bytes:
+    """Return the attachment's bytes: decode inline contentBytes if present,
+    else stream the $value endpoint. Raises on decode/transport failure."""
+    raw = entry.get("_content_bytes")
+    if raw:
+        return base64.b64decode(raw, validate=True)
+    endpoint = f"{message_endpoint}/attachments/{entry['attachment_id']}/$value"
+    return await client.get_content(endpoint)
+
+
+def _note_extension_mismatch(entry: dict) -> None:
+    """Informational note when the filename extension disagrees with the
+    declared content-type major class (e.g. image bytes named .pdf)."""
+    ct = (entry.get("content_type") or "").split("/", 1)[0].lower()
+    name = entry.get("name") or ""
+    ext = name.rpartition(".")[2].lower()
+    _img_exts = {"png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff"}
+    if ct == "image" and ext and ext not in _img_exts:
+        entry["note"] = f"content-type is image/* but filename ends .{ext}"
+
+
 async def enumerate_attachments(
     client: GraphClient, message_endpoint: str
 ) -> tuple[list[dict], str | None]:

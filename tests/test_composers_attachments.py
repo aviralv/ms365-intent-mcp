@@ -1,11 +1,17 @@
+import base64 as _b64
+from pathlib import Path
+
 import pytest
 from unittest.mock import AsyncMock
 
 from ms365_intent_mcp.composers.attachments import (
     body_has_cid,
     classify_attachment,
+    download_attachments,
     enumerate_attachments,
     safe_filename,
+    MAX_ATTACHMENT_BYTES,
+    _ENUM_MAX_PAGES,
 )
 from ms365_intent_mcp.graph import GraphAPIError
 
@@ -157,3 +163,115 @@ class TestEnumerateAttachments:
         entries, err = await enumerate_attachments(client, "/me/messages/M1")
         assert entries == []
         assert err and "403" in err
+
+    @pytest.mark.asyncio
+    async def test_enum_max_pages_cap(self):
+        """Pagination stops at _ENUM_MAX_PAGES even when nextLink is always present."""
+        client = AsyncMock()
+        infinite_page = {
+            "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
+                       "name": "a.png", "size": 1, "id": "i1", "contentBytes": "AA=="}],
+            "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/messages/M1/attachments?$skip=100",
+        }
+        client.get = AsyncMock(return_value=infinite_page)
+        entries, err = await enumerate_attachments(client, "/me/messages/M1")
+        assert client.get.await_count == _ENUM_MAX_PAGES
+        assert err is None
+
+
+def _file_entry(name, cid="", content_bytes="AA==", size=1, aid="i", ct="image/png"):
+    return {
+        "name": name, "content_type": ct, "size": size, "is_inline": bool(cid),
+        "cid": cid, "attachment_id": aid, "kind": "file",
+        "_content_bytes": content_bytes, "note": None, "local_path": None,
+    }
+
+
+class TestDownloadAttachments:
+    @pytest.mark.asyncio
+    async def test_inline_bytes_written(self, tmp_path):
+        client = AsyncMock()
+        payload = _b64.b64encode(b"hello").decode()
+        entries = [_file_entry("image001.png", cid="a@1", content_bytes=payload, size=5)]
+        await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
+        p = entries[0]["local_path"]
+        assert p is not None
+        assert Path(p).read_bytes() == b"hello"
+        client.get_content.assert_not_awaited()  # inline, no $value hop
+
+    @pytest.mark.asyncio
+    async def test_value_fallback_when_bytes_null(self, tmp_path):
+        client = AsyncMock()
+        client.get_content = AsyncMock(return_value=b"streamed")
+        entries = [_file_entry("big.bin", content_bytes=None, size=9, aid="AT9")]
+        await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
+        client.get_content.assert_awaited_once()
+        called_endpoint = client.get_content.await_args.args[0]
+        assert called_endpoint == "/me/messages/M1/attachments/AT9/$value"
+        assert Path(entries[0]["local_path"]).read_bytes() == b"streamed"
+
+    @pytest.mark.asyncio
+    async def test_item_attachment_not_downloaded(self, tmp_path):
+        client = AsyncMock()
+        entries = [{"name": "Fwd", "content_type": "", "size": 1, "is_inline": False,
+                    "cid": "", "attachment_id": "i", "kind": "item",
+                    "_content_bytes": None, "note": "embedded item — not a downloadable file",
+                    "local_path": None}]
+        await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
+        assert entries[0]["local_path"] is None
+        client.get_content.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_oversized_attachment_skipped(self, tmp_path):
+        client = AsyncMock()
+        entries = [_file_entry("huge.bin", content_bytes=None, size=MAX_ATTACHMENT_BYTES + 1, aid="X")]
+        await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
+        assert entries[0]["local_path"] is None
+        assert "too large" in entries[0]["note"].lower()
+        client.get_content.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_total_cap_skips_remainder(self, tmp_path, monkeypatch):
+        import ms365_intent_mcp.composers.attachments as att
+        monkeypatch.setattr(att, "MAX_TOTAL_ATTACHMENT_BYTES", 10)
+        client = AsyncMock()
+        payload = _b64.b64encode(b"1234567").decode()  # 7 bytes
+        entries = [
+            _file_entry("a.bin", content_bytes=payload, size=7, aid="a"),
+            _file_entry("b.bin", content_bytes=payload, size=7, aid="b"),
+        ]
+        await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
+        assert entries[0]["local_path"] is not None
+        assert entries[1]["local_path"] is None
+        assert "cap" in entries[1]["note"].lower()
+
+    @pytest.mark.asyncio
+    async def test_collision_suffix_on_disk(self, tmp_path):
+        client = AsyncMock()
+        payload = _b64.b64encode(b"x").decode()
+        entries = [
+            _file_entry("image001.png", cid="a@1", content_bytes=payload, size=1, aid="a"),
+            _file_entry("image001.png", cid="b@2", content_bytes=payload, size=1, aid="b"),
+        ]
+        await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
+        names = {Path(e["local_path"]).name for e in entries}
+        assert names == {"image001.png", "image001-2.png"}
+
+    @pytest.mark.asyncio
+    async def test_bad_base64_noted_not_raised(self, tmp_path):
+        client = AsyncMock()
+        entries = [_file_entry("x.png", content_bytes="!!!notbase64!!!", size=3, aid="a")]
+        await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
+        assert entries[0]["local_path"] is None
+        assert entries[0]["note"]
+
+    @pytest.mark.asyncio
+    async def test_output_dir_is_existing_file_errors_gracefully(self, tmp_path):
+        client = AsyncMock()
+        f = tmp_path / "afile"
+        f.write_text("x")
+        payload = _b64.b64encode(b"x").decode()
+        entries = [_file_entry("x.png", content_bytes=payload, size=1)]
+        await download_attachments(client, "/me/messages/M1", entries, str(f))
+        assert entries[0]["local_path"] is None
+        assert entries[0]["note"]
