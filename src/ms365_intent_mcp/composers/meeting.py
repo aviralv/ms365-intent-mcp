@@ -4,7 +4,7 @@ import re
 import urllib.parse
 from datetime import datetime, timedelta
 
-from ..formatters import format_event_detail_markdown
+from ..formatters import format_event_detail_markdown, graph_dt_to_aware_iso
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
 from ._utils import _escape_odata
@@ -65,11 +65,15 @@ async def compose_meeting(
             "vroom_url": recording.get("vroom_url"),
         }
 
+    start_iso, start_tz = graph_dt_to_aware_iso(event.get("start", {}))
+    end_iso, end_tz = graph_dt_to_aware_iso(event.get("end", {}))
     data = {
         "id": event.get("id", ""),
         "subject": event.get("subject", ""),
-        "start": event.get("start", {}).get("dateTime", ""),
-        "end": event.get("end", {}).get("dateTime", ""),
+        "start": start_iso,
+        "end": end_iso,
+        "start_timezone": start_tz,
+        "end_timezone": end_tz,
         "organizer": organizer_data,
         "attendees": attendees_data,
         "location": event.get("location", {}).get("displayName") or None,

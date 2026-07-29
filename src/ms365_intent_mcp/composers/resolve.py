@@ -7,7 +7,7 @@ import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from ..formatters import _strip_teams_html, format_resolved_content_markdown, format_section_error
+from ..formatters import _strip_teams_html, format_resolved_content_markdown, format_section_error, graph_dt_to_aware_iso
 from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ..resolver import ResolvedUrl, UrlParseError, build_chat_thread_url, resolve_url
@@ -540,11 +540,15 @@ def _build_structured_data(url_type: str, data: dict, extra: dict | None = None)
             "channel_name": None,
         }
     elif url_type == "meeting":
+        start_iso, start_tz = graph_dt_to_aware_iso(data.get("start") or {})
+        end_iso, end_tz = graph_dt_to_aware_iso(data.get("end") or {})
         return {
             "kind": "meeting",
             "subject": data.get("subject", ""),
-            "start": (data.get("start") or {}).get("dateTime"),
-            "end": (data.get("end") or {}).get("dateTime"),
+            "start": start_iso,
+            "end": end_iso,
+            "start_timezone": start_tz,
+            "end_timezone": end_tz,
         }
     elif url_type == "sharepoint_page":
         return {

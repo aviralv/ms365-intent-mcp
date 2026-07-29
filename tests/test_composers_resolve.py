@@ -258,14 +258,31 @@ class TestMeetingResolve:
         assert "Standup" in result
 
     @pytest.mark.asyncio
-    async def test_meeting_not_found(self, full_permissions):
-        url, _ = self._meeting_url()
+    async def test_meeting_start_is_offset_aware(self, full_permissions):
+        """UTC calendar event resolved via meetup-join URL: start/end must be
+        offset-aware ISO with _timezone siblings."""
+        url, thread_id = self._meeting_url()
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={"value": []})
+        client.get = AsyncMock(return_value={
+            "value": [{
+                "subject": "UTC Standup",
+                "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
+                "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
+                "organizer": {"emailAddress": {"name": "Avi"}},
+                "attendees": [],
+                "body": {"content": ""},
+                "location": {"displayName": ""},
+                "isOnlineMeeting": True,
+                "onlineMeeting": {"joinUrl": f"https://teams.microsoft.com/l/meetup-join/{thread_id}/0"},
+            }],
+        })
 
-        _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
-        assert "No matching" in result or "unavailable" in result
+        structured, _ = await compose_resolve(client=client, permissions=full_permissions, url=url)
+        data = structured["data"]
+        assert data["start"] == "2026-07-29T14:00:00+00:00"
+        assert data["start_timezone"] == "UTC"
+        assert data["end_timezone"] == "UTC"
 
 
 # ---------------------------------------------------------------------------
