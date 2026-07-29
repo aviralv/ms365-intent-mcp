@@ -1,6 +1,6 @@
 """schedule composer — find meeting times via POST /me/findMeetingTimes."""
 
-from ..formatters import format_meeting_times_markdown, format_section_error
+from ..formatters import format_meeting_times_markdown, format_section_error, graph_dt_to_aware_iso
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
 from ._utils import _error_reason
@@ -60,14 +60,15 @@ async def compose_schedule(
     data_suggestions = []
     for s in suggestions:
         slot = s.get("meetingTimeSlot", {})
-        start_dt = slot.get("start", {}).get("dateTime", "")
-        end_dt = slot.get("end", {}).get("dateTime", "")
-        start_tz = slot.get("start", {}).get("timeZone", "UTC")
+        start_iso, start_tz = graph_dt_to_aware_iso(slot.get("start", {}))
+        end_iso, end_tz = graph_dt_to_aware_iso(slot.get("end", {}))
         confidence = s.get("confidence", 0.0) / 100.0  # Graph gives 0-100, TimeSlot wants 0.0-1.0
-        if start_dt and end_dt:
+        if start_iso and end_iso:
             data_suggestions.append({
-                "start": start_dt if start_tz == "UTC" else f"{start_dt}",
-                "end": end_dt,
+                "start": start_iso,
+                "end": end_iso,
+                "start_timezone": start_tz,
+                "end_timezone": end_tz,
                 "confidence": confidence,
             })
     return {"suggestions": data_suggestions}, markdown
