@@ -152,7 +152,6 @@ WINDOWS_TO_IANA: dict[str, str] = {
     "Yukon Standard Time": "America/Whitehorse",
     "Mexico Standard Time 2": "America/Chihuahua",
     "Mexico Standard Time": "America/Mexico_City",
-    "US Eastern Standard Time": "America/Indiana/Indianapolis",
 }
 
 
