@@ -184,9 +184,29 @@
       "type": "array"
     },
     "end": {
-      "format": "date-time",
-      "title": "End",
-      "type": "string"
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "format": "date",
+          "type": "string"
+        }
+      ],
+      "title": "End"
+    },
+    "end_timezone": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "End Timezone"
     },
     "id": {
       "title": "Id",
@@ -234,9 +254,29 @@
       "type": "string"
     },
     "start": {
-      "format": "date-time",
-      "title": "Start",
-      "type": "string"
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "format": "date",
+          "type": "string"
+        }
+      ],
+      "title": "Start"
+    },
+    "start_timezone": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Start Timezone"
     },
     "subject": {
       "title": "Subject",

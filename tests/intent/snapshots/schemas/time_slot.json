@@ -10,10 +10,34 @@
       "title": "End",
       "type": "string"
     },
+    "end_timezone": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "End Timezone"
+    },
     "start": {
       "format": "date-time",
       "title": "Start",
       "type": "string"
+    },
+    "start_timezone": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Start Timezone"
     }
   },
   "required": [
