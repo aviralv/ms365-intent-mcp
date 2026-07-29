@@ -29,6 +29,8 @@ class TimeSlot(BaseModel):
     start: datetime
     end: datetime
     confidence: float  # 0.0-1.0 from Graph findMeetingTimes
+    start_timezone: str | None = None
+    end_timezone: str | None = None
 
 
 class ScheduleSuggestions(BaseResponse):

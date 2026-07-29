@@ -27,8 +27,10 @@ class EventSummary(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     subject: str
-    start: _dt.datetime
-    end: _dt.datetime
+    start: _dt.date | _dt.datetime
+    end: _dt.date | _dt.datetime
+    start_timezone: str | None = None
+    end_timezone: str | None = None
     location: str | None = None
     is_online_meeting: bool = False
 

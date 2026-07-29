@@ -1,5 +1,7 @@
 """Tests for markdown formatters."""
 
+import logging
+
 from ms365_intent_mcp.formatters import (
     format_events_markdown,
     format_event_detail_markdown,
@@ -12,6 +14,7 @@ from ms365_intent_mcp.formatters import (
     format_search_results_markdown,
     format_meeting_times_markdown,
     format_resolved_content_markdown,
+    graph_dt_to_aware_iso,
 )
 
 
@@ -1218,6 +1221,77 @@ class TestFormatEventDatetime:
         from ms365_intent_mcp.formatters import _format_event_datetime
         dt = {"timeZone": "UTC"}
         assert _format_event_datetime(dt) == " UTC"
+
+
+
+
+def test_utc_pair_becomes_z():
+    iso, tz = graph_dt_to_aware_iso(
+        {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"}
+    )
+    assert iso == "2026-07-29T14:00:00+00:00"
+    assert tz == "UTC"
+
+
+def test_iana_zone_gets_localized_offset():
+    iso, tz = graph_dt_to_aware_iso(
+        {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "Europe/Berlin"}
+    )
+    assert iso == "2026-07-29T14:00:00+02:00"  # CEST
+    assert tz == "Europe/Berlin"
+
+
+def test_windows_zone_name_resolves():
+    iso, tz = graph_dt_to_aware_iso(
+        {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "W. Europe Standard Time"}
+    )
+    assert iso == "2026-07-29T14:00:00+02:00"
+    assert tz == "W. Europe Standard Time"  # original name preserved
+
+
+def test_all_day_date_only_passes_through():
+    iso, tz = graph_dt_to_aware_iso({"dateTime": "2026-07-29", "timeZone": "UTC"})
+    assert iso == "2026-07-29"  # no offset attached to a bare date
+    assert tz == "UTC"
+
+
+def test_empty_pair_returns_none_none():
+    assert graph_dt_to_aware_iso({}) == (None, None)
+    assert graph_dt_to_aware_iso({"dateTime": ""}) == (None, None)
+
+
+def test_unresolvable_zone_falls_back_naive_and_warns(caplog):
+    with caplog.at_level(logging.WARNING):
+        iso, tz = graph_dt_to_aware_iso(
+            {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "Foo/Bar"}
+        )
+    assert iso == "2026-07-29T14:00:00"  # naive passthrough, milliseconds stripped
+    assert tz == "Foo/Bar"
+    assert any("Foo/Bar" in r.message for r in caplog.records)
+
+
+def test_null_timezone_falls_back_naive():
+    iso, tz = graph_dt_to_aware_iso(
+        {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": None}
+    )
+    assert iso == "2026-07-29T14:00:00"
+    assert tz is None
+
+
+def test_dst_fall_back_resolves_without_raising():
+    # 2026-10-25 02:30 is the ambiguous fall-back hour in Berlin; fold=0 → CEST
+    iso, tz = graph_dt_to_aware_iso(
+        {"dateTime": "2026-10-25T02:30:00.0000000", "timeZone": "Europe/Berlin"}
+    )
+    assert iso == "2026-10-25T02:30:00+02:00"
+
+
+def test_dst_spring_forward_resolves_without_raising():
+    # 2026-03-29 02:30 does not exist in Berlin; zoneinfo resolves via fold, no raise
+    iso, tz = graph_dt_to_aware_iso(
+        {"dateTime": "2026-03-29T02:30:00.0000000", "timeZone": "Europe/Berlin"}
+    )
+    assert iso == "2026-03-29T02:30:00+01:00"
 
 
 class TestEmailAttachmentRendering:

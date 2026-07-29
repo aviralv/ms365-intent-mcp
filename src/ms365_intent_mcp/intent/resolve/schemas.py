@@ -16,7 +16,7 @@ refactors composers to return ``(dict, markdown)`` tuples.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
@@ -114,8 +114,10 @@ class MeetingContent(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["meeting"]
     subject: str
-    start: datetime | None = None
-    end: datetime | None = None
+    start: date | datetime | None = None
+    end: date | datetime | None = None
+    start_timezone: str | None = None
+    end_timezone: str | None = None
 
 
 class SharePointPageContent(BaseModel):

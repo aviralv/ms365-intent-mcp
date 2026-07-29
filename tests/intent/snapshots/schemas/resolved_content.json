@@ -235,6 +235,10 @@
         "end": {
           "anyOf": [
             {
+              "format": "date",
+              "type": "string"
+            },
+            {
               "format": "date-time",
               "type": "string"
             },
@@ -245,6 +249,18 @@
           "default": null,
           "title": "End"
         },
+        "end_timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Timezone"
+        },
         "kind": {
           "const": "meeting",
           "title": "Kind",
@@ -252,6 +268,10 @@
         },
         "start": {
           "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
             {
               "format": "date-time",
               "type": "string"
@@ -262,6 +282,18 @@
           ],
           "default": null,
           "title": "Start"
+        },
+        "start_timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Timezone"
         },
         "subject": {
           "title": "Subject",

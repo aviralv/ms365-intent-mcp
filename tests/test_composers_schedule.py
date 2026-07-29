@@ -87,3 +87,44 @@ def _mock_find_meeting_times_response():
             }
         ]
     }
+
+
+class TestScheduleTimezoneAware:
+    @pytest.mark.asyncio
+    async def test_schedule_slot_is_offset_aware_with_tz(self):
+        """Slots must carry offset-aware ISO strings and sibling tz keys."""
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={
+            "meetingTimeSuggestions": [
+                {
+                    "meetingTimeSlot": {
+                        "start": {
+                            "dateTime": "2026-07-29T14:00:00.0000000",
+                            "timeZone": "UTC",
+                        },
+                        "end": {
+                            "dateTime": "2026-07-29T14:30:00.0000000",
+                            "timeZone": "UTC",
+                        },
+                    },
+                    "confidence": 90.0,
+                    "attendeeAvailability": [],
+                }
+            ]
+        })
+        permissions = PermissionRegistry(["Calendars.ReadWrite"])
+
+        data, _markdown = await compose_schedule(
+            client=client,
+            permissions=permissions,
+            attendees=[{"email": "bob@example.com", "name": "Bob"}],
+            duration_minutes=30,
+            constraints=None,
+        )
+
+        slot = data["suggestions"][0]
+        assert slot["start"] == "2026-07-29T14:00:00+00:00"
+        assert slot["end"] == "2026-07-29T14:30:00+00:00"
+        assert slot["start_timezone"] == "UTC"
+        assert slot["end_timezone"] == "UTC"
+        assert slot["confidence"] == 0.9

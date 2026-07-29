@@ -7,7 +7,7 @@ carries the current composer output verbatim.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -28,8 +28,10 @@ class EventSummary(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     subject: str
-    start: datetime
-    end: datetime
+    start: date | datetime
+    end: date | datetime
+    start_timezone: str | None = None
+    end_timezone: str | None = None
     location: str | None = None
     is_online_meeting: bool = False
 

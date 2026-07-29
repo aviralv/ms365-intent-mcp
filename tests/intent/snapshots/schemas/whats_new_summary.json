@@ -5,9 +5,29 @@
       "description": "Compact summary of a single calendar event.",
       "properties": {
         "end": {
-          "format": "date-time",
-          "title": "End",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            }
+          ],
+          "title": "End"
+        },
+        "end_timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Timezone"
         },
         "is_online_meeting": {
           "default": false,
@@ -27,9 +47,29 @@
           "title": "Location"
         },
         "start": {
-          "format": "date-time",
-          "title": "Start",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            }
+          ],
+          "title": "Start"
+        },
+        "start_timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Timezone"
         },
         "subject": {
           "title": "Subject",

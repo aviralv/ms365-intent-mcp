@@ -7,7 +7,7 @@ until Task 12 refactors composers to return ``(dict, markdown)`` tuples.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
@@ -68,8 +68,10 @@ class MeetingDetail(BaseResponse):
     type: Literal["meeting_detail"] = "meeting_detail"
     id: str
     subject: str
-    start: datetime
-    end: datetime
+    start: date | datetime
+    end: date | datetime
+    start_timezone: str | None = None
+    end_timezone: str | None = None
     organizer: PersonRef
     attendees: list[AttendeeStatus]
     location: str | None = None

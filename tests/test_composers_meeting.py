@@ -229,6 +229,35 @@ class TestResolveRecordingForEvent:
         assert result["recording_url"] == "https://new"
 
 
+class TestMeetingDetailTimezones:
+    @pytest.mark.asyncio
+    async def test_meeting_detail_start_is_offset_aware(self, full_permissions):
+        """UTC event: start/end must be offset-aware ISO and carry _timezone siblings."""
+        event = {
+            "id": "utc-event",
+            "subject": "UTC Meeting",
+            "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
+            "location": {"displayName": ""},
+            "isOnlineMeeting": False,
+            "organizer": {"emailAddress": {"name": "Avi", "address": "avi@example.com"}},
+            "attendees": [],
+            "body": {"content": "", "contentType": "html"},
+        }
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=event)
+        data, _ = await compose_meeting(
+            client=client,
+            permissions=full_permissions,
+            identifier="utc-event",
+            timezone="UTC",
+        )
+        assert data["start"] == "2026-07-29T14:00:00+00:00"
+        assert data["end"] == "2026-07-29T14:30:00+00:00"
+        assert data["start_timezone"] == "UTC"
+        assert data["end_timezone"] == "UTC"
+
+
 class TestMeetingWithRecording:
     @pytest.mark.asyncio
     async def test_meeting_output_includes_recording_when_available(self, full_permissions):
