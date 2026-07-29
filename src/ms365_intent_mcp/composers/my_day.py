@@ -7,6 +7,7 @@ from ..formatters import (
     format_mail_summary_markdown,
     format_section_error,
     format_teams_activity_markdown,
+    graph_dt_to_aware_iso,
 )
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
@@ -123,17 +124,16 @@ async def compose_my_day(
     markdown = "\n\n".join(sections)
 
     # Build structured data dict
-    def _parse_dt(dt_str: str) -> str:
-        return dt_str
-
     event_list = []
     for e in events_raw:
-        start_val = e.get("start", {}).get("dateTime", "")
-        end_val = e.get("end", {}).get("dateTime", "")
+        start_iso, start_tz = graph_dt_to_aware_iso(e.get("start", {}))
+        end_iso, end_tz = graph_dt_to_aware_iso(e.get("end", {}))
         event_list.append({
             "subject": e.get("subject", ""),
-            "start": start_val,
-            "end": end_val,
+            "start": start_iso,
+            "end": end_iso,
+            "start_timezone": start_tz,
+            "end_timezone": end_tz,
             "location": e.get("location", {}).get("displayName") or None,
             "is_online_meeting": bool(e.get("isOnlineMeeting")),
         })

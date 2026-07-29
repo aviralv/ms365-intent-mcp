@@ -243,3 +243,49 @@ class TestWhatsNewIsReadPropagation:
 
         assert len(data["mail"]) == 1
         assert data["mail"][0]["is_read"] is False
+
+
+class TestWhatsNewEventTimezones:
+    @pytest.mark.asyncio
+    async def test_event_start_is_offset_aware_with_tz_sibling(self, full_permissions):
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if "calendarView" in endpoint:
+                return {"value": [
+                    {
+                        "subject": "Standup",
+                        "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
+                        "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
+                        "location": {"displayName": ""},
+                        "isOnlineMeeting": True,
+                    },
+                    {
+                        "subject": "Offsite",
+                        "isAllDay": True,
+                        "start": {"dateTime": "2026-07-30", "timeZone": "UTC"},
+                        "end": {"dateTime": "2026-07-31", "timeZone": "UTC"},
+                        "location": {"displayName": ""},
+                        "isOnlineMeeting": False,
+                    },
+                ]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        data, _ = await compose_whats_new(
+            client=client,
+            permissions=full_permissions,
+            since="2026-07-29T00:00:00",
+            scope="calendar",
+            timezone="UTC",
+        )
+
+        ev = data["events"][0]
+        assert ev["start"] == "2026-07-29T14:00:00+00:00"
+        assert ev["start_timezone"] == "UTC"
+        assert ev["end_timezone"] == "UTC"
+
+        allday = data["events"][1]
+        assert allday["start"] == "2026-07-30"
+        assert allday["start_timezone"] == "UTC"

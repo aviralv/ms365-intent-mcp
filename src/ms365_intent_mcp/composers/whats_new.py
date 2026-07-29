@@ -8,6 +8,7 @@ from ..formatters import (
     format_mail_summary_markdown,
     format_section_error,
     format_teams_activity_markdown,
+    graph_dt_to_aware_iso,
 )
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
@@ -133,10 +134,14 @@ async def compose_whats_new(
     # Build structured data
     event_list = []
     for e in events_raw:
+        start_iso, start_tz = graph_dt_to_aware_iso(e.get("start", {}))
+        end_iso, end_tz = graph_dt_to_aware_iso(e.get("end", {}))
         event_list.append({
             "subject": e.get("subject", ""),
-            "start": e.get("start", {}).get("dateTime", ""),
-            "end": e.get("end", {}).get("dateTime", ""),
+            "start": start_iso,
+            "end": end_iso,
+            "start_timezone": start_tz,
+            "end_timezone": end_tz,
             "location": e.get("location", {}).get("displayName") or None,
             "is_online_meeting": bool(e.get("isOnlineMeeting")),
         })
