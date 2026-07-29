@@ -253,6 +253,7 @@ class TestMeetingDetailTimezones:
             timezone="UTC",
         )
         assert data["start"] == "2026-07-29T14:00:00+00:00"
+        assert data["end"] == "2026-07-29T14:30:00+00:00"
         assert data["start_timezone"] == "UTC"
         assert data["end_timezone"] == "UTC"
 

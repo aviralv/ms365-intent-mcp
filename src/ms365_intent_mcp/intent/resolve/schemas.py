@@ -114,8 +114,8 @@ class MeetingContent(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["meeting"]
     subject: str
-    start: datetime | date | None = None
-    end: datetime | date | None = None
+    start: date | datetime | None = None
+    end: date | datetime | None = None
     start_timezone: str | None = None
     end_timezone: str | None = None
 

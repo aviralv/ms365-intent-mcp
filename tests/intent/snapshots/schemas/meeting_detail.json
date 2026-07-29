@@ -186,11 +186,11 @@
     "end": {
       "anyOf": [
         {
-          "format": "date-time",
+          "format": "date",
           "type": "string"
         },
         {
-          "format": "date",
+          "format": "date-time",
           "type": "string"
         }
       ],
@@ -256,11 +256,11 @@
     "start": {
       "anyOf": [
         {
-          "format": "date-time",
+          "format": "date",
           "type": "string"
         },
         {
-          "format": "date",
+          "format": "date-time",
           "type": "string"
         }
       ],

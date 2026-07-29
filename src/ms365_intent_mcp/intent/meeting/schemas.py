@@ -68,8 +68,8 @@ class MeetingDetail(BaseResponse):
     type: Literal["meeting_detail"] = "meeting_detail"
     id: str
     subject: str
-    start: datetime | date
-    end: datetime | date
+    start: date | datetime
+    end: date | datetime
     start_timezone: str | None = None
     end_timezone: str | None = None
     organizer: PersonRef

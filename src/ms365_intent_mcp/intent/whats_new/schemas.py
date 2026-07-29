@@ -28,8 +28,8 @@ class EventSummary(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     subject: str
-    start: datetime | date
-    end: datetime | date
+    start: date | datetime
+    end: date | datetime
     start_timezone: str | None = None
     end_timezone: str | None = None
     location: str | None = None
