@@ -1,6 +1,13 @@
 """Markdown formatters for all tool responses."""
 
+import datetime as _dt
+import logging
 import re
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from .windows_tz import windows_to_iana
+
+logger = logging.getLogger(__name__)
 
 
 _MAX_EMAIL_BODY_BYTES = 200 * 1024
@@ -71,6 +78,61 @@ def _anchor_to_markdown(match: re.Match) -> str:
     if not text or text == url:
         return url
     return f"[{text}]({url})"
+
+
+def graph_dt_to_aware_iso(dt: dict) -> tuple[str | None, str | None]:
+    """Convert a Graph {dateTime, timeZone} pair to (offset-aware ISO, tz name).
+
+    Graph returns naive wall-clock strings under `Prefer: outlook.timezone`; the
+    zone lives in the sibling field. This makes the structured value
+    self-describing so consumers can't mistake it for local time.
+
+    - Empty/{} pair                → (None, None)
+    - Date-only (all-day, len 10)  → (date_string, tz_name)   [no offset — a date
+                                       has no instant]
+    - Timed + resolvable zone      → (localized offset ISO, tz_name)
+    - Timed + unresolvable zone    → (naive ISO, tz_name) + logged warning
+
+    fold=0 is used for DST-ambiguous wall-clocks; zoneinfo does not raise.
+    """
+    raw = (dt or {}).get("dateTime")
+    if not raw:
+        return None, None
+    tz_name = (dt or {}).get("timeZone")
+    s = raw.strip()
+
+    # All-day events arrive as bare dates — pass through, no instant to localize.
+    if len(s) == 10:
+        return s, tz_name
+
+    # Strip Graph's 7-digit fractional seconds so fromisoformat accepts it.
+    core = s[:19] if len(s) >= 19 else s
+    try:
+        naive = _dt.datetime.fromisoformat(core)
+    except ValueError:
+        logger.warning("graph_dt_to_aware_iso: unparseable dateTime %r", raw)
+        return core, tz_name
+
+    zone = None
+    if tz_name:
+        if tz_name == "UTC":
+            zone = _dt.timezone.utc
+        else:
+            iana = windows_to_iana(tz_name) or tz_name
+            try:
+                zone = ZoneInfo(iana)
+            except (ZoneInfoNotFoundError, ValueError):
+                zone = None
+
+    if zone is None:
+        if tz_name:
+            logger.warning(
+                "graph_dt_to_aware_iso: could not resolve timezone %r; "
+                "emitting naive timestamp", tz_name,
+            )
+        return core, tz_name
+
+    return naive.replace(tzinfo=zone).isoformat(), tz_name
 
 
 def _format_event_time_range(start: dict, end: dict) -> str:
