@@ -132,7 +132,7 @@ def graph_dt_to_aware_iso(dt: dict) -> tuple[str | None, str | None]:
             )
         return core, tz_name
 
-    return naive.replace(tzinfo=zone).isoformat(), tz_name
+    return naive.replace(tzinfo=zone, fold=0).isoformat(), tz_name
 
 
 def _format_event_time_range(start: dict, end: dict) -> str:
