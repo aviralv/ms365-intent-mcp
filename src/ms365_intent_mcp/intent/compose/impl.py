@@ -87,6 +87,22 @@ async def _handle_email(
         data, markdown = await compose_action(
             client, permissions, ComposeType.EMAIL_DRAFT, params,
         )
+    elif payload.mode == "forward":
+        params = {
+            "message_id": payload.in_reply_to_message_id,
+            "body": payload.body,
+            "to": [
+                {"email": r.email, "name": r.name or r.email}
+                for r in (payload.to or [])
+            ],
+        }
+        if payload.cc:
+            params["cc"] = [
+                {"email": r.email, "name": r.name or r.email} for r in payload.cc
+            ]
+        data, markdown = await compose_action(
+            client, permissions, ComposeType.EMAIL_FORWARD, params,
+        )
     else:
         params = {
             "message_id": payload.in_reply_to_message_id,
