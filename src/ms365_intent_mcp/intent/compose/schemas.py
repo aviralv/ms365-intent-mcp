@@ -39,10 +39,12 @@ class ComposeEmail(BaseModel):
     # new / forward:
     to: list[Recipient] | None = None
     cc: list[Recipient] | None = None
+    # new only:
     subject: str | None = None
     importance: Literal["low", "normal", "high"] = "normal"
     # reply / reply_all / forward:
     in_reply_to_message_id: str | None = None
+    # reply / reply_all only:
     comment: str | None = None
     idempotency_key: str | None = Field(default=None, min_length=1)
 
