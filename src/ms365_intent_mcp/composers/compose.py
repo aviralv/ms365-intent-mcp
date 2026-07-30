@@ -1,6 +1,7 @@
 """compose composer — dispatches to email_draft, reply_draft, event, teams_message."""
 
 import html
+import urllib.parse
 from enum import Enum
 
 from ..formatters import (
@@ -112,7 +113,8 @@ async def _create_reply_draft(client: GraphClient, params: dict) -> tuple[dict, 
     if params.get("comment"):
         payload["comment"] = params["comment"]
 
-    draft = await client.post(f"/me/messages/{message_id}/{endpoint}", payload)
+    quoted_id = urllib.parse.quote(message_id, safe="")
+    draft = await client.post(f"/me/messages/{quoted_id}/{endpoint}", payload)
     data = {
         "draft_id": draft.get("id", ""),
         "subject": draft.get("subject", ""),
@@ -145,7 +147,8 @@ async def _forward_email_draft(client: GraphClient, params: dict) -> tuple[dict,
         message["body"] = {"contentType": "HTML", "content": html.escape(params["body"])}
 
     draft = await client.post(
-        f"/me/messages/{params['message_id']}/createForward", {"message": message}
+        f"/me/messages/{urllib.parse.quote(params['message_id'], safe='')}/createForward",
+        {"message": message},
     )
     data = {
         "draft_id": draft.get("id", ""),
@@ -216,7 +219,7 @@ async def _forward_event(client: GraphClient, params: dict) -> tuple[dict, str]:
     if params.get("comment"):
         body["Comment"] = params["comment"]
 
-    await client.post(f"/me/events/{params['event_id']}/forward", body)
+    await client.post(f"/me/events/{urllib.parse.quote(params['event_id'], safe='')}/forward", body)
     to_out = [{"email": r["email"], "name": r.get("name", r["email"])} for r in params["to"]]
     to_names = [r["name"] for r in to_out]
     data = {"to": to_out}

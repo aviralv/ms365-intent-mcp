@@ -164,6 +164,50 @@ class TestComposeEventForward:
         assert data["to"][0]["email"] == "dana@contoso.com"
 
 
+class TestEndpointIdEncoding:
+    """Graph message/event IDs contain '/', '+', '=' — they must be percent-encoded
+    into the URL path, or the request 404s (RequestBroker ParseUri error)."""
+
+    RAW_ID = "AAMk/abc+def=="
+    ENC_ID = "AAMk%2Fabc%2Bdef%3D%3D"
+
+    @pytest.mark.asyncio
+    async def test_reply_encodes_message_id(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={"id": "d", "subject": "Re: x", "toRecipients": []})
+        await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.REPLY_DRAFT,
+            params={"message_id": self.RAW_ID, "body": "hi", "reply_all": True},
+        )
+        assert client.post.call_args.args[0] == f"/me/messages/{self.ENC_ID}/createReplyAll"
+
+    @pytest.mark.asyncio
+    async def test_email_forward_encodes_message_id(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={"id": "d", "subject": "FW: x", "toRecipients": []})
+        await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.EMAIL_FORWARD,
+            params={"message_id": self.RAW_ID, "body": "hi", "to": [{"email": "a@b.com"}]},
+        )
+        assert client.post.call_args.args[0] == f"/me/messages/{self.ENC_ID}/createForward"
+
+    @pytest.mark.asyncio
+    async def test_event_forward_encodes_event_id(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={})
+        await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.EVENT_FORWARD,
+            params={"event_id": self.RAW_ID, "to": [{"email": "a@b.com"}]},
+        )
+        assert client.post.call_args.args[0] == f"/me/events/{self.ENC_ID}/forward"
+
+
 class TestComposeMissingPermission:
     @pytest.mark.asyncio
     async def test_no_mail_scope(self):
