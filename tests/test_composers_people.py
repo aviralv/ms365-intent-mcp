@@ -419,9 +419,9 @@ class TestUsersDirectoryTier:
 
         async def _get(endpoint, params=None, headers=None):
             if "/me/people" in endpoint:
-                return {"value": []}
+                return {"value": [{"displayName": "No Email Person"}]}
             if "/me/contacts" in endpoint:
-                return {"value": []}
+                return {"value": [{"displayName": "No Email Person"}]}
             if "/users" in endpoint:
                 assert headers and headers.get("ConsistencyLevel") == "eventual"
                 return {"value": [{
