@@ -375,3 +375,38 @@ class TestPeopleChatFallback:
         _, markdown = await compose_people(
             client=client, permissions=full_permissions, query="Yevhen")
         assert "Yevhen Kushnirenko" in markdown
+
+
+class TestLookupQueryEscaping:
+    @pytest.mark.asyncio
+    async def test_contacts_query_is_escaped(self):
+        from ms365_intent_mcp.composers.people import _lookup_person
+        client = AsyncMock()
+        captured = {}
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/contacts" in endpoint:
+                captured["search"] = params["$search"]
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read"])  # no People.Read → skip /me/people
+        await _lookup_person(client, perms, "O'Malley")
+        assert "O''Malley" in captured["search"]
+
+    @pytest.mark.asyncio
+    async def test_people_select_uses_scored_email_addresses(self):
+        from ms365_intent_mcp.composers.people import _lookup_person
+        client = AsyncMock()
+        captured = {}
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                captured["select"] = params["$select"]
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["People.Read"])
+        await _lookup_person(client, perms, "alice")
+        assert "scoredEmailAddresses" in captured["select"]
+        assert "emailAddresses" not in captured["select"].replace("scoredEmailAddresses", "")

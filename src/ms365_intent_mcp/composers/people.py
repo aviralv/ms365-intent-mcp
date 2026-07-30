@@ -171,12 +171,13 @@ async def _lookup_person(
     permissions: PermissionRegistry,
     query: str,
 ) -> list[dict]:
+    escaped = _escape_odata(query)
     if permissions.has("People.Read"):
         try:
             result = await client.get("/me/people", params={
-                "$search": query,
+                "$search": f'"{escaped}"',
                 "$top": "5",
-                "$select": "displayName,jobTitle,emailAddresses,phones",
+                "$select": "displayName,jobTitle,scoredEmailAddresses",
             })
             return (result or {}).get("value", [])
         except GraphAPIError:
@@ -184,7 +185,7 @@ async def _lookup_person(
 
     try:
         result = await client.get("/me/contacts", params={
-            "$search": f'"{query}"',
+            "$search": f'"{escaped}"',
             "$top": "5",
             "$select": "displayName,emailAddresses,jobTitle",
         })
