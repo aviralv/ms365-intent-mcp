@@ -4,8 +4,6 @@ import html
 import urllib.parse
 from enum import Enum
 
-from ..resolver import normalize_message_id
-
 from ..formatters import (
     format_draft_created_markdown,
     format_event_created_markdown,
@@ -13,6 +11,7 @@ from ..formatters import (
 )
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
+from ..resolver import normalize_message_id
 
 
 class ComposeType(str, Enum):
