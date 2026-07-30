@@ -108,6 +108,110 @@ class TestComposeTeamsMessage:
         assert "✅" in markdown or "sent" in markdown.lower()
 
 
+class TestComposeEmailForward:
+    @pytest.mark.asyncio
+    async def test_creates_forward_draft(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={
+            "subject": "FW: Hello",
+            "id": "draft-9",
+            "toRecipients": [{"emailAddress": {"name": "Carol", "address": "carol@example.com"}}],
+        })
+
+        result = await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.EMAIL_FORWARD,
+            params={
+                "message_id": "msg-777",
+                "body": "See <below> & above",
+                "to": [{"email": "carol@example.com", "name": "Carol"}],
+            },
+        )
+        _, markdown = result
+        assert "✅" in markdown
+        endpoint = client.post.call_args.args[0]
+        body = client.post.call_args.args[1]
+        assert endpoint == "/me/messages/msg-777/createForward"
+        assert body["message"]["toRecipients"][0]["emailAddress"]["address"] == "carol@example.com"
+        assert body["message"]["body"]["content"] == "See &lt;below&gt; &amp; above"
+
+
+class TestComposeEventForward:
+    @pytest.mark.asyncio
+    async def test_forwards_event(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={})  # 202, empty body
+
+        result = await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.EVENT_FORWARD,
+            params={
+                "event_id": "AAMkEVT",
+                "to": [{"email": "dana@contoso.com", "name": "Dana Swope"}],
+                "comment": "Hope you can make it",
+            },
+        )
+        data, markdown = result
+        endpoint = client.post.call_args.args[0]
+        body = client.post.call_args.args[1]
+        assert endpoint == "/me/events/AAMkEVT/forward"
+        assert body["ToRecipients"][0]["EmailAddress"]["Address"] == "dana@contoso.com"
+        assert body["ToRecipients"][0]["EmailAddress"]["Name"] == "Dana Swope"
+        assert body["Comment"] == "Hope you can make it"
+        assert "✅" in markdown
+        assert data["to"][0]["email"] == "dana@contoso.com"
+
+
+class TestEndpointIdEncoding:
+    """Graph message/event IDs from OWA are standard base64 ('/', '+', '=').
+    They must be normalized to Outlook's URL-safe form ('/'→'-', '+'→'_') — the
+    form Graph's REST paths accept — before percent-encoding into the path.
+    Percent-encoding a raw '/' to '%2F' 404s (RequestBroker ParseUri). Only the
+    trailing '=' padding survives normalization and gets percent-encoded.
+    """
+
+    RAW_ID = "AAMk/abc+def=="
+    ENC_ID = "AAMk-abc_def%3D%3D"
+
+    @pytest.mark.asyncio
+    async def test_reply_encodes_message_id(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={"id": "d", "subject": "Re: x", "toRecipients": []})
+        await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.REPLY_DRAFT,
+            params={"message_id": self.RAW_ID, "body": "hi", "reply_all": True},
+        )
+        assert client.post.call_args.args[0] == f"/me/messages/{self.ENC_ID}/createReplyAll"
+
+    @pytest.mark.asyncio
+    async def test_email_forward_encodes_message_id(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={"id": "d", "subject": "FW: x", "toRecipients": []})
+        await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.EMAIL_FORWARD,
+            params={"message_id": self.RAW_ID, "body": "hi", "to": [{"email": "a@b.com"}]},
+        )
+        assert client.post.call_args.args[0] == f"/me/messages/{self.ENC_ID}/createForward"
+
+    @pytest.mark.asyncio
+    async def test_event_forward_encodes_event_id(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={})
+        await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.EVENT_FORWARD,
+            params={"event_id": self.RAW_ID, "to": [{"email": "a@b.com"}]},
+        )
+        assert client.post.call_args.args[0] == f"/me/events/{self.ENC_ID}/forward"
+
+
 class TestComposeMissingPermission:
     @pytest.mark.asyncio
     async def test_no_mail_scope(self):

@@ -328,6 +328,21 @@ def format_event_created_markdown(event: dict) -> str:
     return "\n".join(lines)
 
 
+def format_event_forwarded_markdown(to_names: list[str], comment: str | None) -> str:
+    lines = [
+        "✅ Meeting invite forwarded",
+        f"**To:** {', '.join(to_names)}",
+    ]
+    if comment:
+        lines.append(f"**Comment:** {comment}")
+    lines.append("")
+    lines.append(
+        "The invite was sent immediately. "
+        "The organizer is notified and the recipient added to their copy."
+    )
+    return "\n".join(lines)
+
+
 def format_section_error(section: str, reason: str) -> str:
     return f"### {section}\n⚠️  {section} unavailable — {reason}."
 

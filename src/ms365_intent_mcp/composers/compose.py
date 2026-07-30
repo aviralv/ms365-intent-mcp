@@ -1,23 +1,34 @@
 """compose composer — dispatches to email_draft, reply_draft, event, teams_message."""
 
+import html
+import urllib.parse
 from enum import Enum
 
-from ..formatters import format_draft_created_markdown, format_event_created_markdown
+from ..formatters import (
+    format_draft_created_markdown,
+    format_event_created_markdown,
+    format_event_forwarded_markdown,
+)
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
+from ..resolver import normalize_message_id
 
 
 class ComposeType(str, Enum):
     EMAIL_DRAFT = "email_draft"
     REPLY_DRAFT = "reply_draft"
+    EMAIL_FORWARD = "email_forward"
     EVENT = "event"
+    EVENT_FORWARD = "event_forward"
     TEAMS_MESSAGE = "teams_message"
 
 
 SCOPE_REQUIREMENTS = {
     ComposeType.EMAIL_DRAFT: "Mail.ReadWrite",
     ComposeType.REPLY_DRAFT: "Mail.ReadWrite",
+    ComposeType.EMAIL_FORWARD: "Mail.ReadWrite",
     ComposeType.EVENT: "Calendars.ReadWrite",
+    ComposeType.EVENT_FORWARD: "Calendars.ReadWrite",
     ComposeType.TEAMS_MESSAGE: "ChatMessage.Send",
 }
 
@@ -37,8 +48,12 @@ async def compose_action(
         return await _create_email_draft(client, params)
     elif action_type == ComposeType.REPLY_DRAFT:
         return await _create_reply_draft(client, params)
+    elif action_type == ComposeType.EMAIL_FORWARD:
+        return await _forward_email_draft(client, params)
     elif action_type == ComposeType.EVENT:
         return await _create_event(client, params)
+    elif action_type == ComposeType.EVENT_FORWARD:
+        return await _forward_event(client, params)
     elif action_type == ComposeType.TEAMS_MESSAGE:
         return await _send_teams_message(client, params)
     else:
@@ -99,12 +114,51 @@ async def _create_reply_draft(client: GraphClient, params: dict) -> tuple[dict, 
     if params.get("comment"):
         payload["comment"] = params["comment"]
 
-    draft = await client.post(f"/me/messages/{message_id}/{endpoint}", payload)
+    quoted_id = urllib.parse.quote(normalize_message_id(message_id), safe="")
+    draft = await client.post(f"/me/messages/{quoted_id}/{endpoint}", payload)
     data = {
         "draft_id": draft.get("id", ""),
         "subject": draft.get("subject", ""),
         "to": [
             {"email": r.get("emailAddress", {}).get("address", ""), "name": r.get("emailAddress", {}).get("name", "")}
+            for r in draft.get("toRecipients", [])
+        ],
+        "web_link": draft.get("webLink", ""),
+    }
+    return data, format_draft_created_markdown(draft)
+
+
+async def _forward_email_draft(client: GraphClient, params: dict) -> tuple[dict, str]:
+    if not params.get("message_id"):
+        return {}, "❌ Missing required field: 'message_id'"
+    if not params.get("to"):
+        return {}, "❌ Missing required field: 'to' (recipients list)"
+    message = {
+        "toRecipients": [
+            {"emailAddress": {"address": r["email"], "name": r.get("name", r["email"])}}
+            for r in params["to"]
+        ],
+    }
+    if params.get("cc"):
+        message["ccRecipients"] = [
+            {"emailAddress": {"address": r["email"], "name": r.get("name", r["email"])}}
+            for r in params["cc"]
+        ]
+    if params.get("body"):
+        message["body"] = {"contentType": "HTML", "content": html.escape(params["body"])}
+
+    draft = await client.post(
+        f"/me/messages/{urllib.parse.quote(normalize_message_id(params['message_id']), safe='')}/createForward",
+        {"message": message},
+    )
+    data = {
+        "draft_id": draft.get("id", ""),
+        "subject": draft.get("subject", ""),
+        "to": [
+            {
+                "email": r.get("emailAddress", {}).get("address", ""),
+                "name": r.get("emailAddress", {}).get("name", ""),
+            }
             for r in draft.get("toRecipients", [])
         ],
         "web_link": draft.get("webLink", ""),
@@ -150,6 +204,27 @@ async def _create_event(client: GraphClient, params: dict) -> tuple[dict, str]:
         "join_url": join_url or None,
     }
     return data, format_event_created_markdown(event)
+
+
+async def _forward_event(client: GraphClient, params: dict) -> tuple[dict, str]:
+    if not params.get("event_id"):
+        return {}, "❌ Missing required field: 'event_id'"
+    if not params.get("to"):
+        return {}, "❌ Missing required field: 'to' (recipients list)"
+    body: dict = {
+        "ToRecipients": [
+            {"EmailAddress": {"Address": r["email"], "Name": r.get("name", r["email"])}}
+            for r in params["to"]
+        ],
+    }
+    if params.get("comment"):
+        body["Comment"] = params["comment"]
+
+    await client.post(f"/me/events/{urllib.parse.quote(normalize_message_id(params['event_id']), safe='')}/forward", body)
+    to_out = [{"email": r["email"], "name": r.get("name", r["email"])} for r in params["to"]]
+    to_names = [r["name"] for r in to_out]
+    data = {"to": to_out}
+    return data, format_event_forwarded_markdown(to_names, params.get("comment"))
 
 
 async def _send_teams_message(client: GraphClient, params: dict) -> tuple[dict, str]:

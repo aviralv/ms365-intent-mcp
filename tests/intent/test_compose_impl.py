@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ms365_intent_mcp.intent._helpers import idempotency_clear, idempotency_lookup, idempotency_store
-from ms365_intent_mcp.intent.compose.impl import _compose_impl
+from ms365_intent_mcp.intent.compose.impl import _compose_impl, _handle_email
 from ms365_intent_mcp.intent.compose.schemas import (
     ComposeEmail,
     ComposeEvent,
@@ -335,3 +335,48 @@ class TestWrapErrors:
         assert result.code == "graph_api_error"
         assert "KeyError" in result.message
         assert result.retryable is False
+
+
+class TestHandleEventForward:
+    @pytest.mark.asyncio
+    async def test_handle_event_forward_returns_event_forwarded(self):
+        from ms365_intent_mcp.intent.compose.impl import _handle_event
+        from ms365_intent_mcp.intent.compose.schemas import ComposeEvent
+        from ms365_intent_mcp.permissions import PermissionRegistry
+
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={})
+        perms = PermissionRegistry(["Calendars.ReadWrite"])
+        payload = ComposeEvent.model_validate({
+            "type": "event", "mode": "forward",
+            "event_id": "AAMkEVT",
+            "to": [{"email": "dana@contoso.com", "name": "Dana Swope"}],
+            "comment": "please join",
+        })
+        resp = await _handle_event(payload, client, perms, "Europe/Berlin")
+        assert resp.type == "event_forwarded"
+        assert resp.to[0].email == "dana@contoso.com"
+        assert client.post.call_args.args[0] == "/me/events/AAMkEVT/forward"
+
+
+class TestHandleEmailForward:
+    @pytest.mark.asyncio
+    async def test_handle_email_forward_routes_to_createforward(self):
+        from ms365_intent_mcp.permissions import PermissionRegistry
+
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={
+            "id": "d-1", "subject": "FW: X",
+            "toRecipients": [{"emailAddress": {"address": "z@z.com", "name": "Z"}}],
+            "webLink": "https://outlook.office.com/mail/x",
+        })
+        perms = PermissionRegistry(["Mail.ReadWrite"])
+        payload = ComposeEmail.model_validate({
+            "type": "email", "mode": "forward",
+            "in_reply_to_message_id": "m-1",
+            "to": [{"email": "z@z.com", "name": "Z"}],
+            "body": "fyi",
+        })
+        resp = await _handle_email(payload, client, perms)
+        assert resp.type == "email_draft_created"
+        assert client.post.call_args.args[0] == "/me/messages/m-1/createForward"

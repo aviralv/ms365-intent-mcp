@@ -13,6 +13,20 @@ class UrlParseError(Exception):
     pass
 
 
+def normalize_message_id(msg_id: str) -> str:
+    """Normalize an Outlook message/event ID to the form Graph's REST paths accept.
+
+    Outlook exposes IDs in two encodings. Client "copy link" (mail/id/<id>) and
+    Search `hitId` use a URL-safe form ('-'/'_'). OWA (owa/?ItemID=<id>) uses
+    standard base64 ('+'/'/'). Graph's /me/messages/{id} and /me/events/{id}
+    accept the URL-safe form only — a raw '/' spliced into the path (even
+    percent-encoded to '%2F') 404s with RequestBroker ParseUri. Map '/'→'-' and
+    '+'→'_'. Idempotent on already-URL-safe IDs (no '/' or '+' to replace), so
+    it is safe to apply at every ID-consuming boundary.
+    """
+    return msg_id.replace("/", "-").replace("+", "_")
+
+
 @dataclass
 class ResolvedUrl:
     url_type: str
@@ -215,16 +229,9 @@ def _build_endpoint(url_type: str, url: str, match: re.Match, extra: dict[str, s
     if url_type == "meeting":
         return "/me/calendarView"
     if url_type == "email":
-        msg_id = match.group(1)
-        # Outlook exposes message IDs in two encodings. Client "copy link"
-        # (mail/id/<id>) uses a URL-safe form ('-'/'_'). OWA (owa/?ItemID=<id>)
-        # uses standard base64 ('+'/'/'). Graph accepts the URL-safe form only.
-        # Normalize: '/'→'-', '+'→'_'. This mapping is Outlook-specific — it
-        # matches what Search's `hitId` returns for the same underlying message.
         # `resolve_url` already unquoted the incoming URL, so any '%2F' is now
         # a raw '/' at this point.
-        normalized = msg_id.replace("/", "-").replace("+", "_")
-        return f"/me/messages/{urllib.parse.quote(normalized, safe='')}"
+        return f"/me/messages/{urllib.parse.quote(normalize_message_id(match.group(1)), safe='')}"
     if url_type == "sharepoint_page":
         parsed = urllib.parse.urlparse(url)
         host = parsed.hostname or ""
