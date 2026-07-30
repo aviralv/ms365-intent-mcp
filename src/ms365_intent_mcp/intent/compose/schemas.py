@@ -48,13 +48,12 @@ class ComposeEmail(BaseModel):
 
     @model_validator(mode="after")
     def _check_mode_fields(self) -> "ComposeEmail":
-        if self.mode == "forward":
-            raise ValueError("mode='forward' is not yet supported — will land in v0.8.1")
         needs_parent = self.mode in ("reply", "reply_all", "forward")
-        needs_new = self.mode == "new"
         if needs_parent and not self.in_reply_to_message_id:
             raise ValueError(f"mode='{self.mode}' requires in_reply_to_message_id")
-        if needs_new and not (self.to and self.subject):
+        if self.mode == "forward" and not self.to:
+            raise ValueError("mode='forward' requires 'to' (at least one recipient)")
+        if self.mode == "new" and not (self.to and self.subject):
             raise ValueError("mode='new' requires both 'to' and 'subject'")
         return self
 

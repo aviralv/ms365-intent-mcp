@@ -55,14 +55,33 @@ class TestComposeEmail:
                 "body": "Reply body",
             })
 
-    def test_forward_mode_not_supported(self):
-        with pytest.raises(ValidationError, match="not yet supported"):
+    def test_forward_requires_message_id(self):
+        with pytest.raises(ValidationError, match="requires in_reply_to_message_id"):
+            ComposeEmail.model_validate({
+                "type": "email",
+                "mode": "forward",
+                "to": [{"email": "a@b.com"}],
+                "body": "FYI",
+            })
+
+    def test_forward_requires_to(self):
+        with pytest.raises(ValidationError, match="requires .*'to'"):
             ComposeEmail.model_validate({
                 "type": "email",
                 "mode": "forward",
                 "in_reply_to_message_id": "AAM123",
-                "body": "Forwarded content",
+                "body": "FYI",
             })
+
+    def test_forward_valid(self):
+        m = ComposeEmail.model_validate({
+            "type": "email",
+            "mode": "forward",
+            "in_reply_to_message_id": "AAM123",
+            "to": [{"email": "a@b.com"}],
+            "body": "FYI",
+        })
+        assert m.mode == "forward"
 
     def test_extra_field_forbidden(self):
         with pytest.raises(ValidationError):
