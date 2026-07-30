@@ -64,10 +64,13 @@ async def compose_people(
 
     person = people[0]
     display_name = person.get("displayName", "")
-    email_addr = ""
-    email_addresses = person.get("emailAddresses", [])
-    if email_addresses:
-        email_addr = email_addresses[0].get("address", "")
+    # Ambiguity fail-safe: >1 candidate from the resolving tier → withhold
+    # the structured email (a forward would consume it). Single confident
+    # hit → use its email. Email extraction handles all Graph shapes.
+    if len(people) > 1:
+        email_addr = ""
+    else:
+        email_addr = _extract_email(person)
 
     recent_emails: list[dict] = []
     if email_addr and permissions.has("Mail.Read"):
@@ -197,23 +200,45 @@ async def _lookup_person(
     query: str,
 ) -> list[dict]:
     escaped = _escape_odata(query)
-    if permissions.has("People.Read"):
+
+    async def _people_tier() -> list[dict]:
+        if not permissions.has("People.Read"):
+            return []
         try:
-            result = await client.get("/me/people", params={
-                "$search": f'"{escaped}"',
-                "$top": "5",
+            r = await client.get("/me/people", params={
+                "$search": f'"{escaped}"', "$top": "5",
                 "$select": "displayName,jobTitle,scoredEmailAddresses",
             })
-            return (result or {}).get("value", [])
+            return (r or {}).get("value", [])
         except GraphAPIError:
-            pass
+            return []
 
-    try:
-        result = await client.get("/me/contacts", params={
-            "$search": f'"{escaped}"',
-            "$top": "5",
-            "$select": "displayName,emailAddresses,jobTitle",
-        })
-        return (result or {}).get("value", [])
-    except GraphAPIError:
-        return []
+    async def _contacts_tier() -> list[dict]:
+        try:
+            r = await client.get("/me/contacts", params={
+                "$search": f'"{escaped}"', "$top": "5",
+                "$select": "displayName,emailAddresses,jobTitle",
+            })
+            return (r or {}).get("value", [])
+        except GraphAPIError:
+            return []
+
+    async def _users_tier() -> list[dict]:
+        if not permissions.has("User.ReadBasic.All"):
+            return []
+        try:
+            r = await client.get("/users", params={
+                "$search": f'"displayName:{escaped}"', "$top": "5",
+                "$select": "displayName,mail,userPrincipalName,jobTitle",
+            }, headers={"ConsistencyLevel": "eventual"})
+            return (r or {}).get("value", [])
+        except GraphAPIError:
+            return []
+
+    # First tier that yields at least one email-bearing record wins; an
+    # email-less hit no longer short-circuits the cascade.
+    for tier in (_people_tier, _contacts_tier, _users_tier):
+        results = await tier()
+        if any(_extract_email(p) for p in results):
+            return results
+    return []

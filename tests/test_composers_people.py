@@ -412,6 +412,79 @@ class TestLookupQueryEscaping:
         assert "emailAddresses" not in captured["select"].replace("scoredEmailAddresses", "")
 
 
+class TestUsersDirectoryTier:
+    @pytest.mark.asyncio
+    async def test_users_tier_resolves_when_earlier_tiers_email_less(self):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return {"value": []}
+            if "/me/contacts" in endpoint:
+                return {"value": []}
+            if "/users" in endpoint:
+                assert headers and headers.get("ConsistencyLevel") == "eventual"
+                return {"value": [{
+                    "displayName": "Karlbowski, Marcus",
+                    "mail": "marcus.karlbowski@sap.com",
+                    "userPrincipalName": "marcus.karlbowski@sap.com",
+                }]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read", "User.ReadBasic.All", "Mail.Read"])
+        data, _ = await compose_people(client, perms, "Marcus Karlbowski")
+        assert data["email"] == "marcus.karlbowski@sap.com"
+
+    @pytest.mark.asyncio
+    async def test_users_tier_skipped_without_scope(self):
+        client = AsyncMock()
+        calls = []
+
+        async def _get(endpoint, params=None, headers=None):
+            calls.append(endpoint)
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read"])  # no User.ReadBasic.All
+        data, _ = await compose_people(client, perms, "Marcus")
+        assert not any("/users" in c for c in calls)
+        assert data["email"] == ""  # graceful: no error
+
+    @pytest.mark.asyncio
+    async def test_multiple_hits_withholds_email(self):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/users" in endpoint:
+                return {"value": [
+                    {"displayName": "Marcus Kern", "mail": "marcus.kern@sap.com"},
+                    {"displayName": "Marcus Nebel", "mail": "marcus.nebel@sap.com"},
+                ]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read", "User.ReadBasic.All"])
+        data, markdown = await compose_people(client, perms, "Marcus")
+        assert data["email"] == ""            # withheld — ambiguous
+        assert data["name"] == "Marcus Kern"  # top hit name still populated
+        assert "Marcus Nebel" in markdown     # candidates surfaced
+
+    @pytest.mark.asyncio
+    async def test_single_hit_with_email_is_confident(self):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/users" in endpoint:
+                return {"value": [{"displayName": "Karlbowski, Marcus", "mail": "marcus.karlbowski@sap.com"}]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read", "User.ReadBasic.All"])
+        data, _ = await compose_people(client, perms, "Marcus Karlbowski")
+        assert data["email"] == "marcus.karlbowski@sap.com"
+
+
 class TestExtractEmail:
     def test_contact_shape(self):
         from ms365_intent_mcp.composers.people import _extract_email
