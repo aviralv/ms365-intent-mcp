@@ -165,11 +165,15 @@ class TestComposeEventForward:
 
 
 class TestEndpointIdEncoding:
-    """Graph message/event IDs contain '/', '+', '=' — they must be percent-encoded
-    into the URL path, or the request 404s (RequestBroker ParseUri error)."""
+    """Graph message/event IDs from OWA are standard base64 ('/', '+', '=').
+    They must be normalized to Outlook's URL-safe form ('/'→'-', '+'→'_') — the
+    form Graph's REST paths accept — before percent-encoding into the path.
+    Percent-encoding a raw '/' to '%2F' 404s (RequestBroker ParseUri). Only the
+    trailing '=' padding survives normalization and gets percent-encoded.
+    """
 
     RAW_ID = "AAMk/abc+def=="
-    ENC_ID = "AAMk%2Fabc%2Bdef%3D%3D"
+    ENC_ID = "AAMk-abc_def%3D%3D"
 
     @pytest.mark.asyncio
     async def test_reply_encodes_message_id(self, full_permissions):

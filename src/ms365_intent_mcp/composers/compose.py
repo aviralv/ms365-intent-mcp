@@ -4,6 +4,8 @@ import html
 import urllib.parse
 from enum import Enum
 
+from ..resolver import normalize_message_id
+
 from ..formatters import (
     format_draft_created_markdown,
     format_event_created_markdown,
@@ -113,7 +115,7 @@ async def _create_reply_draft(client: GraphClient, params: dict) -> tuple[dict, 
     if params.get("comment"):
         payload["comment"] = params["comment"]
 
-    quoted_id = urllib.parse.quote(message_id, safe="")
+    quoted_id = urllib.parse.quote(normalize_message_id(message_id), safe="")
     draft = await client.post(f"/me/messages/{quoted_id}/{endpoint}", payload)
     data = {
         "draft_id": draft.get("id", ""),
@@ -147,7 +149,7 @@ async def _forward_email_draft(client: GraphClient, params: dict) -> tuple[dict,
         message["body"] = {"contentType": "HTML", "content": html.escape(params["body"])}
 
     draft = await client.post(
-        f"/me/messages/{urllib.parse.quote(params['message_id'], safe='')}/createForward",
+        f"/me/messages/{urllib.parse.quote(normalize_message_id(params['message_id']), safe='')}/createForward",
         {"message": message},
     )
     data = {
@@ -219,7 +221,7 @@ async def _forward_event(client: GraphClient, params: dict) -> tuple[dict, str]:
     if params.get("comment"):
         body["Comment"] = params["comment"]
 
-    await client.post(f"/me/events/{urllib.parse.quote(params['event_id'], safe='')}/forward", body)
+    await client.post(f"/me/events/{urllib.parse.quote(normalize_message_id(params['event_id']), safe='')}/forward", body)
     to_out = [{"email": r["email"], "name": r.get("name", r["email"])} for r in params["to"]]
     to_names = [r["name"] for r in to_out]
     data = {"to": to_out}
