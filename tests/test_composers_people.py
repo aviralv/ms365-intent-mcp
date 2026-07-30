@@ -375,3 +375,137 @@ class TestPeopleChatFallback:
         _, markdown = await compose_people(
             client=client, permissions=full_permissions, query="Yevhen")
         assert "Yevhen Kushnirenko" in markdown
+
+
+class TestLookupQueryEscaping:
+    @pytest.mark.asyncio
+    async def test_contacts_query_is_escaped(self):
+        from ms365_intent_mcp.composers.people import _lookup_person
+        client = AsyncMock()
+        captured = {}
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/contacts" in endpoint:
+                captured["search"] = params["$search"]
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read"])  # no People.Read → skip /me/people
+        await _lookup_person(client, perms, "O'Malley")
+        assert "O''Malley" in captured["search"]
+
+    @pytest.mark.asyncio
+    async def test_people_select_uses_scored_email_addresses(self):
+        from ms365_intent_mcp.composers.people import _lookup_person
+        client = AsyncMock()
+        captured = {}
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                captured["select"] = params["$select"]
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["People.Read"])
+        await _lookup_person(client, perms, "alice")
+        assert "scoredEmailAddresses" in captured["select"]
+        assert "emailAddresses" not in captured["select"].replace("scoredEmailAddresses", "")
+
+
+class TestUsersDirectoryTier:
+    @pytest.mark.asyncio
+    async def test_users_tier_resolves_when_earlier_tiers_email_less(self):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return {"value": [{"displayName": "No Email Person"}]}
+            if "/me/contacts" in endpoint:
+                return {"value": [{"displayName": "No Email Person"}]}
+            if "/users" in endpoint:
+                assert headers and headers.get("ConsistencyLevel") == "eventual"
+                return {"value": [{
+                    "displayName": "Karlbowski, Marcus",
+                    "mail": "marcus.karlbowski@sap.com",
+                    "userPrincipalName": "marcus.karlbowski@sap.com",
+                }]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read", "User.ReadBasic.All", "Mail.Read"])
+        data, _ = await compose_people(client, perms, "Marcus Karlbowski")
+        assert data["email"] == "marcus.karlbowski@sap.com"
+
+    @pytest.mark.asyncio
+    async def test_users_tier_skipped_without_scope(self):
+        client = AsyncMock()
+        calls = []
+
+        async def _get(endpoint, params=None, headers=None):
+            calls.append(endpoint)
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read"])  # no User.ReadBasic.All
+        data, _ = await compose_people(client, perms, "Marcus")
+        assert not any("/users" in c for c in calls)
+        assert data["email"] == ""  # graceful: no error
+
+    @pytest.mark.asyncio
+    async def test_multiple_hits_withholds_email(self):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/users" in endpoint:
+                return {"value": [
+                    {"displayName": "Marcus Kern", "mail": "marcus.kern@sap.com"},
+                    {"displayName": "Marcus Nebel", "mail": "marcus.nebel@sap.com"},
+                ]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read", "User.ReadBasic.All"])
+        data, markdown = await compose_people(client, perms, "Marcus")
+        assert data["email"] == ""            # withheld — ambiguous
+        assert data["name"] == "Marcus Kern"  # top hit name still populated
+        assert "Marcus Nebel" in markdown     # candidates surfaced
+
+    @pytest.mark.asyncio
+    async def test_single_hit_with_email_is_confident(self):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/users" in endpoint:
+                return {"value": [{"displayName": "Karlbowski, Marcus", "mail": "marcus.karlbowski@sap.com"}]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        perms = PermissionRegistry(["Contacts.Read", "User.ReadBasic.All"])
+        data, _ = await compose_people(client, perms, "Marcus Karlbowski")
+        assert data["email"] == "marcus.karlbowski@sap.com"
+
+
+class TestExtractEmail:
+    def test_contact_shape(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"emailAddresses": [{"address": "a@b.com"}]}) == "a@b.com"
+
+    def test_person_scored_shape(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"scoredEmailAddresses": [{"address": "p@b.com"}]}) == "p@b.com"
+
+    def test_users_mail_shape(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"mail": "u@b.com", "userPrincipalName": "u@b.com"}) == "u@b.com"
+
+    def test_users_upn_fallback_when_mail_null(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"mail": None, "userPrincipalName": "u@sap.com"}) == "u@sap.com"
+
+    def test_guest_upn_rejected(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"mail": None, "userPrincipalName": "x_ext.com#EXT#@t.onmicrosoft.com"}) == ""
+
+    def test_none_when_empty(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"displayName": "No Email"}) == ""

@@ -10,6 +10,26 @@ from .windows_tz import windows_to_iana
 logger = logging.getLogger(__name__)
 
 
+def _person_email(record: dict) -> str:
+    """Extract email from a people/users/contacts record.
+
+    Mirrors people.py's _extract_email — kept local to avoid a formatters↔people
+    import cycle.  Precedence: emailAddresses → scoredEmailAddresses → mail → UPN
+    (UPN excluded when it contains '#EXT#', which indicates a guest account).
+    """
+    ea = record.get("emailAddresses") or []
+    if ea and ea[0].get("address"):
+        return ea[0]["address"]
+    sea = record.get("scoredEmailAddresses") or []
+    if sea and sea[0].get("address"):
+        return sea[0]["address"]
+    mail = record.get("mail")
+    if mail:
+        return mail
+    upn = record.get("userPrincipalName") or ""
+    return upn if upn and "#EXT#" not in upn else ""
+
+
 _MAX_EMAIL_BODY_BYTES = 200 * 1024
 
 
@@ -374,15 +394,16 @@ def format_people_markdown(
     lines = [f"### People — {query}"]
     person = people[0]
     name = person.get("displayName", "Unknown")
-    emails = person.get("emailAddresses", [])
-    email_addr = emails[0].get("address", "") if emails else ""
+    email_addr = _person_email(person)
     job_title = person.get("jobTitle", "")
     lines.append(f"**{name}**" + (f" — {job_title}" if job_title else ""))
-    if email_addr:
-        lines.append(f"📧 {email_addr}")
     if len(people) > 1:
-        others = [p.get("displayName", "?") for p in people[1:4]]
-        lines.append(f"Also matched: {', '.join(others)}")
+        lines.append(f"\n⚠️ Multiple people match '{query}' — clarify which before forwarding:")
+        for i, p in enumerate(people[:5], 1):
+            pe = _person_email(p)
+            lines.append(f"  {i}. {p.get('displayName', '?')}" + (f" — {pe}" if pe else ""))
+    elif email_addr:
+        lines.append(f"📧 {email_addr}")
     if recent_emails:
         lines.append("\n**Recent mail:**")
         for m in recent_emails[:3]:

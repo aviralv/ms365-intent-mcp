@@ -39,6 +39,7 @@ class Config(BaseSettings):
             "Files.Read",
             "Contacts.Read",
             "User.Read",
+            "User.ReadBasic.All",
             "Chat.ReadWrite",
             "ChatMessage.Send",
             "Channel.ReadBasic.All",

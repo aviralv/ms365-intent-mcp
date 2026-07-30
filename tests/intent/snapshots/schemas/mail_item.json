@@ -17,6 +17,18 @@
       "title": "Is Read",
       "type": "boolean"
     },
+    "message_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message Id"
+    },
     "received": {
       "format": "date-time",
       "title": "Received",
@@ -29,6 +41,18 @@
     "subject": {
       "title": "Subject",
       "type": "string"
+    },
+    "web_link": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Web Link"
     }
   },
   "required": [

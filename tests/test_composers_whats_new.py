@@ -289,3 +289,28 @@ class TestWhatsNewEventTimezones:
         allday = data["events"][1]
         assert allday["start"] == "2026-07-30"
         assert allday["start_timezone"] == "UTC"
+
+
+@pytest.mark.asyncio
+async def test_mail_items_carry_message_id_and_web_link(full_permissions):
+    client = AsyncMock()
+
+    async def _get(endpoint, params=None, headers=None):
+        if "/me/messages" in endpoint:
+            # assert the $select requests id + webLink
+            assert "id" in params["$select"]
+            assert "webLink" in params["$select"]
+            return {"value": [{
+                "id": "AAMkMSG1",
+                "subject": "Hi",
+                "from": {"emailAddress": {"name": "Bob", "address": "bob@x.com"}},
+                "receivedDateTime": "2026-07-30T10:00:00Z",
+                "importance": "normal",
+                "webLink": "https://outlook.office365.com/owa/?ItemID=AAMkMSG1",
+            }]}
+        return {"value": []}
+
+    client.get = AsyncMock(side_effect=_get)
+    data, _ = await compose_whats_new(client, full_permissions, "2026-07-30T00:00:00Z", "mail", "UTC")
+    assert data["mail"][0]["message_id"] == "AAMkMSG1"
+    assert data["mail"][0]["web_link"] == "https://outlook.office365.com/owa/?ItemID=AAMkMSG1"

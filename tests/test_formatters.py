@@ -316,6 +316,22 @@ class TestFormatPeopleMarkdown:
         result = format_people_markdown("alice", people, [], chat)
         assert "Alice Smith" in result
 
+    def test_people_markdown_users_shape_email_and_ambiguity(self):
+        people = [
+            {"displayName": "Marcus Kern", "mail": "marcus.kern@sap.com"},
+            {"displayName": "Marcus Nebel", "mail": "marcus.nebel@sap.com"},
+        ]
+        md = format_people_markdown("Marcus", people, [], None)
+        assert "Marcus Kern" in md
+        assert "Marcus Nebel" in md
+        # ambiguity is signalled, not a bare "Also matched"
+        assert "clarify" in md.lower() or "multiple" in md.lower()
+
+    def test_people_markdown_single_users_shape_shows_email(self):
+        people = [{"displayName": "Karlbowski, Marcus", "mail": "marcus.karlbowski@sap.com"}]
+        md = format_people_markdown("Marcus Karlbowski", people, [], None)
+        assert "marcus.karlbowski@sap.com" in md
+
 
 class TestFormatSearchResultsMarkdown:
     def test_empty_results(self):
