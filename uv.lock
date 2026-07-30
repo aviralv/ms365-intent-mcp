@@ -755,11 +755,12 @@ wheels = [
 
 [[package]]
 name = "ms365-intent-mcp"
-version = "1.9.0"
+version = "1.9.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
     { name = "httpx" },
+    { name = "msal" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
@@ -778,6 +779,7 @@ dev = [
 requires-dist = [
     { name = "fastmcp", specifier = ">=3.4.2" },
     { name = "httpx", specifier = ">=0.27.0" },
+    { name = "msal", specifier = ">=1.28.0" },
     { name = "msal", marker = "extra == 'auth'", specifier = ">=1.28.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },

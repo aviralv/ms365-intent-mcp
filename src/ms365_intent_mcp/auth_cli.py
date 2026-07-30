@@ -39,7 +39,9 @@ def run_device_flow(tenant: str = DEFAULT_TENANT) -> int:
         import msal
     except ImportError:
         print(
-            "Error: msal not installed. Run: uv pip install ms365-intent-mcp[auth]",
+            "Error: msal not installed (it is a base dependency, so this "
+            "usually means a broken install). Reinstall the tool:\n"
+            "  uv tool install --force git+https://github.com/aviralv/ms365-intent-mcp.git@main",
             file=sys.stderr,
         )
         return 1
