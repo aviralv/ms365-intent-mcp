@@ -1,5 +1,6 @@
 """compose composer — dispatches to email_draft, reply_draft, event, teams_message."""
 
+import html
 from enum import Enum
 
 from ..formatters import format_draft_created_markdown, format_event_created_markdown
@@ -10,6 +11,7 @@ from ..permissions import PermissionRegistry
 class ComposeType(str, Enum):
     EMAIL_DRAFT = "email_draft"
     REPLY_DRAFT = "reply_draft"
+    EMAIL_FORWARD = "email_forward"
     EVENT = "event"
     TEAMS_MESSAGE = "teams_message"
 
@@ -17,6 +19,7 @@ class ComposeType(str, Enum):
 SCOPE_REQUIREMENTS = {
     ComposeType.EMAIL_DRAFT: "Mail.ReadWrite",
     ComposeType.REPLY_DRAFT: "Mail.ReadWrite",
+    ComposeType.EMAIL_FORWARD: "Mail.ReadWrite",
     ComposeType.EVENT: "Calendars.ReadWrite",
     ComposeType.TEAMS_MESSAGE: "ChatMessage.Send",
 }
@@ -37,6 +40,8 @@ async def compose_action(
         return await _create_email_draft(client, params)
     elif action_type == ComposeType.REPLY_DRAFT:
         return await _create_reply_draft(client, params)
+    elif action_type == ComposeType.EMAIL_FORWARD:
+        return await _forward_email_draft(client, params)
     elif action_type == ComposeType.EVENT:
         return await _create_event(client, params)
     elif action_type == ComposeType.TEAMS_MESSAGE:
@@ -100,6 +105,40 @@ async def _create_reply_draft(client: GraphClient, params: dict) -> tuple[dict, 
         payload["comment"] = params["comment"]
 
     draft = await client.post(f"/me/messages/{message_id}/{endpoint}", payload)
+    data = {
+        "draft_id": draft.get("id", ""),
+        "subject": draft.get("subject", ""),
+        "to": [
+            {"email": r.get("emailAddress", {}).get("address", ""), "name": r.get("emailAddress", {}).get("name", "")}
+            for r in draft.get("toRecipients", [])
+        ],
+        "web_link": draft.get("webLink", ""),
+    }
+    return data, format_draft_created_markdown(draft)
+
+
+async def _forward_email_draft(client: GraphClient, params: dict) -> tuple[dict, str]:
+    if not params.get("message_id"):
+        return {}, "❌ Missing required field: 'message_id'"
+    if not params.get("to"):
+        return {}, "❌ Missing required field: 'to' (recipients list)"
+    message = {
+        "toRecipients": [
+            {"emailAddress": {"address": r["email"], "name": r.get("name", r["email"])}}
+            for r in params["to"]
+        ],
+    }
+    if params.get("cc"):
+        message["ccRecipients"] = [
+            {"emailAddress": {"address": r["email"], "name": r.get("name", r["email"])}}
+            for r in params["cc"]
+        ]
+    if params.get("body"):
+        message["body"] = {"contentType": "HTML", "content": html.escape(params["body"])}
+
+    draft = await client.post(
+        f"/me/messages/{params['message_id']}/createForward", {"message": message}
+    )
     data = {
         "draft_id": draft.get("id", ""),
         "subject": draft.get("subject", ""),

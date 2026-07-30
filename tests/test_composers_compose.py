@@ -108,6 +108,35 @@ class TestComposeTeamsMessage:
         assert "✅" in markdown or "sent" in markdown.lower()
 
 
+class TestComposeEmailForward:
+    @pytest.mark.asyncio
+    async def test_creates_forward_draft(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={
+            "subject": "FW: Hello",
+            "id": "draft-9",
+            "toRecipients": [{"emailAddress": {"name": "Carol", "address": "carol@example.com"}}],
+        })
+
+        result = await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.EMAIL_FORWARD,
+            params={
+                "message_id": "msg-777",
+                "body": "See <below> & above",
+                "to": [{"email": "carol@example.com", "name": "Carol"}],
+            },
+        )
+        _, markdown = result
+        assert "✅" in markdown
+        endpoint = client.post.call_args.args[0]
+        body = client.post.call_args.args[1]
+        assert endpoint == "/me/messages/msg-777/createForward"
+        assert body["message"]["toRecipients"][0]["emailAddress"]["address"] == "carol@example.com"
+        assert body["message"]["body"]["content"] == "See &lt;below&gt; &amp; above"
+
+
 class TestComposeMissingPermission:
     @pytest.mark.asyncio
     async def test_no_mail_scope(self):
