@@ -167,6 +167,57 @@ class TestComposeEvent:
         })
         assert m.subject == "Long"
 
+    def test_forward_valid(self):
+        m = ComposeEvent.model_validate({
+            "type": "event",
+            "mode": "forward",
+            "event_id": "AAMkEVT",
+            "to": [{"email": "x@y.com"}],
+        })
+        assert m.mode == "forward"
+
+    def test_forward_requires_event_id(self):
+        with pytest.raises(ValidationError, match="requires 'event_id'"):
+            ComposeEvent.model_validate({
+                "type": "event",
+                "mode": "forward",
+                "to": [{"email": "x@y.com"}],
+            })
+
+    def test_forward_requires_to(self):
+        with pytest.raises(ValidationError, match="requires .*'to'"):
+            ComposeEvent.model_validate({
+                "type": "event",
+                "mode": "forward",
+                "event_id": "AAMkEVT",
+            })
+
+    def test_forward_rejects_create_fields(self):
+        with pytest.raises(ValidationError, match="does not accept subject"):
+            ComposeEvent.model_validate({
+                "type": "event",
+                "mode": "forward",
+                "event_id": "AAMkEVT",
+                "to": [{"email": "x@y.com"}],
+                "subject": "should not be here",
+            })
+
+    def test_forward_skips_time_validation(self):
+        m = ComposeEvent.model_validate({
+            "type": "event",
+            "mode": "forward",
+            "event_id": "AAMkEVT",
+            "to": [{"email": "x@y.com"}],
+        })
+        assert m.start is None
+
+    def test_create_still_requires_times(self):
+        with pytest.raises(ValidationError, match="mode='create' requires"):
+            ComposeEvent.model_validate({
+                "type": "event",
+                "subject": "Sync",
+            })
+
 
 class TestComposeTeamsMessage:
     def test_valid(self):
