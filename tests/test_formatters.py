@@ -1337,3 +1337,17 @@ class TestEmailAttachmentRendering:
         md = format_resolved_content_markdown("email", data)
         assert "403 Forbidden" in md
         assert "⚠️" in md
+
+
+class TestFormatEventForwardedMarkdown:
+    def test_format_event_forwarded_markdown_with_comment(self):
+        from ms365_intent_mcp.formatters import format_event_forwarded_markdown
+        md = format_event_forwarded_markdown(["Dana Swope"], "Hope you can make it")
+        assert "✅" in md
+        assert "Dana Swope" in md
+        assert "Hope you can make it" in md
+
+    def test_format_event_forwarded_markdown_no_comment(self):
+        from ms365_intent_mcp.formatters import format_event_forwarded_markdown
+        md = format_event_forwarded_markdown(["Dana Swope"], None)
+        assert "Dana Swope" in md

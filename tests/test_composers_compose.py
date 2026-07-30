@@ -137,6 +137,33 @@ class TestComposeEmailForward:
         assert body["message"]["body"]["content"] == "See &lt;below&gt; &amp; above"
 
 
+class TestComposeEventForward:
+    @pytest.mark.asyncio
+    async def test_forwards_event(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={})  # 202, empty body
+
+        result = await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.EVENT_FORWARD,
+            params={
+                "event_id": "AAMkEVT",
+                "to": [{"email": "dana@contoso.com", "name": "Dana Swope"}],
+                "comment": "Hope you can make it",
+            },
+        )
+        data, markdown = result
+        endpoint = client.post.call_args.args[0]
+        body = client.post.call_args.args[1]
+        assert endpoint == "/me/events/AAMkEVT/forward"
+        assert body["ToRecipients"][0]["EmailAddress"]["Address"] == "dana@contoso.com"
+        assert body["ToRecipients"][0]["EmailAddress"]["Name"] == "Dana Swope"
+        assert body["Comment"] == "Hope you can make it"
+        assert "✅" in markdown
+        assert data["to"][0]["email"] == "dana@contoso.com"
+
+
 class TestComposeMissingPermission:
     @pytest.mark.asyncio
     async def test_no_mail_scope(self):
