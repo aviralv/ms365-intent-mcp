@@ -45,6 +45,8 @@ class MailItem(BaseModel):
     received: datetime
     is_read: bool = False
     importance: Literal["low", "normal", "high"] = "normal"
+    message_id: str | None = None
+    web_link: str | None = None
 
 
 class TeamsItem(BaseModel):

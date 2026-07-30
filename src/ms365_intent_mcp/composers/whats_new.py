@@ -61,7 +61,7 @@ async def compose_whats_new(
         since_z = since_dt.astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         tasks["messages"] = client.get("/me/messages", params={
             "$filter": f"receivedDateTime ge {since_z}",
-            "$select": "subject,from,receivedDateTime,importance",
+            "$select": "id,subject,from,receivedDateTime,importance,webLink",
             "$orderby": "receivedDateTime desc",
             "$top": "25",
         })
@@ -154,6 +154,8 @@ async def compose_whats_new(
             "received": m.get("receivedDateTime", ""),
             "is_read": bool(m.get("isRead", False)),
             "importance": (m.get("importance") or "normal").lower(),
+            "message_id": m.get("id") or None,
+            "web_link": m.get("webLink") or None,
         })
 
     teams_list = []
