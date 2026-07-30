@@ -25,6 +25,7 @@ from .schemas import (
     ComposeTeamsMessage,
     EmailDraftCreated,
     EventCreated,
+    EventForwarded,
     TeamsMessageSent,
 )
 
@@ -138,8 +139,27 @@ async def _handle_event(
     client,
     permissions,
     config_default_tz: str,
-) -> EventCreated:
-    """Create a calendar event via the legacy composer."""
+) -> EventCreated | EventForwarded:
+    """Create a calendar event via the legacy composer, or forward an existing one."""
+    if payload.mode == "forward":
+        params_fwd: dict = {
+            "event_id": payload.event_id,
+            "to": [
+                {"email": r.email, "name": r.name or r.email}
+                for r in (payload.to or [])
+            ],
+        }
+        if payload.comment:
+            params_fwd["comment"] = payload.comment
+        data, markdown = await compose_action(
+            client, permissions, ComposeType.EVENT_FORWARD, params_fwd,
+        )
+        to_list = [
+            Recipient(email=r["email"], name=r.get("name") or None)
+            for r in data.get("to", [])
+        ]
+        return EventForwarded(to=to_list, rendered_markdown=markdown)
+
     params: dict = {
         "subject": payload.subject,
         "start": payload.start.isoformat(),

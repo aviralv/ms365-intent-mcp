@@ -337,6 +337,28 @@ class TestWrapErrors:
         assert result.retryable is False
 
 
+class TestHandleEventForward:
+    @pytest.mark.asyncio
+    async def test_handle_event_forward_returns_event_forwarded(self):
+        from ms365_intent_mcp.intent.compose.impl import _handle_event
+        from ms365_intent_mcp.intent.compose.schemas import ComposeEvent
+        from ms365_intent_mcp.permissions import PermissionRegistry
+
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={})
+        perms = PermissionRegistry(["Calendars.ReadWrite"])
+        payload = ComposeEvent.model_validate({
+            "type": "event", "mode": "forward",
+            "event_id": "AAMkEVT",
+            "to": [{"email": "dana@contoso.com", "name": "Dana Swope"}],
+            "comment": "please join",
+        })
+        resp = await _handle_event(payload, client, perms, "Europe/Berlin")
+        assert resp.type == "event_forwarded"
+        assert resp.to[0].email == "dana@contoso.com"
+        assert client.post.call_args.args[0] == "/me/events/AAMkEVT/forward"
+
+
 class TestHandleEmailForward:
     @pytest.mark.asyncio
     async def test_handle_email_forward_routes_to_createforward(self):
