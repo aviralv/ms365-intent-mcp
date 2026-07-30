@@ -336,7 +336,10 @@ def format_event_forwarded_markdown(to_names: list[str], comment: str | None) ->
     if comment:
         lines.append(f"**Comment:** {comment}")
     lines.append("")
-    lines.append("The invite was sent immediately. The organizer is notified and the recipient added to their copy.")
+    lines.append(
+        "The invite was sent immediately. "
+        "The organizer is notified and the recipient added to their copy."
+    )
     return "\n".join(lines)
 
 

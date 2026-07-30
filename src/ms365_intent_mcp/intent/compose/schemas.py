@@ -75,7 +75,10 @@ class ComposeEvent(BaseModel):
     end: datetime | None = None
     timezone: str | None = Field(
         default=None,
-        description="IANA timezone name (e.g. 'Europe/Berlin'). Interprets naive start/end. Required for mode='create'.",
+        description=(
+            "IANA timezone name (e.g. 'Europe/Berlin'). "
+            "Interprets naive start/end. Required for mode='create'."
+        ),
     )
     attendees: list[Attendee] | None = None
     location: str | None = None

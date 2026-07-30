@@ -163,7 +163,7 @@
     },
     "ComposeEvent": {
       "additionalProperties": false,
-      "description": "Create a calendar event.\n\nValidates ``end > start`` and duration \u2264 12 hours. Longer events almost\nalways indicate an off-by-day error in the caller's timezone handling.",
+      "description": "Create a calendar event, or forward an existing one.\n\nmode='create' (default): creates a new event. Requires subject/start/end/timezone.\nValidates ``end > start`` and duration \u2264 12 hours.\nmode='forward': forwards an existing event to new recipients via\nPOST /me/events/{id}/forward. SENDS IMMEDIATELY (no draft). Requires event_id + to.",
       "properties": {
         "attendees": {
           "anyOf": [
@@ -192,10 +192,42 @@
           "default": null,
           "title": "Body"
         },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        },
         "end": {
-          "format": "date-time",
-          "title": "End",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Id"
         },
         "idempotency_key": {
           "anyOf": [
@@ -227,20 +259,67 @@
           "default": null,
           "title": "Location"
         },
-        "start": {
-          "format": "date-time",
-          "title": "Start",
+        "mode": {
+          "default": "create",
+          "enum": [
+            "create",
+            "forward"
+          ],
+          "title": "Mode",
           "type": "string"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
         },
         "subject": {
-          "minLength": 1,
-          "title": "Subject",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subject"
         },
         "timezone": {
-          "description": "IANA timezone name (e.g. 'Europe/Berlin'). Interprets naive start/end.",
-          "title": "Timezone",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IANA timezone name (e.g. 'Europe/Berlin'). Interprets naive start/end. Required for mode='create'.",
+          "title": "Timezone"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Recipient"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To"
         },
         "type": {
           "const": "event",
@@ -249,11 +328,7 @@
         }
       },
       "required": [
-        "type",
-        "subject",
-        "start",
-        "end",
-        "timezone"
+        "type"
       ],
       "title": "ComposeEvent",
       "type": "object"

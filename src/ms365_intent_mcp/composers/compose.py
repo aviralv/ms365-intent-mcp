@@ -151,7 +151,10 @@ async def _forward_email_draft(client: GraphClient, params: dict) -> tuple[dict,
         "draft_id": draft.get("id", ""),
         "subject": draft.get("subject", ""),
         "to": [
-            {"email": r.get("emailAddress", {}).get("address", ""), "name": r.get("emailAddress", {}).get("name", "")}
+            {
+                "email": r.get("emailAddress", {}).get("address", ""),
+                "name": r.get("emailAddress", {}).get("name", ""),
+            }
             for r in draft.get("toRecipients", [])
         ],
         "web_link": draft.get("webLink", ""),

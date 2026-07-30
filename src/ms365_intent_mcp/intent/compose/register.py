@@ -19,8 +19,11 @@ def register(mcp: FastMCP) -> None:
         payload: Annotated[
             ComposePayload,
             "Create something. type='email' drafts an email — mode='new' needs to+subject; "
-            "mode='reply'/'reply_all'/'forward' needs in_reply_to_message_id. "
-            "type='event' creates a calendar event (timezone required). "
+            "mode='reply'/'reply_all' needs in_reply_to_message_id; "
+            "mode='forward' needs in_reply_to_message_id+to (saves a draft). "
+            "type='event' with mode='create' (default) creates a calendar event "
+            "(timezone required); "
+            "mode='forward' needs event_id+to and SENDS THE INVITE IMMEDIATELY (no draft). "
             "type='teams_message' sends a Teams chat message. "
             "Optional idempotency_key deduplicates retries within 10 minutes.",
         ],
