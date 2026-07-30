@@ -410,3 +410,29 @@ class TestLookupQueryEscaping:
         await _lookup_person(client, perms, "alice")
         assert "scoredEmailAddresses" in captured["select"]
         assert "emailAddresses" not in captured["select"].replace("scoredEmailAddresses", "")
+
+
+class TestExtractEmail:
+    def test_contact_shape(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"emailAddresses": [{"address": "a@b.com"}]}) == "a@b.com"
+
+    def test_person_scored_shape(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"scoredEmailAddresses": [{"address": "p@b.com"}]}) == "p@b.com"
+
+    def test_users_mail_shape(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"mail": "u@b.com", "userPrincipalName": "u@b.com"}) == "u@b.com"
+
+    def test_users_upn_fallback_when_mail_null(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"mail": None, "userPrincipalName": "u@sap.com"}) == "u@sap.com"
+
+    def test_guest_upn_rejected(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"mail": None, "userPrincipalName": "x_ext.com#EXT#@t.onmicrosoft.com"}) == ""
+
+    def test_none_when_empty(self):
+        from ms365_intent_mcp.composers.people import _extract_email
+        assert _extract_email({"displayName": "No Email"}) == ""

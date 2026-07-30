@@ -1,9 +1,34 @@
 """people composer — person lookup with chat-membership fallback."""
 
+from __future__ import annotations
+
 from ..formatters import format_people_markdown
 from ..graph import GraphClient, GraphAPIError
 from ..permissions import PermissionRegistry
 from ._utils import _escape_odata, _list_user_chats, _prefilter_chats_by_query
+
+
+def _extract_email(record: dict) -> str:
+    """Return a usable email from any Graph person/contact/user shape, else ''.
+
+    - contact / directory: emailAddresses[].address
+    - person (relevance): scoredEmailAddresses[].address
+    - /users directory: mail, else userPrincipalName if it is a real address
+      (guest UPNs carry '#EXT#' and are not routable — rejected).
+    """
+    ea = record.get("emailAddresses") or []
+    if ea and ea[0].get("address"):
+        return ea[0]["address"]
+    sea = record.get("scoredEmailAddresses") or []
+    if sea and sea[0].get("address"):
+        return sea[0]["address"]
+    mail = record.get("mail")
+    if mail:
+        return mail
+    upn = record.get("userPrincipalName") or ""
+    if upn and "#EXT#" not in upn:
+        return upn
+    return ""
 
 
 async def compose_people(
