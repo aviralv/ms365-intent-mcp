@@ -119,6 +119,80 @@ async def _mock_graph_get(endpoint, params=None, headers=None):
     return {"value": []}
 
 
+class TestMyDayIncludeBodies:
+    def _client(self, body_html: str, join_url: str | None = None):
+        from unittest.mock import AsyncMock
+
+        captured = {}
+
+        async def _get(endpoint, params=None, headers=None):
+            if "calendarView" in endpoint:
+                captured["select"] = (params or {}).get("$select", "")
+                ev = {
+                    "subject": "Sync",
+                    "start": {"dateTime": "2026-08-05T09:00:00", "timeZone": "Europe/Berlin"},
+                    "end": {"dateTime": "2026-08-05T09:30:00", "timeZone": "Europe/Berlin"},
+                    "isOnlineMeeting": bool(join_url),
+                    "onlineMeeting": {"joinUrl": join_url} if join_url else None,
+                    "body": {"contentType": "html", "content": body_html},
+                }
+                return {"value": [ev]}
+            return {"value": []}
+
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=_get)
+        client.calendar_headers = lambda tz: {}
+        return client, captured
+
+    @pytest.mark.asyncio
+    async def test_include_bodies_adds_select_and_populates(self, calendar_only_permissions):
+        html = '<p>Agenda</p> <a href="https://wiki.example.com/x">Spec</a>'
+        client, captured = self._client(html)
+        data, _ = await compose_my_day(
+            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            include_bodies=True,
+        )
+        assert "body" in captured["select"]
+        ev = data["events"][0]
+        assert "[Spec](https://wiki.example.com/x)" in ev["body"]
+        assert ev["links"] == ["https://wiki.example.com/x"]
+
+    @pytest.mark.asyncio
+    async def test_default_omits_body(self, calendar_only_permissions):
+        client, captured = self._client("<p>x</p>")
+        data, _ = await compose_my_day(
+            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+        )
+        assert "body" not in captured["select"]
+        ev = data["events"][0]
+        assert ev.get("body") is None
+        assert ev.get("links", []) == []
+
+    @pytest.mark.asyncio
+    async def test_body_truncated_at_2000(self, calendar_only_permissions):
+        html = "x" * 3000
+        client, _ = self._client(html)
+        data, _ = await compose_my_day(
+            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            include_bodies=True,
+        )
+        assert len(data["events"][0]["body"]) == 2000
+
+    @pytest.mark.asyncio
+    async def test_join_url_excluded_link_before_truncation(self, calendar_only_permissions):
+        join = "https://teams.microsoft.com/l/meetup-join/19:abc@thread.v2/0"
+        html = ("z" * 2100) + '<a href="https://wiki.example.com/deep">Deep</a>' \
+               + f'<a href="{join}">Join</a>'
+        client, _ = self._client(html, join_url=join)
+        data, _ = await compose_my_day(
+            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            include_bodies=True,
+        )
+        ev = data["events"][0]
+        assert ev["links"] == ["https://wiki.example.com/deep"]
+        assert join not in ev["links"]
+
+
 class TestMyDayEventTimezones:
     @pytest.mark.asyncio
     async def test_event_start_is_offset_aware_with_tz_sibling(self, full_permissions):
