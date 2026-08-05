@@ -100,6 +100,37 @@ def _anchor_to_markdown(match: re.Match) -> str:
     return f"[{text}]({url})"
 
 
+_HREF_RE = re.compile(r'<a\b[^>]*\bhref="([^"]*)"', re.IGNORECASE)
+
+
+def _extract_event_links(raw_html: str, event: dict) -> list[str]:
+    """Deduped absolute URLs from an event body, with the meeting's own Teams
+    join URL removed (it's surfaced separately via onlineMeeting.joinUrl).
+
+    Extracts hrefs from raw HTML before any stripping/truncation, so a link
+    buried past the body char cap is never dropped. Keeps only absolute
+    http(s) URLs — relative hrefs ('/docs/123') are dead without a base.
+    Removes the canonical joinUrl rather than denylisting Teams domains
+    (maintenance-free as MS infra changes).
+    """
+    if not raw_html:
+        return []
+    join_url = ((event.get("onlineMeeting") or {}).get("joinUrl") or "").strip()
+    seen: set[str] = set()
+    out: list[str] = []
+    for href in _HREF_RE.findall(raw_html):
+        url = href.strip()
+        if not url.lower().startswith(("http://", "https://")):
+            continue
+        if join_url and url == join_url:
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        out.append(url)
+    return out
+
+
 def graph_dt_to_aware_iso(dt: dict) -> tuple[str | None, str | None]:
     """Convert a Graph {dateTime, timeZone} pair to (offset-aware ISO, tz name).
 
