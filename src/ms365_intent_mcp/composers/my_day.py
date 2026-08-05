@@ -3,6 +3,8 @@
 import asyncio
 
 from ..formatters import (
+    _extract_event_links,
+    _strip_teams_html,
     format_events_markdown,
     format_mail_summary_markdown,
     format_section_error,
@@ -19,18 +21,22 @@ async def compose_my_day(
     permissions: PermissionRegistry,
     date: str,
     timezone: str,
+    include_bodies: bool = False,
 ) -> tuple[dict, str]:
     start_iso = f"{date}T00:00:00"
     end_iso = f"{date}T23:59:59"
 
     tasks = {}
 
+    select = "subject,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting"
+    if include_bodies:
+        select += ",body"
     cal_params = {
         "startDateTime": start_iso,
         "endDateTime": end_iso,
         "$orderby": "start/dateTime",
         "$top": "30",
-        "$select": "subject,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting",
+        "$select": select,
     }
     cal_headers = GraphClient.calendar_headers(timezone)
     tasks["calendar"] = client.get("/me/calendarView", params=cal_params, headers=cal_headers)
@@ -128,7 +134,7 @@ async def compose_my_day(
     for e in events_raw:
         start_iso, start_tz = graph_dt_to_aware_iso(e.get("start", {}))
         end_iso, end_tz = graph_dt_to_aware_iso(e.get("end", {}))
-        event_list.append({
+        event_entry = {
             "subject": e.get("subject", ""),
             "start": start_iso,
             "end": end_iso,
@@ -136,7 +142,13 @@ async def compose_my_day(
             "end_timezone": end_tz,
             "location": e.get("location", {}).get("displayName") or None,
             "is_online_meeting": bool(e.get("isOnlineMeeting")),
-        })
+        }
+        if include_bodies:
+            raw_body = (e.get("body") or {}).get("content", "")
+            event_entry["links"] = _extract_event_links(raw_body, e)
+            text = _strip_teams_html(raw_body, preserve_links=True) if raw_body else ""
+            event_entry["body"] = text[:2000] or None
+        event_list.append(event_entry)
 
     mail_summary = _build_mail_summary(unread_msgs) if unread_msgs else {"relevant_count": 0, "high_importance": [], "needs_attention": [], "all_count": 0}
     teams_count = sum(

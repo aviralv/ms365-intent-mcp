@@ -1,6 +1,7 @@
 """Markdown formatters for all tool responses."""
 
 import datetime as _dt
+import html
 import logging
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -98,6 +99,57 @@ def _anchor_to_markdown(match: re.Match) -> str:
     if not text or text == url:
         return url
     return f"[{text}]({url})"
+
+
+_HREF_RE = re.compile(r'<a\b[^>]*\bhref="([^"]*)"', re.IGNORECASE)
+
+# Substrings marking Teams-invite boilerplate URLs (help, dial-in, meeting
+# options, the join links). Matched host+path, not a bare domain — so a real
+# Confluence/Jira link on teams.microsoft.com's neighbours is unaffected. This
+# is scoped noise-removal, distinct from a fragile "is this a Teams domain"
+# guess; adding a new boilerplate host here is a one-line, low-risk change.
+_BOILERPLATE_URL_MARKERS = (
+    "aka.ms/jointeamsmeeting",
+    "dialin.teams.",
+    "teams.microsoft.com/meetingoptions",
+    "teams.microsoft.com/meet/",
+    "teams.microsoft.com/l/meetup-join",
+)
+
+
+def _extract_event_links(raw_html: str, event: dict) -> list[str]:
+    """Deduped, substantive absolute URLs from an event body.
+
+    Extracts hrefs from raw HTML before any stripping/truncation, so a link
+    buried past the body char cap is never dropped. Then:
+    - keeps only absolute http(s) URLs — relative hrefs ('/docs/123') are dead
+      without a base;
+    - HTML-unescapes each URL (Graph escapes '&' as '&amp;' inside href);
+    - drops the event's own canonical joinUrl and Teams-invite boilerplate
+      (help / dial-in / meeting-options / join links) so what remains is the
+      agenda-bearing links (Confluence, Jira, whiteboards) the caller wants.
+    """
+    if not raw_html:
+        return []
+    join_url = html.unescape(
+        ((event.get("onlineMeeting") or {}).get("joinUrl") or "").strip()
+    )
+    seen: set[str] = set()
+    out: list[str] = []
+    for href in _HREF_RE.findall(raw_html):
+        url = html.unescape(href.strip())
+        if not url.lower().startswith(("http://", "https://")):
+            continue
+        if join_url and url == join_url:
+            continue
+        lowered = url.lower()
+        if any(marker in lowered for marker in _BOILERPLATE_URL_MARKERS):
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        out.append(url)
+    return out
 
 
 def graph_dt_to_aware_iso(dt: dict) -> tuple[str | None, str | None]:

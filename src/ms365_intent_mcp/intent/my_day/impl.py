@@ -23,6 +23,7 @@ async def _my_day_impl(ctx: Context, payload: MyDayPayload) -> MyDaySummary:
         permissions,
         target_date.strftime("%Y-%m-%d"),
         config.default_timezone,
+        include_bodies=payload.include_bodies,
     )
 
     events = []
