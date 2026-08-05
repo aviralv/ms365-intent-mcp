@@ -20,6 +20,11 @@ class MyDayPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     date: _dt.date | None = Field(default=None, description="Defaults to today (server tz).")
+    include_bodies: bool = Field(
+        default=False,
+        description="Include event agenda/body text and extracted links per "
+                    "event. Off by default to keep the response lean.",
+    )
 
 
 class EventSummary(BaseModel):
@@ -33,6 +38,8 @@ class EventSummary(BaseModel):
     end_timezone: str | None = None
     location: str | None = None
     is_online_meeting: bool = False
+    body: str | None = None
+    links: list[str] = Field(default_factory=list)
 
 
 class MailSummary(BaseModel):

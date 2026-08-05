@@ -2,6 +2,18 @@
   "additionalProperties": false,
   "description": "Compact summary of a single calendar event.",
   "properties": {
+    "body": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Body"
+    },
     "end": {
       "anyOf": [
         {
@@ -31,6 +43,13 @@
       "default": false,
       "title": "Is Online Meeting",
       "type": "boolean"
+    },
+    "links": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Links",
+      "type": "array"
     },
     "location": {
       "anyOf": [
