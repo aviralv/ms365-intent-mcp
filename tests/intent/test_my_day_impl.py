@@ -36,7 +36,7 @@ class TestMyDayV1Happy:
     async def test_happy_path_returns_my_day_summary(self, monkeypatch):
         ctx, _, _ = _mock_ctx()
 
-        async def _fake(client, permissions, date, timezone):
+        async def _fake(client, permissions, date, timezone, include_bodies=False):
             return {"date": date, "events": [], "mail": {}, "teams": {}}, "### Calendar\nNo events today.\n\n### Mail\n3 unread."
 
         monkeypatch.setattr(
@@ -60,7 +60,7 @@ class TestMyDayV1Happy:
         ctx, _, _ = _mock_ctx()
         received_dates = []
 
-        async def _fake(client, permissions, date_str, timezone):
+        async def _fake(client, permissions, date_str, timezone, include_bodies=False):
             received_dates.append(date_str)
             return {"date": date_str, "events": [], "mail": {}, "teams": {}}, "### Calendar\nNo events."
 
@@ -82,7 +82,7 @@ class TestMyDayV1Happy:
         ctx, _, _ = _mock_ctx()
         received_dates = []
 
-        async def _fake(client, permissions, date_str, timezone):
+        async def _fake(client, permissions, date_str, timezone, include_bodies=False):
             received_dates.append(date_str)
             return {"date": date_str, "events": [], "mail": {}, "teams": {}}, "### Calendar\n2 events."
 
@@ -103,7 +103,7 @@ class TestMyDayV1Happy:
         """Structured fields reflect what the composer returns."""
         ctx, _, _ = _mock_ctx()
 
-        async def _fake(client, permissions, date_str, timezone):
+        async def _fake(client, permissions, date_str, timezone, include_bodies=False):
             return {"date": date_str, "events": [], "mail": {}, "teams": {}}, "content"
 
         monkeypatch.setattr(
@@ -121,12 +121,39 @@ class TestMyDayV1Happy:
         assert response.teams.recent_message_count == 0
 
 
+@pytest.mark.asyncio
+async def test_include_bodies_flows_to_composer(monkeypatch):
+    from ms365_intent_mcp.intent.my_day import impl as my_day_impl
+
+    captured = {}
+
+    async def _fake_compose(client, permissions, date, tz, include_bodies=False):
+        captured["include_bodies"] = include_bodies
+        return (
+            {"events": [{
+                "subject": "Sync", "start": "2026-08-05T09:00:00+02:00",
+                "end": "2026-08-05T09:30:00+02:00", "start_timezone": "Europe/Berlin",
+                "end_timezone": "Europe/Berlin", "location": None,
+                "is_online_meeting": False,
+                "body": "agenda", "links": ["https://a.example.com"],
+            }], "mail": {}, "teams": {}},
+            "md",
+        )
+
+    monkeypatch.setattr(my_day_impl, "compose_my_day", _fake_compose)
+    ctx, _, _ = _mock_ctx()
+    result = await _my_day_impl(ctx, MyDayPayload(date=date(2026, 8, 5), include_bodies=True))
+    assert captured["include_bodies"] is True
+    assert result.events[0].body == "agenda"
+    assert result.events[0].links == ["https://a.example.com"]
+
+
 class TestMyDayV1Errors:
     @pytest.mark.asyncio
     async def test_graph_api_error_returns_error_response(self, monkeypatch):
         ctx, _, _ = _mock_ctx()
 
-        async def _fake(client, permissions, date_str, timezone):
+        async def _fake(client, permissions, date_str, timezone, include_bodies=False):
             raise GraphAPIError(status_code=503, error_code="ServiceUnavailable", message="try later")
 
         monkeypatch.setattr(
