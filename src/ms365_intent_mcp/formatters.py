@@ -117,6 +117,28 @@ _BOILERPLATE_URL_MARKERS = (
 )
 
 
+# Teams inserts a long horizontal rule of underscores before the "Microsoft
+# Teams meeting" block (join link, dial-in numbers, meeting options). Require a
+# substantial run so a short fill-in-the-blank underscore never triggers a cut.
+_TEAMS_BOILERPLATE_SEPARATOR = re.compile(r"_{20,}")
+
+
+def _strip_teams_boilerplate(text: str) -> str:
+    """Remove the Teams-invite boilerplate block from an event body (issue #64).
+
+    The block is delimited by the long underscore rule Teams inserts before
+    'Microsoft Teams meeting'; everything from that separator to end-of-body is
+    boilerplate. Agenda text above the separator is preserved. A body that is
+    only boilerplate collapses to ''; a body with no separator is returned as-is.
+    """
+    if not text:
+        return text
+    match = _TEAMS_BOILERPLATE_SEPARATOR.search(text)
+    if not match:
+        return text
+    return text[:match.start()].strip()
+
+
 def _extract_event_links(raw_html: str, event: dict) -> list[str]:
     """Deduped, substantive absolute URLs from an event body.
 

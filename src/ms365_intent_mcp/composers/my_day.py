@@ -4,6 +4,7 @@ import asyncio
 
 from ..formatters import (
     _extract_event_links,
+    _strip_teams_boilerplate,
     _strip_teams_html,
     format_events_markdown,
     format_mail_summary_markdown,
@@ -147,6 +148,7 @@ async def compose_my_day(
             raw_body = (e.get("body") or {}).get("content", "")
             event_entry["links"] = _extract_event_links(raw_body, e)
             text = _strip_teams_html(raw_body, preserve_links=True) if raw_body else ""
+            text = _strip_teams_boilerplate(text)
             event_entry["body"] = text[:2000] or None
         event_list.append(event_entry)
 

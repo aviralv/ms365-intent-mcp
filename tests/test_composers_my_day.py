@@ -192,6 +192,44 @@ class TestMyDayIncludeBodies:
         assert ev["links"] == ["https://wiki.example.com/deep"]
         assert join not in ev["links"]
 
+    @pytest.mark.asyncio
+    async def test_boilerplate_only_body_collapses_to_none(self, calendar_only_permissions):
+        """Issue #64: a no-agenda online meeting's body is pure Teams boilerplate
+        and must collapse to None, not carry the join/dial-in noise."""
+        sep = "_" * 80
+        html = (
+            f"<div>{sep}</div><div>Microsoft Teams meeting</div>"
+            '<div>Join: <a href="https://teams.microsoft.com/meet/123">Click</a></div>'
+            "<div>Meeting ID: 376 059 509 614 193</div>"
+            "<div>Phone conference ID: 524 097 967#</div>"
+            f"<div>{sep}</div>"
+        )
+        client, _ = self._client(html)
+        data, _ = await compose_my_day(
+            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            include_bodies=True,
+        )
+        assert data["events"][0]["body"] is None
+
+    @pytest.mark.asyncio
+    async def test_agenda_survives_boilerplate_strip(self, calendar_only_permissions):
+        """Agenda text above the Teams separator is preserved; boilerplate below removed."""
+        sep = "_" * 80
+        html = (
+            "<div>Agenda: review Q3 metrics</div>"
+            f"<div>{sep}</div><div>Microsoft Teams meeting</div>"
+            "<div>Meeting ID: 376 059 509 614 193</div>"
+        )
+        client, _ = self._client(html)
+        data, _ = await compose_my_day(
+            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            include_bodies=True,
+        )
+        body = data["events"][0]["body"]
+        assert "Agenda: review Q3 metrics" in body
+        assert "Microsoft Teams meeting" not in body
+        assert "Meeting ID" not in body
+
 
 class TestMyDayEventTimezones:
     @pytest.mark.asyncio
