@@ -18,6 +18,12 @@ Most Microsoft 365 MCP servers replicate Graph API endpoints as tools — one to
 | `schedule` | Find available meeting times using the scheduling assistant |
 | `transcript` | Download a meeting recording's VTT (by URL, meeting name, or item_id+drive_id+site_root), or `list=true` to enumerate recordings newest-first |
 
+### Notes on `transcript`
+
+- **Recordings made by another attendee** live on their drive and are invisible to `name`/`list` discovery. Copy the recording's link from the Teams Recap UI and pass it via `url` — it carries the driveId+driveItemId that resolve the item directly, and file access survives even after you lose access to the meeting chat.
+- **Ad-hoc 1:1 calls** are titled from the recorder's side, so searching the counterpart's name may miss them — use `list=true` to find them by date.
+- **`name` discovery** searches own-drive, Graph Search, and Teams chats; on multiple matches the most recent is downloaded and the others are surfaced.
+
 ## Design Philosophy
 
 - **9 tools, not 76** — lean schema, loadable in any LLM session without bloat

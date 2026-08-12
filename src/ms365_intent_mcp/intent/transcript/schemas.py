@@ -31,13 +31,9 @@ class TranscriptPayload(BaseModel):
         Field(
             default=None,
             description=(
-                "A recording URL — Teams recap link, SharePoint share/sharable "
-                "link, or meeting()'s vroom_url. Fast path when it carries "
-                "drive/item IDs. Use this for recordings made by another "
-                "attendee (invisible to name/list discovery): copy the "
-                "recording's link from the Teams Recap UI — it carries the "
-                "driveId+driveItemId that resolve the item directly, and file "
-                "access survives even after you lose access to the meeting chat."
+                "A recording URL — Teams recap link, SharePoint link, or "
+                "meeting()'s vroom_url. Fast path; also resolves recordings made "
+                "by another attendee (invisible to name/list discovery)."
             ),
         ),
     ]
@@ -45,24 +41,14 @@ class TranscriptPayload(BaseModel):
         str | None,
         Field(
             default=None,
-            description=(
-                "Meeting name (or substring) to discover the recording by "
-                "filename across own-drive, Graph Search, and Teams chats. On "
-                "multiple matches, the most recent is downloaded and the others "
-                "are surfaced. Note: ad-hoc 1:1 calls are titled from the "
-                "recorder's side, so searching the counterpart's name may miss "
-                "them — use list=true to find them by date."
-            ),
+            description="Meeting name or substring to discover the recording by filename.",
         ),
     ]
     item_id: Annotated[
         str | None,
         Field(
             default=None,
-            description=(
-                "Drive-item id of a known recording — deterministic download "
-                "with zero discovery. Requires drive_id and site_root too."
-            ),
+            description="Drive-item id (deterministic download; requires drive_id + site_root).",
         ),
     ]
     drive_id: Annotated[
@@ -87,11 +73,7 @@ class TranscriptPayload(BaseModel):
         bool,
         Field(
             default=False,
-            description=(
-                "List discovered recordings (newest first) instead of "
-                "downloading. Use to find a recording's id/name — especially "
-                "ad-hoc calls that name-search can't match."
-            ),
+            description="List discovered recordings (newest first) instead of downloading.",
         ),
     ]
     output_dir: Annotated[

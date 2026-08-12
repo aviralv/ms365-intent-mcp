@@ -51,20 +51,17 @@ async def lifespan(server: FastMCP):
 mcp = FastMCP(
     name="ms365-intent",
     instructions=(
-        "Intent-oriented Microsoft 365 MCP server.\n\n"
-        "Tools:\n"
-        "- my_day: Daily overview (payload={date?}) — calendar, mail, Teams.\n"
-        "- meeting: Full context for a meeting (payload={identifier}) — event ID, subject, or 'next'.\n"
-        "- compose: Create drafts (payload={type: email|event|teams_message, ...}) — discriminated union.\n"
-        "- schedule: Find meeting times (payload={attendees, duration_minutes?, ...}).\n"
-        "- people: Look up a person (payload={query}).\n"
-        "- whats_new: What changed since X (payload={since, scope?}).\n"
-        "- find: Cross-source search (payload={query, entity_type?}).\n"
-        "- resolve: Resolve any M365 URL (payload={url}).\n"
-        "- transcript: Download a meeting recording's VTT "
-        "(payload={url?|name?|item_id+drive_id+site_root?|list?, output_dir?}).\n\n"
-        "Email drafts are saved to Drafts, never auto-sent.\n"
-        "Teams messages require confirmation before sending."
+        "Intent-oriented Microsoft 365 MCP. Route by intent:\n"
+        "- my_day → daily overview (calendar, mail, Teams)\n"
+        "- meeting → one meeting's full context\n"
+        "- compose → draft email / create-or-forward event / send Teams message\n"
+        "- schedule → find meeting times\n"
+        "- people → look up a person\n"
+        "- whats_new → what changed since a time\n"
+        "- find → cross-source search\n"
+        "- resolve → resolve any M365 URL\n"
+        "- transcript → download a recording's VTT (or list)\n\n"
+        "Email drafts save to Drafts (never auto-sent); Teams sends confirm first."
     ),
     lifespan=lifespan,
 )
