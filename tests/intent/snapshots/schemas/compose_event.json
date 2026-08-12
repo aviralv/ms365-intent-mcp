@@ -70,7 +70,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Create a calendar event, or forward an existing one.\n\nmode='create' (default): creates a new event. Requires subject/start/end/timezone.\nValidates ``end > start`` and duration \u2264 12 hours.\nmode='forward': forwards an existing event to new recipients via\nPOST /me/events/{id}/forward. SENDS IMMEDIATELY (no draft). Requires event_id + to.",
+  "description": "Create a calendar event (mode='create'), or forward an existing one to\nnew recipients (mode='forward', which sends immediately \u2014 no draft).",
   "properties": {
     "attendees": {
       "anyOf": [
@@ -210,7 +210,7 @@
         }
       ],
       "default": null,
-      "description": "IANA timezone name (e.g. 'Europe/Berlin'). Interprets naive start/end. Required for mode='create'.",
+      "description": "IANA timezone (e.g. 'Europe/Berlin'); required for mode='create'.",
       "title": "Timezone"
     },
     "to": {

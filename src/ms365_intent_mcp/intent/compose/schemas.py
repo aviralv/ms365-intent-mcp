@@ -25,12 +25,7 @@ from .._shared import Attendee, BaseResponse, Recipient
 
 
 class ComposeEmail(BaseModel):
-    """Draft an email — new, reply, reply_all, or forward.
-
-    Mode-specific field requirements are enforced by ``_check_mode_fields``:
-    - ``mode='new'`` requires ``to`` and ``subject``
-    - ``mode='reply' | 'reply_all' | 'forward'`` requires ``in_reply_to_message_id``
-    """
+    """Draft an email — new, reply, reply_all, or forward."""
 
     model_config = ConfigDict(extra="forbid")
     type: Literal["email"]
@@ -61,13 +56,8 @@ class ComposeEmail(BaseModel):
 
 
 class ComposeEvent(BaseModel):
-    """Create a calendar event, or forward an existing one.
-
-    mode='create' (default): creates a new event. Requires subject/start/end/timezone.
-    Validates ``end > start`` and duration ≤ 12 hours.
-    mode='forward': forwards an existing event to new recipients via
-    POST /me/events/{id}/forward. SENDS IMMEDIATELY (no draft). Requires event_id + to.
-    """
+    """Create a calendar event (mode='create'), or forward an existing one to
+    new recipients (mode='forward', which sends immediately — no draft)."""
 
     model_config = ConfigDict(extra="forbid")
     type: Literal["event"]
@@ -77,10 +67,7 @@ class ComposeEvent(BaseModel):
     end: datetime | None = None
     timezone: str | None = Field(
         default=None,
-        description=(
-            "IANA timezone name (e.g. 'Europe/Berlin'). "
-            "Interprets naive start/end. Required for mode='create'."
-        ),
+        description="IANA timezone (e.g. 'Europe/Berlin'); required for mode='create'.",
     )
     attendees: list[Attendee] | None = None
     location: str | None = None
