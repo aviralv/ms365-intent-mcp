@@ -125,11 +125,19 @@ class TestWhatsNewMailFilterFormat:
                 return {"value": []}
             if "/me/messages" in endpoint:
                 return {"value": []}
+            if endpoint.endswith("/messages") and "/me/chats/" in endpoint:
+                return {"value": [{
+                    "id": "m1",
+                    "createdDateTime": "2026-05-15T09:00:00Z",
+                    "from": {"user": {"displayName": "Alice"}},
+                    "body": {"content": "Hello there"},
+                }]}
             if "/me/chats" in endpoint:
                 return {"value": [{
                     "id": "19:abc@thread.v2",
                     "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
                     "lastMessagePreview": {
+                        "createdDateTime": "2026-05-15T09:00:00Z",
                         "from": {"user": {"displayName": "Alice"}},
                         "body": {"content": "Hello there"},
                     },
@@ -148,6 +156,112 @@ class TestWhatsNewMailFilterFormat:
 
         assert "[open chat]" in result
         assert "19:abc@thread.v2" in result
+
+
+class TestWhatsNewTeamsWindowMessages:
+    """Regression for issue #67: whats_new must return ALL in-window messages per
+    chat, not just the latest-message preview. The bug masked an inbound reply
+    whenever the user's own outbound was the most recent message in the chat.
+    """
+
+    @pytest.mark.asyncio
+    async def test_inbound_reply_not_masked_by_later_outbound(self, full_permissions):
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if "/me/calendarView" in endpoint:
+                return {"value": []}
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if endpoint.endswith("/messages") and "/me/chats/" in endpoint:
+                # Per-chat message fetch — newest first. Both are in-window.
+                return {"value": [
+                    {
+                        "id": "m2",
+                        "createdDateTime": "2026-08-12T11:33:00Z",
+                        "from": {"user": {"displayName": "Avi"}},
+                        "body": {"content": "sounds good, will do"},
+                    },
+                    {
+                        "id": "m1",
+                        "createdDateTime": "2026-08-12T11:17:00Z",
+                        "from": {"user": {"displayName": "Counterpart"}},
+                        "body": {"content": "can you review the doc?"},
+                    },
+                ]}
+            if "/me/chats" in endpoint:
+                return {"value": [{
+                    "id": "19:xyz@thread.v2",
+                    "topic": None,
+                    "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
+                    "lastMessagePreview": {
+                        "createdDateTime": "2026-08-12T11:33:00Z",
+                        "from": {"user": {"displayName": "Avi"}},
+                        "body": {"content": "sounds good, will do"},
+                    },
+                }]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        data, result = await compose_whats_new(
+            client=client,
+            permissions=full_permissions,
+            since="2026-08-12T09:00:00Z",
+            scope="teams",
+            timezone="Europe/Berlin",
+        )
+
+        senders = {t["sender"] for t in data["teams"]}
+        assert "Counterpart" in senders, f"inbound reply masked: {data['teams']}"
+        assert "can you review the doc?" in result
+
+    @pytest.mark.asyncio
+    async def test_messages_before_since_are_excluded(self, full_permissions):
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint.endswith("/messages") and "/me/chats/" in endpoint:
+                return {"value": [
+                    {
+                        "id": "m2",
+                        "createdDateTime": "2026-08-12T11:00:00Z",
+                        "from": {"user": {"displayName": "Counterpart"}},
+                        "body": {"content": "in window"},
+                    },
+                    {
+                        "id": "m1",
+                        "createdDateTime": "2026-08-11T08:00:00Z",
+                        "from": {"user": {"displayName": "Counterpart"}},
+                        "body": {"content": "before window"},
+                    },
+                ]}
+            if "/me/chats" in endpoint:
+                return {"value": [{
+                    "id": "19:xyz@thread.v2",
+                    "topic": None,
+                    "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
+                    "lastMessagePreview": {
+                        "createdDateTime": "2026-08-12T11:00:00Z",
+                        "from": {"user": {"displayName": "Counterpart"}},
+                        "body": {"content": "in window"},
+                    },
+                }]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        data, _ = await compose_whats_new(
+            client=client,
+            permissions=full_permissions,
+            since="2026-08-12T09:00:00Z",
+            scope="teams",
+            timezone="Europe/Berlin",
+        )
+
+        bodies = {t["body_preview"] for t in data["teams"]}
+        assert "in window" in bodies
+        assert "before window" not in bodies
 
 
 async def _mock_get(endpoint, params=None, headers=None):
