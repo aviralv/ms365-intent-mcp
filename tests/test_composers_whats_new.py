@@ -265,9 +265,10 @@ class TestWhatsNewTeamsWindowMessages:
 
     @pytest.mark.asyncio
     async def test_system_event_messages_excluded(self, full_permissions):
-        """Live data (2026-08-12): Graph returns call-started/member-added events as
-        messageType='systemEventMessage' with body '<systemEventMessage/>'. These are
-        noise and must not surface (sender 'Unknown', body '<systemEventMessage/>')."""
+        """Live data (2026-08-12): Graph returns call-started/member-added events with
+        messageType='unknownFutureValue', from=None, body '<systemEventMessage/>'. These
+        are noise and must not surface. Filter on the body marker, not messageType —
+        the messageType value is unreliable ('unknownFutureValue', not 'systemEventMessage')."""
         client = AsyncMock()
 
         async def fake_get(endpoint, params=None, headers=None):
@@ -282,7 +283,7 @@ class TestWhatsNewTeamsWindowMessages:
                     },
                     {
                         "id": "m1",
-                        "messageType": "systemEventMessage",
+                        "messageType": "unknownFutureValue",
                         "createdDateTime": "2026-08-12T11:05:00Z",
                         "from": None,
                         "body": {"content": "<systemEventMessage/>"},

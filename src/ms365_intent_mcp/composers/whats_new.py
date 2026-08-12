@@ -48,12 +48,12 @@ async def _fetch_chat_window_messages(
         created = _parse_graph_dt(m.get("createdDateTime"))
         if created is None or created < since_dt:
             continue
-        # Skip call-started/member-added/etc. system events — Graph returns them
-        # as messageType='systemEventMessage' with body '<systemEventMessage/>',
-        # which is pure noise once every in-window message is surfaced (issue #67).
-        if m.get("messageType") == "systemEventMessage":
-            continue
-        if not (m.get("body") or {}).get("content", "").strip():
+        content = (m.get("body") or {}).get("content", "").strip()
+        # Skip call-started/member-added/etc. system events. Graph wraps them with
+        # body '<systemEventMessage/>' regardless of messageType (which is the
+        # unreliable 'unknownFutureValue', not 'systemEventMessage') — so key off
+        # the body marker. Also skip genuinely empty bodies. (issue #67)
+        if not content or content.startswith("<systemEventMessage"):
             continue
         in_window.append(m)
     return in_window
