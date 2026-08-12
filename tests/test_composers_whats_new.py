@@ -263,6 +263,57 @@ class TestWhatsNewTeamsWindowMessages:
         assert "in window" in bodies
         assert "before window" not in bodies
 
+    @pytest.mark.asyncio
+    async def test_system_event_messages_excluded(self, full_permissions):
+        """Live data (2026-08-12): Graph returns call-started/member-added events as
+        messageType='systemEventMessage' with body '<systemEventMessage/>'. These are
+        noise and must not surface (sender 'Unknown', body '<systemEventMessage/>')."""
+        client = AsyncMock()
+
+        async def fake_get(endpoint, params=None, headers=None):
+            if endpoint.endswith("/messages") and "/me/chats/" in endpoint:
+                return {"value": [
+                    {
+                        "id": "m2",
+                        "messageType": "message",
+                        "createdDateTime": "2026-08-12T11:10:00Z",
+                        "from": {"user": {"displayName": "Counterpart"}},
+                        "body": {"content": "a real message"},
+                    },
+                    {
+                        "id": "m1",
+                        "messageType": "systemEventMessage",
+                        "createdDateTime": "2026-08-12T11:05:00Z",
+                        "from": None,
+                        "body": {"content": "<systemEventMessage/>"},
+                    },
+                ]}
+            if "/me/chats" in endpoint:
+                return {"value": [{
+                    "id": "19:xyz@thread.v2",
+                    "topic": None,
+                    "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
+                    "lastMessagePreview": {
+                        "createdDateTime": "2026-08-12T11:10:00Z",
+                        "from": {"user": {"displayName": "Counterpart"}},
+                        "body": {"content": "a real message"},
+                    },
+                }]}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=fake_get)
+
+        data, _ = await compose_whats_new(
+            client=client,
+            permissions=full_permissions,
+            since="2026-08-12T09:00:00Z",
+            scope="teams",
+            timezone="Europe/Berlin",
+        )
+
+        bodies = [t["body_preview"] for t in data["teams"]]
+        assert bodies == ["a real message"], data["teams"]
+
 
 async def _mock_get(endpoint, params=None, headers=None):
     if "calendarView" in endpoint:

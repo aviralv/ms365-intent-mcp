@@ -39,7 +39,7 @@ async def _fetch_chat_window_messages(
 
     Graph's ``$filter`` support on ``/chats/{id}/messages`` is inconsistent, so we
     pull the most recent page and window-filter client-side. Returns newest-first,
-    skipping empty-body entries (system events render as blank noise).
+    skipping system-event messages and empty-body entries (both are noise).
     """
     resp = await client.get(f"/me/chats/{chat_id}/messages", params={"$top": "20"})
     msgs = (resp or {}).get("value", [])
@@ -47,6 +47,11 @@ async def _fetch_chat_window_messages(
     for m in msgs:
         created = _parse_graph_dt(m.get("createdDateTime"))
         if created is None or created < since_dt:
+            continue
+        # Skip call-started/member-added/etc. system events — Graph returns them
+        # as messageType='systemEventMessage' with body '<systemEventMessage/>',
+        # which is pure noise once every in-window message is surfaced (issue #67).
+        if m.get("messageType") == "systemEventMessage":
             continue
         if not (m.get("body") or {}).get("content", "").strip():
             continue
