@@ -12,7 +12,7 @@ by the FastMCP tool registration.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
@@ -115,7 +115,7 @@ class ComposeTeamsMessage(BaseModel):
 
 
 ComposePayload = Annotated[
-    Union[ComposeEmail, ComposeEvent, ComposeTeamsMessage],
+    ComposeEmail | ComposeEvent | ComposeTeamsMessage,
     Field(discriminator="type"),
 ]
 
@@ -165,4 +165,4 @@ class TeamsMessageSent(BaseResponse):
     rendered_markdown: str
 
 
-ComposeResponse = Union[EmailDraftCreated, EventCreated, EventForwarded, TeamsMessageSent]
+ComposeResponse = EmailDraftCreated | EventCreated | EventForwarded | TeamsMessageSent
