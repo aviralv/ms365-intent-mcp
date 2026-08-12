@@ -795,6 +795,52 @@ class TestStripTeamsHtml:
         body = '<a href="https://example.com/x">https://example.com/x</a>'
         assert _strip_teams_html(body, preserve_links=True) == "https://example.com/x"
 
+
+class TestStripTeamsBoilerplate:
+    """Issue #64: strip the Teams-invite boilerplate block from an event body.
+
+    The block is delimited by the long run of underscores Teams inserts before
+    'Microsoft Teams meeting'. Everything from that separator to end-of-body is
+    boilerplate (join link, dial-in numbers, meeting options) — pure token noise.
+    """
+
+    _BLOCK = (
+        "________________________________________________________________________________\n"
+        "Microsoft Teams meeting\n"
+        "Join: https://teams.microsoft.com/meet/376059509614193?p=abc\n"
+        "Meeting ID: 376 059 509 614 193\n"
+        "Passcode: ic7n2wP6\n"
+        "Dial in by phone\n"
+        "+49 69 365057719,,524097967# Germany, Frankfurt\n"
+        "Phone conference ID: 524 097 967#\n"
+        "________________________________________________________________________________"
+    )
+
+    def test_agenda_above_block_preserved(self):
+        from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+        text = f"Agenda:\n- Discuss roadmap\n- Review metrics\n{self._BLOCK}"
+        assert _strip_teams_boilerplate(text) == "Agenda:\n- Discuss roadmap\n- Review metrics"
+
+    def test_boilerplate_only_collapses_to_empty(self):
+        from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+        assert _strip_teams_boilerplate(self._BLOCK) == ""
+
+    def test_no_separator_unchanged(self):
+        from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+        text = "Just an agenda with no Teams block at all."
+        assert _strip_teams_boilerplate(text) == text
+
+    def test_empty_input(self):
+        from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+        assert _strip_teams_boilerplate("") == ""
+
+    def test_short_underscore_run_not_treated_as_separator(self):
+        """A brief underscore run (e.g. a fill-in blank) must not trigger a cut."""
+        from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+        text = "Fill in ____ here and keep this line."
+        assert _strip_teams_boilerplate(text) == text
+
+
     def test_anchor_empty_text_renders_bare_url(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
         body = '<a href="https://example.com/x"></a>'
