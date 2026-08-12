@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
@@ -52,7 +52,7 @@ class PageHit(BaseModel):
 
 
 SearchHit = Annotated[
-    Union[EmailHit, FileHit, MessageHit, PageHit],
+    EmailHit | FileHit | MessageHit | PageHit,
     Field(discriminator="kind"),
 ]
 

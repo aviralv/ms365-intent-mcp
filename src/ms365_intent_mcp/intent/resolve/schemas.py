@@ -17,7 +17,7 @@ refactors composers to return ``(dict, markdown)`` tuples.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
@@ -140,15 +140,7 @@ class OneDriveFileContent(BaseModel):
 
 
 ResolvedContentData = Annotated[
-    Union[
-        EmailContent,
-        ChatThreadContent,
-        ChatMessageContent,
-        ChannelMessageContent,
-        MeetingContent,
-        SharePointPageContent,
-        OneDriveFileContent,
-    ],
+    EmailContent | ChatThreadContent | ChatMessageContent | ChannelMessageContent | MeetingContent | SharePointPageContent | OneDriveFileContent,
     Field(discriminator="kind"),
 ]
 

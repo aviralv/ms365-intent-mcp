@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
 # Teams-generated filename pattern, e.g.
@@ -71,7 +71,7 @@ def tenant_host_from_upn(upn: str) -> str:
 
 def _select_canonical_items(
     items: list[dict],
-    on_reject: Optional[Callable[[str, str], None]] = None,
+    on_reject: Callable[[str, str], None] | None = None,
 ) -> list[dict]:
     """Pair-aware selection: group Teams sibling pairs by (meeting_name,
     timestamp) and prefer the Meeting Recording item; fall back to the
@@ -230,7 +230,7 @@ class ParsedRecordingUrl:
     share_url: str = ""
 
 
-def parse_recording_url(url: str) -> Optional[ParsedRecordingUrl]:
+def parse_recording_url(url: str) -> ParsedRecordingUrl | None:
     """Parse a SharePoint or Teams URL pointing at a meeting recording.
 
     Tries each shape in order; the first match wins. Returns None when
@@ -360,8 +360,8 @@ CALL_RECORDING_EVENT_TYPE = "#microsoft.graph.callRecordingEventMessageDetail"
 
 def recording_from_message(
     msg: dict,
-    on_reject: Optional[Callable[[str, str], None]] = None,
-) -> Optional[Recording]:
+    on_reject: Callable[[str, str], None] | None = None,
+) -> Recording | None:
     """Extract a Recording from a chat message if it's a successful
     recording event, else None.
 
@@ -420,7 +420,7 @@ def recording_from_message(
 
 def find_match(
     recordings: list[Recording], target: str
-) -> tuple[Optional[Recording], list[Recording]]:
+) -> tuple[Recording | None, list[Recording]]:
     """Locate a recording by exact ID, ID prefix, or meeting-name substring.
 
     Returns `(match, extra)`:
