@@ -1,6 +1,11 @@
 """Tests for shared composer utilities."""
 
-from ms365_intent_mcp.composers._utils import _error_reason, _escape_odata, _build_mail_summary, NOISE_PATTERNS
+from ms365_intent_mcp.composers._utils import (
+    NOISE_PATTERNS,
+    _build_mail_summary,
+    _error_reason,
+    _escape_odata,
+)
 from ms365_intent_mcp.graph import GraphAPIError
 
 
@@ -47,8 +52,16 @@ class TestEscapeOdata:
 class TestBuildMailSummary:
     def test_filters_noise(self):
         msgs = [
-            {"from": {"emailAddress": {"address": "noreply@github.com", "name": "GitHub"}}, "subject": "PR", "importance": "normal"},
-            {"from": {"emailAddress": {"address": "alice@company.com", "name": "Alice"}}, "subject": "Important", "importance": "high"},
+            {
+                "from": {"emailAddress": {"address": "noreply@github.com", "name": "GitHub"}},
+                "subject": "PR",
+                "importance": "normal",
+            },
+            {
+                "from": {"emailAddress": {"address": "alice@company.com", "name": "Alice"}},
+                "subject": "Important",
+                "importance": "high",
+            },
         ]
         summary = _build_mail_summary(msgs)
         assert summary["all_count"] == 2
@@ -64,12 +77,14 @@ def test_chat_enumeration_helpers_live_in_utils():
         _list_user_chats,
         _prefilter_chats_by_query,
     )
+
     assert callable(_list_user_chats)
     assert callable(_prefilter_chats_by_query)
 
 
 def test_prefilter_narrows_by_member_name():
     from ms365_intent_mcp.composers._utils import _prefilter_chats_by_query
+
     chats = [
         {"id": "1", "members": [{"displayName": "Yevhen Kushnirenko"}]},
         {"id": "2", "members": [{"displayName": "Bob Jones"}]},

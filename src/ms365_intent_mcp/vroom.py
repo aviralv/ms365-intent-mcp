@@ -168,9 +168,7 @@ class VroomClient:
                     break
         return items, drive_id
 
-    async def resolve_item_by_filename(
-        self, site_root: str, filename: str
-    ) -> tuple[str, str]:
+    async def resolve_item_by_filename(self, site_root: str, filename: str) -> tuple[str, str]:
         """Resolve a Recordings-folder filename to ``(drive_id, item_id)`` via
         Vroom path-addressing. Returns ``("", "")`` when not found (404)."""
         encoded = quote(filename, safe="")
@@ -185,16 +183,11 @@ class VroomClient:
         item_id = payload.get("id", "")
         return drive_id, item_id
 
-    async def list_transcripts(
-        self, site_root: str, drive_id: str, item_id: str
-    ) -> list[dict]:
+    async def list_transcripts(self, site_root: str, drive_id: str, item_id: str) -> list[dict]:
         """List transcript media for a recording. Returns the raw transcript
         dicts (each has an ``id``). Empty list when the recording has no
         transcript media (404 is treated as empty, not an error)."""
-        url = (
-            f"{site_root}{VROOM_BASE}/drives/{drive_id}/items/{item_id}"
-            f"/media/transcripts"
-        )
+        url = f"{site_root}{VROOM_BASE}/drives/{drive_id}/items/{item_id}/media/transcripts"
         try:
             payload = await self._get_json(url)
         except VroomError as exc:
@@ -253,9 +246,7 @@ class VroomClient:
                     if not _is_allowed_redirect(location):
                         raise VroomError(403, "Redirect to disallowed host")
                     await resp.aclose()
-                    return await self._stream_to_file(
-                        location, {"accept": "*/*"}, dest_path
-                    )
+                    return await self._stream_to_file(location, {"accept": "*/*"}, dest_path)
 
                 self._log(url, resp.status_code)
                 if not (200 <= resp.status_code < 300):
@@ -271,9 +262,7 @@ class VroomClient:
             raise
         return bytes_written
 
-    async def _stream_to_file(
-        self, url: str, headers: dict[str, str], dest_path: str
-    ) -> int:
+    async def _stream_to_file(self, url: str, headers: dict[str, str], dest_path: str) -> int:
         """Stream a (pre-signed) URL to disk. Used for the CDN-redirect hop.
 
         This is the terminal hop — we do NOT follow further redirects. A 3xx

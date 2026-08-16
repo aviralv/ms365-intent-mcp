@@ -43,8 +43,10 @@ def test_filters_teams_boilerplate_links():
         '<a href="https://dialin.teams.microsoft.com/ba77?id=1">Find a local number</a>'
         '<a href="https://teams.microsoft.com/meetingOptions/?organizerId=x">Meeting options</a>'
         '<a href="https://teams.microsoft.com/meet/369947989999958?p=abc">Join</a>'
-        '<a href="https://teams.microsoft.com/l/meetup-join/19:abc@thread.v2/0">System reference</a>'
-        '<a href="https://leanix.atlassian.net/wiki/spaces/NOVA/pages/9772893179/Knowledge+Cafe">Agenda</a>'
+        '<a href="https://teams.microsoft.com/l/meetup-join/19:abc@thread.v2/0">'
+        "System reference</a>"
+        '<a href="https://leanix.atlassian.net/wiki/spaces/NOVA/pages/9772893179/Knowledge+Cafe">'
+        "Agenda</a>"
     )
     assert _extract_event_links(html, _event()) == [
         "https://leanix.atlassian.net/wiki/spaces/NOVA/pages/9772893179/Knowledge+Cafe",

@@ -3,8 +3,6 @@
 import base64
 import json
 
-import pytest
-
 from ms365_intent_mcp.permissions import PermissionRegistry
 
 

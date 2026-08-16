@@ -91,11 +91,11 @@ class TestFindV1Happy:
             FindPayload(query="test", entity_type="audio")
         assert "entity_type" in str(exc_info.value) or "audio" in str(exc_info.value)
 
-
     @pytest.mark.asyncio
     async def test_invalid_hit_is_dropped_valid_hit_passes_through(self, monkeypatch, caplog):
         """Malformed hits should be dropped with a warning; valid hits remain."""
         import logging
+
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, query, search_type):
@@ -103,7 +103,12 @@ class TestFindV1Happy:
                 "query": query,
                 "hits": [
                     # valid email hit — all required fields present
-                    {"kind": "email", "subject": "Budget Q3", "sender": "finance@co.com", "body_preview": "See attached"},
+                    {
+                        "kind": "email",
+                        "subject": "Budget Q3",
+                        "sender": "finance@co.com",
+                        "body_preview": "See attached",
+                    },
                     # invalid email hit — missing required fields (subject, sender, body_preview)
                     {"kind": "email", "totally": "wrong"},
                 ],
@@ -122,7 +127,6 @@ class TestFindV1Happy:
         assert len(response.hits) == 1
         assert response.hits[0].subject == "Budget Q3"
         assert any("malformed" in r.message for r in caplog.records)
-
 
     @pytest.mark.asyncio
     async def test_graph_api_error_returns_error_response(self, monkeypatch):

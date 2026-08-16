@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
+from ms365_intent_mcp.intent._shared import ErrorResponse
 from ms365_intent_mcp.intent.my_day.impl import _my_day_impl
 from ms365_intent_mcp.intent.my_day.schemas import (
     MailSummary,
@@ -13,7 +14,6 @@ from ms365_intent_mcp.intent.my_day.schemas import (
     MyDaySummary,
     TeamsActivitySummary,
 )
-from ms365_intent_mcp.intent._shared import ErrorResponse
 
 
 def _mock_ctx():
@@ -37,7 +37,12 @@ class TestMyDayV1Happy:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, date, timezone, include_bodies=False):
-            return {"date": date, "events": [], "mail": {}, "teams": {}}, "### Calendar\nNo events today.\n\n### Mail\n3 unread."
+            return {
+                "date": date,
+                "events": [],
+                "mail": {},
+                "teams": {},
+            }, "### Calendar\nNo events today.\n\n### Mail\n3 unread."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.my_day.impl.compose_my_day",
@@ -62,7 +67,12 @@ class TestMyDayV1Happy:
 
         async def _fake(client, permissions, date_str, timezone, include_bodies=False):
             received_dates.append(date_str)
-            return {"date": date_str, "events": [], "mail": {}, "teams": {}}, "### Calendar\nNo events."
+            return {
+                "date": date_str,
+                "events": [],
+                "mail": {},
+                "teams": {},
+            }, "### Calendar\nNo events."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.my_day.impl.compose_my_day",
@@ -84,7 +94,12 @@ class TestMyDayV1Happy:
 
         async def _fake(client, permissions, date_str, timezone, include_bodies=False):
             received_dates.append(date_str)
-            return {"date": date_str, "events": [], "mail": {}, "teams": {}}, "### Calendar\n2 events."
+            return {
+                "date": date_str,
+                "events": [],
+                "mail": {},
+                "teams": {},
+            }, "### Calendar\n2 events."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.my_day.impl.compose_my_day",
@@ -130,13 +145,23 @@ async def test_include_bodies_flows_to_composer(monkeypatch):
     async def _fake_compose(client, permissions, date, tz, include_bodies=False):
         captured["include_bodies"] = include_bodies
         return (
-            {"events": [{
-                "subject": "Sync", "start": "2026-08-05T09:00:00+02:00",
-                "end": "2026-08-05T09:30:00+02:00", "start_timezone": "Europe/Berlin",
-                "end_timezone": "Europe/Berlin", "location": None,
-                "is_online_meeting": False,
-                "body": "agenda", "links": ["https://a.example.com"],
-            }], "mail": {}, "teams": {}},
+            {
+                "events": [
+                    {
+                        "subject": "Sync",
+                        "start": "2026-08-05T09:00:00+02:00",
+                        "end": "2026-08-05T09:30:00+02:00",
+                        "start_timezone": "Europe/Berlin",
+                        "end_timezone": "Europe/Berlin",
+                        "location": None,
+                        "is_online_meeting": False,
+                        "body": "agenda",
+                        "links": ["https://a.example.com"],
+                    }
+                ],
+                "mail": {},
+                "teams": {},
+            },
             "md",
         )
 
@@ -154,7 +179,9 @@ class TestMyDayV1Errors:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, date_str, timezone, include_bodies=False):
-            raise GraphAPIError(status_code=503, error_code="ServiceUnavailable", message="try later")
+            raise GraphAPIError(
+                status_code=503, error_code="ServiceUnavailable", message="try later"
+            )
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.my_day.impl.compose_my_day",

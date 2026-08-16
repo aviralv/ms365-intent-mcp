@@ -19,8 +19,11 @@ def test_event_summary_body_links_default():
 
 def test_event_summary_accepts_body_links():
     ev = EventSummary(
-        subject="x", start="2026-08-05", end="2026-08-05",
-        body="agenda", links=["https://a.example.com"],
+        subject="x",
+        start="2026-08-05",
+        end="2026-08-05",
+        body="agenda",
+        links=["https://a.example.com"],
     )
     assert ev.body == "agenda"
     assert ev.links == ["https://a.example.com"]

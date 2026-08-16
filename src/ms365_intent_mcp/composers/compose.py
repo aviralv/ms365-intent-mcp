@@ -2,7 +2,7 @@
 
 import html
 import urllib.parse
-from enum import Enum
+from enum import StrEnum
 
 from ..formatters import (
     format_draft_created_markdown,
@@ -14,7 +14,7 @@ from ..permissions import PermissionRegistry
 from ..resolver import normalize_message_id
 
 
-class ComposeType(str, Enum):
+class ComposeType(StrEnum):
     EMAIL_DRAFT = "email_draft"
     REPLY_DRAFT = "reply_draft"
     EMAIL_FORWARD = "email_forward"
@@ -89,7 +89,10 @@ async def _create_email_draft(client: GraphClient, params: dict) -> tuple[dict, 
         "draft_id": draft.get("id", ""),
         "subject": draft.get("subject", params.get("subject", "")),
         "to": [
-            {"email": r.get("emailAddress", {}).get("address", ""), "name": r.get("emailAddress", {}).get("name", "")}
+            {
+                "email": r.get("emailAddress", {}).get("address", ""),
+                "name": r.get("emailAddress", {}).get("name", ""),
+            }
             for r in draft.get("toRecipients", [])
         ],
         "web_link": draft.get("webLink", ""),
@@ -120,7 +123,10 @@ async def _create_reply_draft(client: GraphClient, params: dict) -> tuple[dict, 
         "draft_id": draft.get("id", ""),
         "subject": draft.get("subject", ""),
         "to": [
-            {"email": r.get("emailAddress", {}).get("address", ""), "name": r.get("emailAddress", {}).get("name", "")}
+            {
+                "email": r.get("emailAddress", {}).get("address", ""),
+                "name": r.get("emailAddress", {}).get("name", ""),
+            }
             for r in draft.get("toRecipients", [])
         ],
         "web_link": draft.get("webLink", ""),
@@ -147,8 +153,9 @@ async def _forward_email_draft(client: GraphClient, params: dict) -> tuple[dict,
     if params.get("body"):
         message["body"] = {"contentType": "HTML", "content": html.escape(params["body"])}
 
+    msg_id = urllib.parse.quote(normalize_message_id(params["message_id"]), safe="")
     draft = await client.post(
-        f"/me/messages/{urllib.parse.quote(normalize_message_id(params['message_id']), safe='')}/createForward",
+        f"/me/messages/{msg_id}/createForward",
         {"message": message},
     )
     data = {
@@ -195,7 +202,11 @@ async def _create_event(client: GraphClient, params: dict) -> tuple[dict, str]:
         payload["isOnlineMeeting"] = True
 
     event = await client.post("/me/events", payload)
-    join_url = (event.get("onlineMeeting") or {}).get("joinUrl", "") if event.get("isOnlineMeeting") else ""
+    join_url = (
+        (event.get("onlineMeeting") or {}).get("joinUrl", "")
+        if event.get("isOnlineMeeting")
+        else ""
+    )
     data = {
         "event_id": event.get("id", ""),
         "subject": event.get("subject", params.get("subject", "")),
@@ -220,7 +231,8 @@ async def _forward_event(client: GraphClient, params: dict) -> tuple[dict, str]:
     if params.get("comment"):
         body["Comment"] = params["comment"]
 
-    await client.post(f"/me/events/{urllib.parse.quote(normalize_message_id(params['event_id']), safe='')}/forward", body)
+    evt_id = urllib.parse.quote(normalize_message_id(params["event_id"]), safe="")
+    await client.post(f"/me/events/{evt_id}/forward", body)
     to_out = [{"email": r["email"], "name": r.get("name", r["email"])} for r in params["to"]]
     to_names = [r["name"] for r in to_out]
     data = {"to": to_out}

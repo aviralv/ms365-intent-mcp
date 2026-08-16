@@ -13,30 +13,35 @@ from ms365_intent_mcp.resolver import ResolvedUrl, UrlParseError
 
 @pytest.fixture
 def full_permissions():
-    return PermissionRegistry([
-        "ChannelMessage.Read.All",
-        "Chat.ReadWrite",
-        "Calendars.Read",
-        "Mail.Read",
-        "Sites.Read.All",
-        "Files.Read",
-    ])
+    return PermissionRegistry(
+        [
+            "ChannelMessage.Read.All",
+            "Chat.ReadWrite",
+            "Calendars.Read",
+            "Mail.Read",
+            "Sites.Read.All",
+            "Files.Read",
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
 # Email (existing tests, kept intact)
 # ---------------------------------------------------------------------------
 
+
 class TestResolveEmail:
     @pytest.mark.asyncio
     async def test_resolves_email_url(self, full_permissions):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "subject": "Budget Review",
-            "from": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
-            "receivedDateTime": "2026-05-15T08:00:00Z",
-            "bodyPreview": "Please review attached.",
-        })
+        client.get = AsyncMock(
+            return_value={
+                "subject": "Budget Review",
+                "from": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
+                "receivedDateTime": "2026-05-15T08:00:00Z",
+                "bodyPreview": "Please review attached.",
+            }
+        )
 
         with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
             mock_resolve.return_value = ResolvedUrl(
@@ -58,12 +63,14 @@ class TestResolveEmail:
         server-generated plain text instead of HTML — cleaner for LLM
         consumption, no client-side stripping needed."""
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "subject": "x",
-            "from": {"emailAddress": {"name": "A"}},
-            "receivedDateTime": "2026-05-15T08:00:00Z",
-            "body": {"contentType": "text", "content": "plain text body"},
-        })
+        client.get = AsyncMock(
+            return_value={
+                "subject": "x",
+                "from": {"emailAddress": {"name": "A"}},
+                "receivedDateTime": "2026-05-15T08:00:00Z",
+                "body": {"contentType": "text", "content": "plain text body"},
+            }
+        )
 
         with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
             mock_resolve.return_value = ResolvedUrl(
@@ -91,13 +98,15 @@ class TestResolveEmail:
             "Regards, Alessia"
         )
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "subject": "RE: Additional Feedback on Agent",
-            "from": {"emailAddress": {"name": "Alessia"}},
-            "receivedDateTime": "2026-07-02T09:00:00Z",
-            "body": {"contentType": "text", "content": long_body},
-            "bodyPreview": long_body[:200],
-        })
+        client.get = AsyncMock(
+            return_value={
+                "subject": "RE: Additional Feedback on Agent",
+                "from": {"emailAddress": {"name": "Alessia"}},
+                "receivedDateTime": "2026-07-02T09:00:00Z",
+                "body": {"contentType": "text", "content": long_body},
+                "bodyPreview": long_body[:200],
+            }
+        )
 
         with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
             mock_resolve.return_value = ResolvedUrl(
@@ -167,19 +176,23 @@ class TestResolveEmail:
 # channel_message
 # ---------------------------------------------------------------------------
 
+
 class TestChannelMessageResolve:
     @pytest.mark.asyncio
     async def test_channel_message_resolve(self, full_permissions):
         import json
+
         ctx = urllib.parse.quote(json.dumps({"groupId": "team-uuid-123", "tid": "tenant"}))
         url = f"https://teams.microsoft.com/l/message/19:chan@thread.tacv2/1234567890.123456?context={ctx}"
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "body": {"content": "Hello"},
-            "from": {"user": {"displayName": "Alice"}},
-            "createdDateTime": "2026-01-01T10:00:00Z",
-        })
+        client.get = AsyncMock(
+            return_value={
+                "body": {"content": "Hello"},
+                "from": {"user": {"displayName": "Alice"}},
+                "createdDateTime": "2026-01-01T10:00:00Z",
+            }
+        )
 
         _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Teams Message" in result
@@ -190,17 +203,20 @@ class TestChannelMessageResolve:
 # chat_message
 # ---------------------------------------------------------------------------
 
+
 class TestChatMessageResolve:
     @pytest.mark.asyncio
     async def test_chat_message_resolve(self, full_permissions):
         url = "https://teams.microsoft.com/l/message/19:somechat@unq.gbl.spaces/1234567890.123456"
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "body": {"content": "Hey team"},
-            "from": {"user": {"displayName": "Bob"}},
-            "createdDateTime": "2026-01-01T09:00:00Z",
-        })
+        client.get = AsyncMock(
+            return_value={
+                "body": {"content": "Hey team"},
+                "from": {"user": {"displayName": "Bob"}},
+                "createdDateTime": "2026-01-01T09:00:00Z",
+            }
+        )
 
         _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Teams Message" in result
@@ -212,11 +228,13 @@ class TestChatMessageResolve:
         url = "https://teams.microsoft.com/l/message/19:somechat@unq.gbl.spaces/1234567890.123456"
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "body": {"content": "Hey team"},
-            "from": {"user": {"displayName": "Bob"}},
-            "createdDateTime": "2026-01-01T09:00:00Z",
-        })
+        client.get = AsyncMock(
+            return_value={
+                "body": {"content": "Hey team"},
+                "from": {"user": {"displayName": "Bob"}},
+                "createdDateTime": "2026-01-01T09:00:00Z",
+            }
+        )
 
         structured, _ = await compose_resolve(client=client, permissions=full_permissions, url=url)
         data = structured["data"]
@@ -227,6 +245,7 @@ class TestChatMessageResolve:
 # ---------------------------------------------------------------------------
 # meeting
 # ---------------------------------------------------------------------------
+
 
 class TestMeetingResolve:
     def _meeting_url(self) -> tuple[str, str]:
@@ -240,19 +259,25 @@ class TestMeetingResolve:
         url, thread_id = self._meeting_url()
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [{
-                "subject": "Standup",
-                "start": {"dateTime": "2026-01-01T09:00:00Z", "timeZone": "UTC"},
-                "end": {"dateTime": "2026-01-01T09:30:00Z", "timeZone": "UTC"},
-                "organizer": {"emailAddress": {"name": "Avi"}},
-                "attendees": [],
-                "body": {"content": ""},
-                "location": {"displayName": ""},
-                "isOnlineMeeting": True,
-                "onlineMeeting": {"joinUrl": f"https://teams.microsoft.com/l/meetup-join/{thread_id}/0"},
-            }],
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "subject": "Standup",
+                        "start": {"dateTime": "2026-01-01T09:00:00Z", "timeZone": "UTC"},
+                        "end": {"dateTime": "2026-01-01T09:30:00Z", "timeZone": "UTC"},
+                        "organizer": {"emailAddress": {"name": "Avi"}},
+                        "attendees": [],
+                        "body": {"content": ""},
+                        "location": {"displayName": ""},
+                        "isOnlineMeeting": True,
+                        "onlineMeeting": {
+                            "joinUrl": f"https://teams.microsoft.com/l/meetup-join/{thread_id}/0"
+                        },
+                    }
+                ],
+            }
+        )
 
         _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Standup" in result
@@ -264,19 +289,25 @@ class TestMeetingResolve:
         url, thread_id = self._meeting_url()
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [{
-                "subject": "UTC Standup",
-                "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
-                "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
-                "organizer": {"emailAddress": {"name": "Avi"}},
-                "attendees": [],
-                "body": {"content": ""},
-                "location": {"displayName": ""},
-                "isOnlineMeeting": True,
-                "onlineMeeting": {"joinUrl": f"https://teams.microsoft.com/l/meetup-join/{thread_id}/0"},
-            }],
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "subject": "UTC Standup",
+                        "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
+                        "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
+                        "organizer": {"emailAddress": {"name": "Avi"}},
+                        "attendees": [],
+                        "body": {"content": ""},
+                        "location": {"displayName": ""},
+                        "isOnlineMeeting": True,
+                        "onlineMeeting": {
+                            "joinUrl": f"https://teams.microsoft.com/l/meetup-join/{thread_id}/0"
+                        },
+                    }
+                ],
+            }
+        )
 
         structured, _ = await compose_resolve(client=client, permissions=full_permissions, url=url)
         data = structured["data"]
@@ -289,17 +320,20 @@ class TestMeetingResolve:
 # onedrive_file
 # ---------------------------------------------------------------------------
 
+
 class TestOneDriveFileResolve:
     @pytest.mark.asyncio
     async def test_onedrive_file_resolve(self, full_permissions):
         url = "https://contoso-my.sharepoint.com/personal/user_example_com/Documents/report.xlsx"
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "name": "report.xlsx",
-            "size": 1024,
-            "webUrl": "https://contoso-my.sharepoint.com/personal/user_example_com/Documents/report.xlsx",
-        })
+        client.get = AsyncMock(
+            return_value={
+                "name": "report.xlsx",
+                "size": 1024,
+                "webUrl": "https://contoso-my.sharepoint.com/personal/user_example_com/Documents/report.xlsx",
+            }
+        )
 
         _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "report.xlsx" in result
@@ -309,17 +343,20 @@ class TestOneDriveFileResolve:
 # onedrive_share_link
 # ---------------------------------------------------------------------------
 
+
 class TestOneDriveShareLinkResolve:
     @pytest.mark.asyncio
     async def test_onedrive_share_link_resolve(self, full_permissions):
         url = "https://contoso-my.sharepoint.com/:x:/r/personal/user_example_com/_layouts/15/Doc.aspx?sourcedoc=%7Babc%7D"
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "name": "Roadmap.xlsx",
-            "size": 2048,
-            "webUrl": "https://contoso-my.sharepoint.com/personal/user_example_com/Shared%20Documents/Roadmap.xlsx",
-        })
+        client.get = AsyncMock(
+            return_value={
+                "name": "Roadmap.xlsx",
+                "size": 2048,
+                "webUrl": "https://contoso-my.sharepoint.com/personal/user_example_com/Shared%20Documents/Roadmap.xlsx",
+            }
+        )
 
         _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "Roadmap.xlsx" in result
@@ -329,22 +366,31 @@ class TestOneDriveShareLinkResolve:
 # sharepoint_page
 # ---------------------------------------------------------------------------
 
+
 class TestSharePointPageResolve:
     @pytest.mark.asyncio
     async def test_sharepoint_page_found(self, full_permissions):
         url = "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
 
-        site_response = {"id": "site-id-123", "displayName": "My Project", "webUrl": "https://contoso.sharepoint.com/sites/MyProject"}
+        site_response = {
+            "id": "site-id-123",
+            "displayName": "My Project",
+            "webUrl": "https://contoso.sharepoint.com/sites/MyProject",
+        }
         lists_response = {"value": [{"id": "list-id-456"}]}
-        items_response = {"value": [{
-            "id": "42",
-            "webUrl": "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx",
-            "fields": {
-                "FileLeafRef": "Overview.aspx",
-                "Title": "Project Overview",
-                "Modified": "2026-01-01T00:00:00Z",
-            },
-        }]}
+        items_response = {
+            "value": [
+                {
+                    "id": "42",
+                    "webUrl": "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx",
+                    "fields": {
+                        "FileLeafRef": "Overview.aspx",
+                        "Title": "Project Overview",
+                        "Modified": "2026-01-01T00:00:00Z",
+                    },
+                }
+            ]
+        }
 
         client = AsyncMock()
         client.get = AsyncMock(side_effect=[site_response, lists_response, items_response])
@@ -357,13 +403,19 @@ class TestSharePointPageResolve:
     async def test_sharepoint_page_fallback(self, full_permissions):
         url = "https://contoso.sharepoint.com/sites/MyProject/SitePages/Overview.aspx"
 
-        site_response = {"id": "site-id-123", "displayName": "My Project", "webUrl": "https://contoso.sharepoint.com/sites/MyProject"}
+        site_response = {
+            "id": "site-id-123",
+            "displayName": "My Project",
+            "webUrl": "https://contoso.sharepoint.com/sites/MyProject",
+        }
 
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=[
-            site_response,
-            GraphAPIError(404, "NotFound", "not found"),
-        ])
+        client.get = AsyncMock(
+            side_effect=[
+                site_response,
+                GraphAPIError(404, "NotFound", "not found"),
+            ]
+        )
 
         _, result = await compose_resolve(client=client, permissions=full_permissions, url=url)
         assert "SharePoint Site" in result
@@ -373,17 +425,20 @@ class TestSharePointPageResolve:
 # _get_event_by_id helper
 # ---------------------------------------------------------------------------
 
+
 class TestGetEventByIdHelper:
     @pytest.mark.asyncio
     async def test_returns_event_on_success(self):
         from ms365_intent_mcp.composers.resolve import _get_event_by_id
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "subject": "Project sync",
-            "start": {"dateTime": "2026-05-26T10:00:00"},
-            "end": {"dateTime": "2026-05-26T10:30:00"},
-        })
+        client.get = AsyncMock(
+            return_value={
+                "subject": "Project sync",
+                "start": {"dateTime": "2026-05-26T10:00:00"},
+                "end": {"dateTime": "2026-05-26T10:30:00"},
+            }
+        )
         event = await _get_event_by_id(client, "AAMkAGI2event-id")
         assert event["subject"] == "Project sync"
         client.get.assert_called_once()
@@ -414,6 +469,7 @@ class TestGetEventByIdHelper:
 # chat_thread
 # ---------------------------------------------------------------------------
 
+
 class TestResolveChatThread:
     @pytest.fixture
     def chat_meta(self):
@@ -436,12 +492,16 @@ class TestResolveChatThread:
     def messages_payload(self):
         return {
             "value": [
-                {"from": {"user": {"displayName": "Alice"}},
-                 "body": {"content": "Hello"},
-                 "createdDateTime": "2026-05-26T10:00:00Z"},
-                {"from": {"user": {"displayName": "Bob"}},
-                 "body": {"content": "Hi"},
-                 "createdDateTime": "2026-05-26T10:05:00Z"},
+                {
+                    "from": {"user": {"displayName": "Alice"}},
+                    "body": {"content": "Hello"},
+                    "createdDateTime": "2026-05-26T10:00:00Z",
+                },
+                {
+                    "from": {"user": {"displayName": "Bob"}},
+                    "body": {"content": "Hi"},
+                    "createdDateTime": "2026-05-26T10:05:00Z",
+                },
             ]
         }
 
@@ -511,8 +571,16 @@ class TestResolveChatThread:
             if endpoint.startswith("/chats/19:abc@thread.v2/messages"):
                 return messages_payload
             if endpoint == "/me/calendarView":
-                return {"value": [{**event_payload,
-                                   "onlineMeeting": {"joinUrl": "https://teams.microsoft.com/l/meetup-join/19:meet@thread.v2/0"}}]}
+                return {
+                    "value": [
+                        {
+                            **event_payload,
+                            "onlineMeeting": {
+                                "joinUrl": "https://teams.microsoft.com/l/meetup-join/19:meet@thread.v2/0"
+                            },
+                        }
+                    ]
+                }
             raise AssertionError(f"Unexpected endpoint: {endpoint}")
 
         client.get = AsyncMock(side_effect=fake_get)
@@ -645,9 +713,7 @@ class TestResolveChatThread:
         assert "Hello" not in result  # messages failed; no message content should render
 
     @pytest.mark.asyncio
-    async def test_chat_failure_partial_success(
-        self, full_permissions, messages_payload
-    ):
+    async def test_chat_failure_partial_success(self, full_permissions, messages_payload):
         client = AsyncMock()
 
         async def fake_get(endpoint, params=None, headers=None):
@@ -710,20 +776,24 @@ class TestResolveChatThread:
         assert "Hello" in result
 
     @pytest.mark.asyncio
-    async def test_messages_sorted_client_side(
-        self, full_permissions, chat_meta, event_payload
-    ):
+    async def test_messages_sorted_client_side(self, full_permissions, chat_meta, event_payload):
         out_of_order = {
             "value": [
-                {"from": {"user": {"displayName": "Alice"}},
-                 "body": {"content": "OLDEST"},
-                 "createdDateTime": "2026-05-26T08:00:00Z"},
-                {"from": {"user": {"displayName": "Bob"}},
-                 "body": {"content": "NEWEST"},
-                 "createdDateTime": "2026-05-26T10:00:00Z"},
-                {"from": {"user": {"displayName": "Carol"}},
-                 "body": {"content": "MIDDLE"},
-                 "createdDateTime": "2026-05-26T09:00:00Z"},
+                {
+                    "from": {"user": {"displayName": "Alice"}},
+                    "body": {"content": "OLDEST"},
+                    "createdDateTime": "2026-05-26T08:00:00Z",
+                },
+                {
+                    "from": {"user": {"displayName": "Bob"}},
+                    "body": {"content": "NEWEST"},
+                    "createdDateTime": "2026-05-26T10:00:00Z",
+                },
+                {
+                    "from": {"user": {"displayName": "Carol"}},
+                    "body": {"content": "MIDDLE"},
+                    "createdDateTime": "2026-05-26T09:00:00Z",
+                },
             ]
         }
         client = AsyncMock()
@@ -772,7 +842,12 @@ class TestResolveChatThread:
             "value": [
                 {
                     "from": {"user": {"displayName": "Bob"}},
-                    "body": {"content": "Here is a recording of what he has asked today, 15.07 10:25.<attachment id=\"a1\"></attachment>"},
+                    "body": {
+                        "content": (
+                            "Here is a recording of what he has asked today,"
+                            ' 15.07 10:25.<attachment id="a1"></attachment>'
+                        )
+                    },
                     "createdDateTime": "2026-07-15T10:25:00Z",
                     "attachments": [
                         {
@@ -823,19 +898,23 @@ class TestTruncateBody:
 
     def test_short_text_unchanged(self):
         from ms365_intent_mcp.composers.resolve import _truncate_body
+
         assert _truncate_body("hello", 500) == "hello"
 
     def test_plain_text_truncated_with_ellipsis(self):
         from ms365_intent_mcp.composers.resolve import _truncate_body
+
         out = _truncate_body("x" * 600, 500)
         assert out == "x" * 500 + "…"
 
     def test_at_limit_no_ellipsis(self):
         from ms365_intent_mcp.composers.resolve import _truncate_body
+
         assert _truncate_body("x" * 500, 500) == "x" * 500
 
     def test_does_not_cut_link_mid_token(self):
         from ms365_intent_mcp.composers.resolve import _truncate_body
+
         # A link straddles the limit: cutting at 500 would land inside (url).
         pre = "y" * 490
         link = "[the doc](https://example.com/a/very/long/path/that/keeps/going)"
@@ -844,10 +923,12 @@ class TestTruncateBody:
         assert "](htt" not in out or out.count("[") == out.count("]")
         # Specifically: no dangling open-paren link.
         import re as _re
+
         assert not _re.search(r"\]\([^)]*$", out)
 
     def test_keeps_whole_link_when_it_fits_before_limit(self):
         from ms365_intent_mcp.composers.resolve import _truncate_body
+
         link = "[doc](https://x.com/y)"
         text = link + " " + "z" * 600
         out = _truncate_body(text, 500)
@@ -858,37 +939,46 @@ class TestTruncateBody:
 # _parse_iso_duration
 # ---------------------------------------------------------------------------
 
+
 class TestParseIsoDuration:
     def test_basic(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+
         assert _parse_iso_duration("PT25M38.4845646S") == "25m38s"
 
     def test_only_minutes(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+
         assert _parse_iso_duration("PT5M") == "5m"
 
     def test_only_seconds(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+
         assert _parse_iso_duration("PT30S") == "30s"
 
     def test_with_hours(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+
         assert _parse_iso_duration("PT1H30M") == "1h30m"
 
     def test_zero(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+
         assert _parse_iso_duration("PT0S") == "0s"
 
     def test_fractional_only_seconds(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+
         assert _parse_iso_duration("PT1.5S") == "1s"
 
     def test_empty_returns_empty(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+
         assert _parse_iso_duration("") == ""
 
     def test_malformed_returns_empty(self):
         from ms365_intent_mcp.composers.resolve import _parse_iso_duration
+
         assert _parse_iso_duration("not-a-duration") == ""
 
 
@@ -896,9 +986,11 @@ class TestParseIsoDuration:
 # _build_member_name_map
 # ---------------------------------------------------------------------------
 
+
 class TestBuildMemberNameMap:
     def test_basic(self):
         from ms365_intent_mcp.composers.resolve import _build_member_name_map
+
         chat = {
             "members": [
                 {"userId": "u1", "displayName": "Alice"},
@@ -909,6 +1001,7 @@ class TestBuildMemberNameMap:
 
     def test_skips_members_without_user_id(self):
         from ms365_intent_mcp.composers.resolve import _build_member_name_map
+
         chat = {
             "members": [
                 {"userId": "u1", "displayName": "Alice"},
@@ -919,6 +1012,7 @@ class TestBuildMemberNameMap:
 
     def test_skips_members_without_display_name(self):
         from ms365_intent_mcp.composers.resolve import _build_member_name_map
+
         chat = {
             "members": [
                 {"userId": "u1", "displayName": "Alice"},
@@ -929,14 +1023,17 @@ class TestBuildMemberNameMap:
 
     def test_empty_members(self):
         from ms365_intent_mcp.composers.resolve import _build_member_name_map
+
         assert _build_member_name_map({"members": []}) == {}
 
     def test_missing_members_key(self):
         from ms365_intent_mcp.composers.resolve import _build_member_name_map
+
         assert _build_member_name_map({}) == {}
 
     def test_none_chat(self):
         from ms365_intent_mcp.composers.resolve import _build_member_name_map
+
         assert _build_member_name_map(None) == {}
 
 
@@ -944,9 +1041,11 @@ class TestBuildMemberNameMap:
 # _message_entry
 # ---------------------------------------------------------------------------
 
+
 class TestMessageEntry:
     def test_resolves_sender_via_name_map(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"user": {"id": "u1", "displayName": None}},
@@ -961,6 +1060,7 @@ class TestMessageEntry:
 
     def test_falls_back_to_graph_user_displayname(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"user": {"id": "u-unknown", "displayName": "Bob (Graph)"}},
@@ -971,6 +1071,7 @@ class TestMessageEntry:
 
     def test_falls_back_to_application_displayname(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"application": {"displayName": "Workflow Bot"}},
@@ -981,6 +1082,7 @@ class TestMessageEntry:
 
     def test_falls_back_to_unknown(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": None,
@@ -991,6 +1093,7 @@ class TestMessageEntry:
 
     def test_truncates_long_body_with_ellipsis(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"user": {"id": "u1", "displayName": "A"}},
@@ -1002,6 +1105,7 @@ class TestMessageEntry:
 
     def test_at_500_chars_no_ellipsis(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"user": {"id": "u1", "displayName": "A"}},
@@ -1013,6 +1117,7 @@ class TestMessageEntry:
 
     def test_html_stripped(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"user": {"id": "u1", "displayName": "A"}},
@@ -1023,6 +1128,7 @@ class TestMessageEntry:
 
     def test_at_mention_only_renders_inner_text(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"user": {"id": "u1", "displayName": "A"}},
@@ -1034,6 +1140,7 @@ class TestMessageEntry:
 
     def test_empty_body_marked_is_body_empty(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"user": {"id": "u1", "displayName": "A"}},
@@ -1045,6 +1152,7 @@ class TestMessageEntry:
 
     def test_html_only_body_marked_is_body_empty(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "from": {"user": {"id": "u1", "displayName": "A"}},
@@ -1060,6 +1168,7 @@ class TestForwardedMessageExtraction:
 
     def test_forwarded_message_extracts_inner_text(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2025-06-05T09:52:38Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
@@ -1078,6 +1187,7 @@ class TestForwardedMessageExtraction:
 
     def test_forwarded_message_truncates_long_inner_text(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         long_text = "x" * 600
         msg = {
             "createdDateTime": "2025-06-05T09:52:38Z",
@@ -1086,7 +1196,7 @@ class TestForwardedMessageExtraction:
             "attachments": [
                 {
                     "contentType": "forwardedMessageReference",
-                    "content": '{"originalMessageContent": "%s"}' % long_text,
+                    "content": f'{{"originalMessageContent": "{long_text}"}}',
                 }
             ],
         }
@@ -1097,13 +1207,12 @@ class TestForwardedMessageExtraction:
     def test_attachment_with_unparseable_content_falls_through(self):
         """Malformed JSON in attachment content must not crash; entry stays empty."""
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2025-06-05T09:52:38Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
             "body": {"content": '<attachment id="123"></attachment>'},
-            "attachments": [
-                {"contentType": "forwardedMessageReference", "content": "{not json"}
-            ],
+            "attachments": [{"contentType": "forwardedMessageReference", "content": "{not json"}],
         }
         entry = _message_entry(msg, {})
         assert entry["is_body_empty"] is True
@@ -1112,14 +1221,13 @@ class TestForwardedMessageExtraction:
         """content that is valid JSON but not an object (list/string/number)
         must not crash — the entry degrades to empty body."""
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         for payload in ("[1,2,3]", '"just a string"', "42"):
             msg = {
                 "createdDateTime": "2025-06-05T09:52:38Z",
                 "from": {"user": {"id": "u1", "displayName": "Alice"}},
                 "body": {"content": '<attachment id="123"></attachment>'},
-                "attachments": [
-                    {"contentType": "forwardedMessageReference", "content": payload}
-                ],
+                "attachments": [{"contentType": "forwardedMessageReference", "content": payload}],
             }
             entry = _message_entry(msg, {})
             assert entry["is_body_empty"] is True
@@ -1128,13 +1236,12 @@ class TestForwardedMessageExtraction:
         """An image/file attachment without 'forwardedMessageReference' should
         not be misread as a forwarded message — body stays empty."""
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2025-06-05T09:52:38Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
             "body": {"content": '<attachment id="123"></attachment>'},
-            "attachments": [
-                {"contentType": "image/png", "name": "foo.png"}
-            ],
+            "attachments": [{"contentType": "image/png", "name": "foo.png"}],
         }
         entry = _message_entry(msg, {})
         assert entry["is_body_empty"] is True
@@ -1142,6 +1249,7 @@ class TestForwardedMessageExtraction:
     def test_real_body_takes_precedence_over_attachment(self):
         """If body has stripped text, use that — don't override with attachment content."""
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2025-06-05T09:52:38Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
@@ -1165,10 +1273,11 @@ class TestReferenceAttachmentExtraction:
 
     def test_reference_attachment_surfaced(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
-            "body": {"content": "<div><attachment id=\"abc\"></attachment></div>"},
+            "body": {"content": '<div><attachment id="abc"></attachment></div>'},
             "attachments": [
                 {
                     "id": "abc",
@@ -1191,10 +1300,11 @@ class TestReferenceAttachmentExtraction:
         """Body is just the <attachment> placeholder (empty after strip); the
         file must still surface even though is_body_empty is True."""
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
-            "body": {"content": "<div><attachment id=\"abc\"></attachment></div>"},
+            "body": {"content": '<div><attachment id="abc"></attachment></div>'},
             "attachments": [
                 {
                     "id": "abc",
@@ -1211,10 +1321,11 @@ class TestReferenceAttachmentExtraction:
 
     def test_message_with_text_and_attachment(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
-            "body": {"content": "<p>Here is the recording</p><attachment id=\"abc\"></attachment>"},
+            "body": {"content": '<p>Here is the recording</p><attachment id="abc"></attachment>'},
             "attachments": [
                 {
                     "contentType": "reference",
@@ -1232,6 +1343,7 @@ class TestReferenceAttachmentExtraction:
 
     def test_multiple_reference_attachments(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
@@ -1248,6 +1360,7 @@ class TestReferenceAttachmentExtraction:
 
     def test_no_attachments_yields_empty_list(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
@@ -1260,10 +1373,11 @@ class TestReferenceAttachmentExtraction:
         """forwardedMessageReference is not a shared file — it must not leak
         into the attachments list."""
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
-            "body": {"content": "<attachment id=\"123\"></attachment>"},
+            "body": {"content": '<attachment id="123"></attachment>'},
             "attachments": [
                 {
                     "contentType": "forwardedMessageReference",
@@ -1277,13 +1391,12 @@ class TestReferenceAttachmentExtraction:
     def test_reference_without_url_skipped(self):
         """A reference attachment missing contentUrl is not renderable — skip it."""
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
             "body": {"content": "<div></div>"},
-            "attachments": [
-                {"contentType": "reference", "name": "orphan.mp4"}
-            ],
+            "attachments": [{"contentType": "reference", "name": "orphan.mp4"}],
         }
         entry = _message_entry(msg, {})
         assert entry["attachments"] == []
@@ -1296,6 +1409,7 @@ class TestReplyContextExtraction:
 
     def _reply_msg(self, sender="Bob", preview="the original question"):
         import json as _json
+
         return {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
@@ -1305,19 +1419,20 @@ class TestReplyContextExtraction:
                     "id": "1728422677844",
                     "contentType": "messageReference",
                     "contentUrl": None,
-                    "content": _json.dumps({
-                        "messageId": "1728422677844",
-                        "messagePreview": preview,
-                        "messageSender": {
-                            "user": {"id": "x", "displayName": sender}
-                        },
-                    }),
+                    "content": _json.dumps(
+                        {
+                            "messageId": "1728422677844",
+                            "messagePreview": preview,
+                            "messageSender": {"user": {"id": "x", "displayName": sender}},
+                        }
+                    ),
                 }
             ],
         }
 
     def test_reply_context_extracted(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         entry = _message_entry(self._reply_msg(), {})
         assert entry["body"] == "Yes, agreed"
         assert entry["reply_to"] == {
@@ -1327,6 +1442,7 @@ class TestReplyContextExtraction:
 
     def test_reply_context_absent_yields_none(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
@@ -1337,13 +1453,12 @@ class TestReplyContextExtraction:
 
     def test_reply_context_unparseable_content_yields_none(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
             "body": {"content": "<p>hi</p>"},
-            "attachments": [
-                {"contentType": "messageReference", "content": "{not json"}
-            ],
+            "attachments": [{"contentType": "messageReference", "content": "{not json"}],
         }
         entry = _message_entry(msg, {})
         assert entry["reply_to"] is None
@@ -1352,27 +1467,29 @@ class TestReplyContextExtraction:
         """content that is valid JSON but not an object (list/string/number)
         must not crash — a malformed reference should degrade to None."""
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         for payload in ("[1,2,3]", '"just a string"', "42"):
             msg = {
                 "createdDateTime": "2026-07-15T10:25:00Z",
                 "from": {"user": {"id": "u1", "displayName": "Alice"}},
                 "body": {"content": "<p>hi</p>"},
-                "attachments": [
-                    {"contentType": "messageReference", "content": payload}
-                ],
+                "attachments": [{"contentType": "messageReference", "content": payload}],
             }
             entry = _message_entry(msg, {})
             assert entry["reply_to"] is None
 
     def test_reply_preview_truncated(self):
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         entry = _message_entry(self._reply_msg(preview="x" * 300), {})
         assert entry["reply_to"]["preview"].endswith("…")
         assert len(entry["reply_to"]["preview"]) == 201
 
     def test_reply_sender_falls_back_when_missing(self):
         import json as _json
+
         from ms365_intent_mcp.composers.resolve import _message_entry
+
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",
             "from": {"user": {"id": "u1", "displayName": "Alice"}},
@@ -1392,9 +1509,11 @@ class TestReplyContextExtraction:
 # _event_entry
 # ---------------------------------------------------------------------------
 
+
 class TestEventEntry:
     def test_members_added_with_names(self):
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1412,6 +1531,7 @@ class TestEventEntry:
 
     def test_members_added_empty_falls_back(self):
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1424,6 +1544,7 @@ class TestEventEntry:
 
     def test_members_deleted(self):
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1437,6 +1558,7 @@ class TestEventEntry:
 
     def test_chat_renamed(self):
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1450,6 +1572,7 @@ class TestEventEntry:
 
     def test_chat_renamed_empty(self):
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1462,6 +1585,7 @@ class TestEventEntry:
 
     def test_unknown_type(self):
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1476,6 +1600,7 @@ class TestEventEntry:
         """Bug 2: Graph returns id-only members with displayName=null.
         Use name_map to resolve via the chat's member list."""
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1491,6 +1616,7 @@ class TestEventEntry:
 
     def test_members_added_falls_back_to_displayname_when_id_missing_from_map(self):
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1505,6 +1631,7 @@ class TestEventEntry:
 
     def test_members_added_someone_when_ids_unresolvable(self):
         from ms365_intent_mcp.composers.resolve import _event_entry
+
         msg = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1521,6 +1648,7 @@ class TestEventEntry:
 # ---------------------------------------------------------------------------
 # _group_call_events
 # ---------------------------------------------------------------------------
+
 
 class TestGroupCallEvents:
     def _recording_event(self, call_id, ts, status, url="", duration=""):
@@ -1547,12 +1675,17 @@ class TestGroupCallEvents:
 
     def test_single_call(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
             self._recording_event("c1", "2026-05-29T10:00:00Z", "initial"),
             self._recording_event("c1", "2026-05-29T10:05:00Z", "chunkFinished"),
-            self._recording_event("c1", "2026-05-29T10:25:00Z", "success",
-                                  url="https://recording.example/c1.mp4",
-                                  duration="PT25M0S"),
+            self._recording_event(
+                "c1",
+                "2026-05-29T10:25:00Z",
+                "success",
+                url="https://recording.example/c1.mp4",
+                duration="PT25M0S",
+            ),
         ]
         out = _group_call_events(events, {"u1": "Alice"})
         assert len(out) == 1
@@ -1567,11 +1700,14 @@ class TestGroupCallEvents:
 
     def test_multiple_calls_separate_entries(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
-            self._recording_event("c1", "2026-05-29T10:00:00Z", "success",
-                                  url="https://r1", duration="PT5M0S"),
-            self._recording_event("c2", "2026-05-29T11:00:00Z", "success",
-                                  url="https://r2", duration="PT10M0S"),
+            self._recording_event(
+                "c1", "2026-05-29T10:00:00Z", "success", url="https://r1", duration="PT5M0S"
+            ),
+            self._recording_event(
+                "c2", "2026-05-29T11:00:00Z", "success", url="https://r2", duration="PT10M0S"
+            ),
         ]
         out = _group_call_events(events, {})
         assert len(out) == 2
@@ -1580,39 +1716,46 @@ class TestGroupCallEvents:
 
     def test_recording_url_prefers_success_status(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
-            self._recording_event("c1", "2026-05-29T10:00:00Z", "chunkFinished",
-                                  url="https://chunk.example/temp.mp4"),
-            self._recording_event("c1", "2026-05-29T10:25:00Z", "success",
-                                  url="https://final.example/c1.mp4"),
+            self._recording_event(
+                "c1", "2026-05-29T10:00:00Z", "chunkFinished", url="https://chunk.example/temp.mp4"
+            ),
+            self._recording_event(
+                "c1", "2026-05-29T10:25:00Z", "success", url="https://final.example/c1.mp4"
+            ),
         ]
         out = _group_call_events(events, {})
         assert out[0]["recording_url"] == "https://final.example/c1.mp4"
 
     def test_recording_url_pending_no_success(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
             self._recording_event("c1", "2026-05-29T10:00:00Z", "initial"),
-            self._recording_event("c1", "2026-05-29T10:05:00Z", "chunkFinished",
-                                  url="https://chunk.example/temp.mp4"),
+            self._recording_event(
+                "c1", "2026-05-29T10:05:00Z", "chunkFinished", url="https://chunk.example/temp.mp4"
+            ),
         ]
         out = _group_call_events(events, {})
         assert out[0]["recording_url"] == ""
 
     def test_status_case_insensitive(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
-            self._recording_event("c1", "2026-05-29T10:00:00Z", "Success",
-                                  url="https://final.example/c1.mp4"),
+            self._recording_event(
+                "c1", "2026-05-29T10:00:00Z", "Success", url="https://final.example/c1.mp4"
+            ),
         ]
         out = _group_call_events(events, {})
         assert out[0]["recording_url"] == "https://final.example/c1.mp4"
 
     def test_transcript_ready_flag(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
-            self._recording_event("c1", "2026-05-29T10:00:00Z", "success",
-                                  url="https://r1"),
+            self._recording_event("c1", "2026-05-29T10:00:00Z", "success", url="https://r1"),
             self._transcript_event("c1", "2026-05-29T10:30:00Z"),
         ]
         out = _group_call_events(events, {})
@@ -1620,6 +1763,7 @@ class TestGroupCallEvents:
 
     def test_duration_from_call_ended_event(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
             {
                 "createdDateTime": "2026-05-29T10:30:00Z",
@@ -1635,13 +1779,14 @@ class TestGroupCallEvents:
 
     def test_initiator_resolved_via_map(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
-        events = [self._recording_event("c1", "2026-05-29T10:00:00Z", "success",
-                                        url="https://r1")]
+
+        events = [self._recording_event("c1", "2026-05-29T10:00:00Z", "success", url="https://r1")]
         out = _group_call_events(events, {"u1": "Alice"})
         assert out[0]["initiator"] == "Alice"
 
     def test_initiator_falls_back_to_graph_displayname(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         event = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1657,6 +1802,7 @@ class TestGroupCallEvents:
 
     def test_initiator_none_when_unresolvable(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         event = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1672,6 +1818,7 @@ class TestGroupCallEvents:
 
     def test_call_unknown_when_no_call_id(self):
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         event = {
             "createdDateTime": "2026-05-29T10:00:00Z",
             "eventDetail": {
@@ -1688,12 +1835,15 @@ class TestGroupCallEvents:
     def test_duration_prefers_success_event_over_initial_pt0s(self):
         """Bug 1 regression: PT0S on initial event must not lock in duration."""
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
             self._recording_event("c1", "2026-05-27T11:46:27Z", "initial", duration="PT0S"),
-            self._recording_event("c1", "2026-05-27T12:12:05Z", "chunkFinished",
-                                  duration="PT25M38S"),
-            self._recording_event("c1", "2026-05-27T12:12:26Z", "success",
-                                  url="https://r1", duration="PT25M38S"),
+            self._recording_event(
+                "c1", "2026-05-27T12:12:05Z", "chunkFinished", duration="PT25M38S"
+            ),
+            self._recording_event(
+                "c1", "2026-05-27T12:12:26Z", "success", url="https://r1", duration="PT25M38S"
+            ),
         ]
         out = _group_call_events(events, {})
         assert out[0]["duration"] == "25m38s"
@@ -1702,10 +1852,12 @@ class TestGroupCallEvents:
         """Recording in progress: success event hasn't fired yet. Use the
         latest non-zero chunk duration instead of the initial PT0S."""
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
             self._recording_event("c1", "2026-05-27T11:46:27Z", "initial", duration="PT0S"),
-            self._recording_event("c1", "2026-05-27T12:12:05Z", "chunkFinished",
-                                  duration="PT25M38S"),
+            self._recording_event(
+                "c1", "2026-05-27T12:12:05Z", "chunkFinished", duration="PT25M38S"
+            ),
         ]
         out = _group_call_events(events, {})
         assert out[0]["duration"] == "25m38s"
@@ -1713,6 +1865,7 @@ class TestGroupCallEvents:
     def test_duration_from_call_ended_overrides_recording_pt0s(self):
         """If call recording fires first with PT0S but callEnded has real duration."""
         from ms365_intent_mcp.composers.resolve import _group_call_events
+
         events = [
             self._recording_event("c1", "2026-05-27T10:00:00Z", "initial", duration="PT0S"),
             {
@@ -1732,9 +1885,11 @@ class TestGroupCallEvents:
 # _normalize_chat_entries
 # ---------------------------------------------------------------------------
 
+
 class TestEncodeShareUrl:
     def test_produces_u_prefix_base64url(self):
         from ms365_intent_mcp.composers.resolve import _encode_share_url
+
         url = "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw"
         encoded = _encode_share_url(url)
         assert encoded.startswith("u!")
@@ -1745,6 +1900,7 @@ class TestEncodeShareUrl:
 class TestExtractRecordingOwner:
     def test_extracts_upn_from_share_url(self):
         from ms365_intent_mcp.composers.resolve import _extract_recording_owner
+
         url = "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw"
         host, upn = _extract_recording_owner(url)
         assert host == "sap-my.sharepoint.com"
@@ -1752,12 +1908,14 @@ class TestExtractRecordingOwner:
 
     def test_returns_empty_when_shape_unrecognized(self):
         from ms365_intent_mcp.composers.resolve import _extract_recording_owner
+
         host, upn = _extract_recording_owner("https://example.com/nope")
         assert host == ""
         assert upn == ""
 
     def test_returns_empty_on_empty_input(self):
         from ms365_intent_mcp.composers.resolve import _extract_recording_owner
+
         assert _extract_recording_owner("") == ("", "")
 
 
@@ -1767,10 +1925,12 @@ class TestEnrichCallRecording:
         from ms365_intent_mcp.composers.resolve import _enrich_call_recording
 
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "id": "01LUWJL4TQYSFUZ4AUBVC334ND5VUPJEVP",
-            "parentReference": {"driveId": "b!vwRb..."},
-        })
+        client.get = AsyncMock(
+            return_value={
+                "id": "01LUWJL4TQYSFUZ4AUBVC334ND5VUPJEVP",
+                "parentReference": {"driveId": "b!vwRb..."},
+            }
+        )
 
         entry = {
             "kind": "call",
@@ -1793,6 +1953,7 @@ class TestEnrichCallRecording:
     @pytest.mark.asyncio
     async def test_no_op_when_recording_url_missing(self):
         from ms365_intent_mcp.composers.resolve import _enrich_call_recording
+
         client = AsyncMock()
         entry = {"kind": "call", "recording_url": ""}
         await _enrich_call_recording(client, entry)
@@ -1806,6 +1967,7 @@ class TestEnrichCallRecording:
         recording in Teams UI. Enrichment must not raise or overwrite the URL —
         it just leaves the drive fields absent."""
         from ms365_intent_mcp.composers.resolve import _enrich_call_recording
+
         client = AsyncMock()
         client.get = AsyncMock(side_effect=GraphAPIError(403, "Forbidden", "no access"))
 
@@ -1824,11 +1986,14 @@ class TestEnrichCallRecording:
         """If URL shape doesn't yield an owner UPN, drive_id/item_id are still
         exposed — vroom_url just isn't composable."""
         from ms365_intent_mcp.composers.resolve import _enrich_call_recording
+
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "id": "01ABC",
-            "parentReference": {"driveId": "b!x"},
-        })
+        client.get = AsyncMock(
+            return_value={
+                "id": "01ABC",
+                "parentReference": {"driveId": "b!x"},
+            }
+        )
         entry = {"kind": "call", "recording_url": "https://example.com/no-upn-here"}
         await _enrich_call_recording(client, entry)
 
@@ -1841,6 +2006,7 @@ class TestEnrichCallRecording:
 class TestNormalizeChatEntries:
     def test_partitions_messages_and_events(self):
         from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+
         messages = [
             {
                 "createdDateTime": "2026-05-29T10:00:00Z",
@@ -1866,6 +2032,7 @@ class TestNormalizeChatEntries:
 
     def test_sorts_desc_by_ts(self):
         from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+
         messages = [
             {
                 "createdDateTime": "2026-05-29T08:00:00Z",
@@ -1890,6 +2057,7 @@ class TestNormalizeChatEntries:
 
     def test_caps_at_25_entries(self):
         from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+
         messages = [
             {
                 "createdDateTime": f"2026-05-29T10:{i:02d}:00Z",
@@ -1903,10 +2071,12 @@ class TestNormalizeChatEntries:
 
     def test_empty_input(self):
         from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+
         assert _normalize_chat_entries([], {}) == []
 
     def test_classifies_member_event_as_event(self):
         from ms365_intent_mcp.composers.resolve import _normalize_chat_entries
+
         messages = [
             {
                 "createdDateTime": "2026-05-29T10:00:00Z",
@@ -1926,14 +2096,18 @@ class TestNormalizeChatEntries:
 # _paginate_chat_messages
 # ---------------------------------------------------------------------------
 
+
 class TestPaginateChatMessages:
     @pytest.mark.asyncio
     async def test_single_page_no_next_link(self):
         from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [{"id": "m1"}, {"id": "m2"}],
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [{"id": "m1"}, {"id": "m2"}],
+            }
+        )
         messages, err = await _paginate_chat_messages(client, "chat1")
         assert len(messages) == 2
         assert err is None
@@ -1941,10 +2115,13 @@ class TestPaginateChatMessages:
     @pytest.mark.asyncio
     async def test_follows_next_link(self):
         from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+
         client = AsyncMock()
         responses = [
-            {"value": [{"id": "m1"}, {"id": "m2"}],
-             "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2"},
+            {
+                "value": [{"id": "m1"}, {"id": "m2"}],
+                "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2",
+            },
             {"value": [{"id": "m3"}, {"id": "m4"}]},
         ]
         client.get = AsyncMock(side_effect=responses)
@@ -1955,10 +2132,13 @@ class TestPaginateChatMessages:
     @pytest.mark.asyncio
     async def test_dedup_by_message_id(self):
         from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+
         client = AsyncMock()
         responses = [
-            {"value": [{"id": "m1"}, {"id": "m2"}],
-             "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2"},
+            {
+                "value": [{"id": "m1"}, {"id": "m2"}],
+                "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2",
+            },
             {"value": [{"id": "m2"}, {"id": "m3"}]},  # m2 duplicates
         ]
         client.get = AsyncMock(side_effect=responses)
@@ -1968,16 +2148,20 @@ class TestPaginateChatMessages:
     @pytest.mark.asyncio
     async def test_includes_messages_without_id(self):
         from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [{"id": "m1"}, {"createdDateTime": "x"}],  # second has no id
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [{"id": "m1"}, {"createdDateTime": "x"}],  # second has no id
+            }
+        )
         messages, err = await _paginate_chat_messages(client, "chat1")
         assert len(messages) == 2  # both included; id-less NOT silently dropped
 
     @pytest.mark.asyncio
     async def test_first_page_failure_raises(self):
         from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+
         client = AsyncMock()
         client.get = AsyncMock(side_effect=GraphAPIError(500, "X", "down"))
         with pytest.raises(GraphAPIError):
@@ -1986,10 +2170,13 @@ class TestPaginateChatMessages:
     @pytest.mark.asyncio
     async def test_mid_stream_failure_returns_partial(self):
         from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+
         client = AsyncMock()
         responses = [
-            {"value": [{"id": "m1"}, {"id": "m2"}],
-             "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2"},
+            {
+                "value": [{"id": "m1"}, {"id": "m2"}],
+                "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2",
+            },
             GraphAPIError(500, "X", "page 2 down"),
         ]
         client.get = AsyncMock(side_effect=responses)
@@ -2001,10 +2188,13 @@ class TestPaginateChatMessages:
     @pytest.mark.asyncio
     async def test_caps_at_max_messages(self):
         from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+
         client = AsyncMock()
-        page1 = {"value": [{"id": f"m{i}"} for i in range(60)],
-                 "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2"}
-        page2 = {"value": [{"id": f"m{60+i}"} for i in range(60)]}
+        page1 = {
+            "value": [{"id": f"m{i}"} for i in range(60)],
+            "@odata.nextLink": "https://graph.microsoft.com/v1.0/chats/chat1/messages?$skiptoken=p2",
+        }
+        page2 = {"value": [{"id": f"m{60 + i}"} for i in range(60)]}
         client.get = AsyncMock(side_effect=[page1, page2])
         messages, err = await _paginate_chat_messages(client, "chat1", max_messages=100)
         assert len(messages) == 100
@@ -2013,6 +2203,7 @@ class TestPaginateChatMessages:
     @pytest.mark.asyncio
     async def test_caps_at_max_pages(self):
         from ms365_intent_mcp.composers.resolve import _paginate_chat_messages
+
         client = AsyncMock()
         # Always returns a nextLink; only max_pages stops it
         always_paginated = {
@@ -2029,30 +2220,45 @@ class TestPaginateChatMessages:
 # Email attachment wiring
 # ---------------------------------------------------------------------------
 
+
 class TestResolveEmailAttachments:
     @pytest.mark.asyncio
     async def test_enumerates_when_has_attachments(self, full_permissions):
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=[
-            {  # message fetch
-                "subject": "Bug report", "from": {"emailAddress": {"name": "Cust"}},
-                "receivedDateTime": "2026-07-20T08:00:00Z",
-                "body": {"contentType": "text", "content": "see [cid:img1@01DD]"},
-                "hasAttachments": True,
-            },
-            {  # /attachments
-                "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
-                           "name": "shot.png", "contentType": "image/png",
-                           "size": 12, "isInline": True, "contentId": "img1@01DD",
-                           "contentBytes": "AA==", "id": "AT1"}],
-            },
-        ])
+        client.get = AsyncMock(
+            side_effect=[
+                {  # message fetch
+                    "subject": "Bug report",
+                    "from": {"emailAddress": {"name": "Cust"}},
+                    "receivedDateTime": "2026-07-20T08:00:00Z",
+                    "body": {"contentType": "text", "content": "see [cid:img1@01DD]"},
+                    "hasAttachments": True,
+                },
+                {  # /attachments
+                    "value": [
+                        {
+                            "@odata.type": "#microsoft.graph.fileAttachment",
+                            "name": "shot.png",
+                            "contentType": "image/png",
+                            "size": 12,
+                            "isInline": True,
+                            "contentId": "img1@01DD",
+                            "contentBytes": "AA==",
+                            "id": "AT1",
+                        }
+                    ],
+                },
+            ]
+        )
         with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
             mock_resolve.return_value = ResolvedUrl(
-                url_type="email", graph_endpoint="/me/messages/M1", required_scope="Mail.Read",
+                url_type="email",
+                graph_endpoint="/me/messages/M1",
+                required_scope="Mail.Read",
             )
             data, md = await compose_resolve(
-                client=client, permissions=full_permissions,
+                client=client,
+                permissions=full_permissions,
                 url="https://outlook.office365.com/mail/id/M1",
             )
         atts = data["data"]["attachments"]
@@ -2065,18 +2271,24 @@ class TestResolveEmailAttachments:
     @pytest.mark.asyncio
     async def test_no_extra_call_when_no_attachments_no_cid(self, full_permissions):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "subject": "plain", "from": {"emailAddress": {"name": "A"}},
-            "receivedDateTime": "2026-07-20T08:00:00Z",
-            "body": {"contentType": "text", "content": "no images here"},
-            "hasAttachments": False,
-        })
+        client.get = AsyncMock(
+            return_value={
+                "subject": "plain",
+                "from": {"emailAddress": {"name": "A"}},
+                "receivedDateTime": "2026-07-20T08:00:00Z",
+                "body": {"contentType": "text", "content": "no images here"},
+                "hasAttachments": False,
+            }
+        )
         with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
             mock_resolve.return_value = ResolvedUrl(
-                url_type="email", graph_endpoint="/me/messages/M2", required_scope="Mail.Read",
+                url_type="email",
+                graph_endpoint="/me/messages/M2",
+                required_scope="Mail.Read",
             )
             data, _ = await compose_resolve(
-                client=client, permissions=full_permissions,
+                client=client,
+                permissions=full_permissions,
                 url="https://outlook.office365.com/mail/id/M2",
             )
         assert client.get.await_count == 1  # message only, no /attachments
@@ -2085,74 +2297,127 @@ class TestResolveEmailAttachments:
     @pytest.mark.asyncio
     async def test_downloads_when_output_dir_given(self, full_permissions, tmp_path):
         import base64
+
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=[
-            {"subject": "s", "from": {"emailAddress": {"name": "A"}},
-             "receivedDateTime": "2026-07-20T08:00:00Z",
-             "body": {"contentType": "text", "content": "x"}, "hasAttachments": True},
-            {"value": [{"@odata.type": "#microsoft.graph.fileAttachment",
-                        "name": "r.pdf", "contentType": "application/pdf", "size": 5,
-                        "isInline": False, "contentBytes": base64.b64encode(b"hello").decode(),
-                        "id": "AT2"}]},
-        ])
+        client.get = AsyncMock(
+            side_effect=[
+                {
+                    "subject": "s",
+                    "from": {"emailAddress": {"name": "A"}},
+                    "receivedDateTime": "2026-07-20T08:00:00Z",
+                    "body": {"contentType": "text", "content": "x"},
+                    "hasAttachments": True,
+                },
+                {
+                    "value": [
+                        {
+                            "@odata.type": "#microsoft.graph.fileAttachment",
+                            "name": "r.pdf",
+                            "contentType": "application/pdf",
+                            "size": 5,
+                            "isInline": False,
+                            "contentBytes": base64.b64encode(b"hello").decode(),
+                            "id": "AT2",
+                        }
+                    ]
+                },
+            ]
+        )
         with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
             mock_resolve.return_value = ResolvedUrl(
-                url_type="email", graph_endpoint="/me/messages/M3", required_scope="Mail.Read",
+                url_type="email",
+                graph_endpoint="/me/messages/M3",
+                required_scope="Mail.Read",
             )
             data, _ = await compose_resolve(
-                client=client, permissions=full_permissions,
+                client=client,
+                permissions=full_permissions,
                 url="https://outlook.office365.com/mail/id/M3",
                 output_dir=str(tmp_path),
             )
         lp = data["data"]["attachments"][0]["local_path"]
         assert lp is not None
         from pathlib import Path
+
         assert Path(lp).read_bytes() == b"hello"
 
     @pytest.mark.asyncio
     async def test_enumeration_error_degrades(self, full_permissions):
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=[
-            {"subject": "s", "from": {"emailAddress": {"name": "A"}},
-             "receivedDateTime": "2026-07-20T08:00:00Z",
-             "body": {"contentType": "text", "content": "x"}, "hasAttachments": True},
-            GraphAPIError(403, "ErrorAccessDenied", "no"),
-        ])
+        client.get = AsyncMock(
+            side_effect=[
+                {
+                    "subject": "s",
+                    "from": {"emailAddress": {"name": "A"}},
+                    "receivedDateTime": "2026-07-20T08:00:00Z",
+                    "body": {"contentType": "text", "content": "x"},
+                    "hasAttachments": True,
+                },
+                GraphAPIError(403, "ErrorAccessDenied", "no"),
+            ]
+        )
         with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve:
             mock_resolve.return_value = ResolvedUrl(
-                url_type="email", graph_endpoint="/me/messages/M4", required_scope="Mail.Read",
+                url_type="email",
+                graph_endpoint="/me/messages/M4",
+                required_scope="Mail.Read",
             )
             data, md = await compose_resolve(
-                client=client, permissions=full_permissions,
+                client=client,
+                permissions=full_permissions,
                 url="https://outlook.office365.com/mail/id/M4",
             )
         assert data["data"]["attachments"] == []
         assert "s" in md  # body still renders (subject present)
 
     @pytest.mark.asyncio
-    async def test_non_graph_error_in_download_degrades_gracefully(self, full_permissions, tmp_path):
+    async def test_non_graph_error_in_download_degrades_gracefully(
+        self, full_permissions, tmp_path
+    ):
         """Non-GraphAPIError (e.g. RuntimeError, httpx.TimeoutException) from
         download_attachments must not propagate — body + subject still render."""
         import base64
+
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=[
-            {"subject": "Crash report", "from": {"emailAddress": {"name": "B"}},
-             "receivedDateTime": "2026-07-20T09:00:00Z",
-             "body": {"contentType": "text", "content": "body text here"},
-             "hasAttachments": True},
-            {"value": [{"@odata.type": "#microsoft.graph.fileAttachment",
-                        "name": "crash.log", "contentType": "text/plain", "size": 3,
-                        "isInline": False, "contentBytes": base64.b64encode(b"err").decode(),
-                        "id": "AT9"}]},
-        ])
-        with patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve, \
-             patch("ms365_intent_mcp.composers.resolve.download_attachments",
-                   side_effect=RuntimeError("boom")) as mock_dl:
+        client.get = AsyncMock(
+            side_effect=[
+                {
+                    "subject": "Crash report",
+                    "from": {"emailAddress": {"name": "B"}},
+                    "receivedDateTime": "2026-07-20T09:00:00Z",
+                    "body": {"contentType": "text", "content": "body text here"},
+                    "hasAttachments": True,
+                },
+                {
+                    "value": [
+                        {
+                            "@odata.type": "#microsoft.graph.fileAttachment",
+                            "name": "crash.log",
+                            "contentType": "text/plain",
+                            "size": 3,
+                            "isInline": False,
+                            "contentBytes": base64.b64encode(b"err").decode(),
+                            "id": "AT9",
+                        }
+                    ]
+                },
+            ]
+        )
+        with (
+            patch("ms365_intent_mcp.composers.resolve.resolve_url") as mock_resolve,
+            patch(
+                "ms365_intent_mcp.composers.resolve.download_attachments",
+                side_effect=RuntimeError("boom"),
+            ) as mock_dl,
+        ):
             mock_resolve.return_value = ResolvedUrl(
-                url_type="email", graph_endpoint="/me/messages/M5", required_scope="Mail.Read",
+                url_type="email",
+                graph_endpoint="/me/messages/M5",
+                required_scope="Mail.Read",
             )
             data, md = await compose_resolve(
-                client=client, permissions=full_permissions,
+                client=client,
+                permissions=full_permissions,
                 url="https://outlook.office365.com/mail/id/M5",
                 output_dir=str(tmp_path),
             )

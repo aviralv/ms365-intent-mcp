@@ -24,7 +24,12 @@ class GraphAPIError(Exception):
 
 
 class GraphClient:
-    _ALLOWED_REDIRECT_DOMAINS = (".microsoft.com", ".sharepoint.com", ".office.com", ".office365.com")
+    _ALLOWED_REDIRECT_DOMAINS = (
+        ".microsoft.com",
+        ".sharepoint.com",
+        ".office.com",
+        ".office365.com",
+    )
 
     def __init__(
         self,
@@ -123,8 +128,7 @@ class GraphClient:
             redirect_url = response.headers.get("location", "")
             if not self._is_allowed_redirect(redirect_url):
                 raise GraphAPIError(
-                    403, "RedirectBlocked",
-                    f"Redirect to disallowed domain: {redirect_url[:100]}"
+                    403, "RedirectBlocked", f"Redirect to disallowed domain: {redirect_url[:100]}"
                 )
             response = await self._client.get(redirect_url, headers=merged, follow_redirects=False)
 
@@ -138,9 +142,12 @@ class GraphClient:
     @staticmethod
     def _is_allowed_redirect(url: str) -> bool:
         from urllib.parse import urlparse
+
         try:
             hostname = urlparse(url).hostname or ""
-            return any(hostname.endswith(domain) for domain in GraphClient._ALLOWED_REDIRECT_DOMAINS)
+            return any(
+                hostname.endswith(domain) for domain in GraphClient._ALLOWED_REDIRECT_DOMAINS
+            )
         except Exception:
             return False
 
@@ -193,7 +200,12 @@ class GraphClient:
 
             if response.status_code in (429, 503):
                 retry_after = min(int(response.headers.get("Retry-After", "1")), 10)
-                _logger.warning("graph_api retry_after=%d status=%d endpoint=%s", retry_after, response.status_code, endpoint)
+                _logger.warning(
+                    "graph_api retry_after=%d status=%d endpoint=%s",
+                    retry_after,
+                    response.status_code,
+                    endpoint,
+                )
                 await asyncio.sleep(retry_after)
                 if method == "GET":
                     response = await self._client.get(url, params=params, headers=merged)
@@ -211,7 +223,10 @@ class GraphClient:
         size = len(response.content) if response.content else 0
         _logger.info(
             "graph_api method=%s endpoint=%s status=%d bytes=%d",
-            method, endpoint, response.status_code, size,
+            method,
+            endpoint,
+            response.status_code,
+            size,
         )
 
     def _handle_response(self, response: httpx.Response) -> dict:

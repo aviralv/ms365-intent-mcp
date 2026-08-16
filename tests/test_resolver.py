@@ -18,6 +18,7 @@ from ms365_intent_mcp.resolver import (
 def _ctx(payload: dict) -> str:
     """URL-encode a JSON context dict for use in Teams URLs."""
     import json
+
     return urllib.parse.quote(json.dumps(payload))
 
 
@@ -27,7 +28,10 @@ class TestChannelMessage:
         url = f"https://teams.microsoft.com/l/message/19:abc@thread.tacv2/1234567890.123456?context={ctx}"
         result = resolve_url(url)
         assert result.url_type == "channel_message"
-        assert result.graph_endpoint == "/teams/team-uuid-123/channels/19:abc@thread.tacv2/messages/1234567890.123456"
+        assert (
+            result.graph_endpoint
+            == "/teams/team-uuid-123/channels/19:abc@thread.tacv2/messages/1234567890.123456"
+        )
         assert result.extra["group_id"] == "team-uuid-123"
 
     def test_without_group_id(self):
@@ -50,19 +54,27 @@ class TestChatMessage:
         url = "https://teams.microsoft.com/l/message/19:somechat@unq.gbl.spaces/1234567890.123456"
         result = resolve_url(url)
         assert result.url_type == "chat_message"
-        assert result.graph_endpoint == "/chats/19:somechat@unq.gbl.spaces/messages/1234567890.123456"
+        assert (
+            result.graph_endpoint == "/chats/19:somechat@unq.gbl.spaces/messages/1234567890.123456"
+        )
 
     def test_percent_encoded_chat_message_url_parses(self):
-        url = "https://teams.microsoft.com/l/message/19%3Asomechat%40unq.gbl.spaces/1234567890.123456"
+        url = (
+            "https://teams.microsoft.com/l/message/19%3Asomechat%40unq.gbl.spaces/1234567890.123456"
+        )
         result = resolve_url(url)
         assert result.url_type == "chat_message"
-        assert result.graph_endpoint == "/chats/19:somechat@unq.gbl.spaces/messages/1234567890.123456"
+        assert (
+            result.graph_endpoint == "/chats/19:somechat@unq.gbl.spaces/messages/1234567890.123456"
+        )
 
 
 class TestMeeting:
     def test_endpoint_is_calendar_view(self):
         ctx = _ctx({"Tid": "tenant-id"})
-        url = f"https://teams.microsoft.com/l/meetup-join/19:meeting_abc123@thread.v2/0?context={ctx}"
+        url = (
+            f"https://teams.microsoft.com/l/meetup-join/19:meeting_abc123@thread.v2/0?context={ctx}"
+        )
         result = resolve_url(url)
         assert result.url_type == "meeting"
         assert result.graph_endpoint == "/me/calendarView"
@@ -114,7 +126,7 @@ class TestEmail:
         # And crucially: no raw '/' after "/me/messages/" — the id is one
         # opaque path segment.
         prefix = "/me/messages/"
-        id_segment = result.graph_endpoint[len(prefix):]
+        id_segment = result.graph_endpoint[len(prefix) :]
         assert "/" not in id_segment
 
     def test_owa_itemid_with_plus_normalized_to_underscore(self):
@@ -224,10 +236,7 @@ class TestChatThread:
 
     def test_percent_encoded_chat_url_parses(self):
         # Graph's /me/chats endpoint can return webUrl with %3A (`:`) and %40 (`@`) encoded
-        url = (
-            "https://teams.microsoft.com/l/chat/"
-            "19%3Ameeting_ZmMxNDhi%40thread.v2/conversations"
-        )
+        url = "https://teams.microsoft.com/l/chat/19%3Ameeting_ZmMxNDhi%40thread.v2/conversations"
         result = resolve_url(url)
         assert result.url_type == "chat_thread"
         assert result.extra["chat_id"] == "19:meeting_ZmMxNDhi@thread.v2"
@@ -255,7 +264,5 @@ class TestChatThread:
         # regex omits the https:// scheme by design (so .search matches
         # anywhere), so compare the post-scheme portion.
         host_path = _CHAT_THREAD_URL_BASE.split("://", 1)[1]
-        chat_thread_pattern = next(
-            pat for name, pat, _ in _PATTERNS if name == "chat_thread"
-        )
+        chat_thread_pattern = next(pat for name, pat, _ in _PATTERNS if name == "chat_thread")
         assert re.escape(host_path) in chat_thread_pattern.pattern

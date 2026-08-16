@@ -23,7 +23,7 @@ class MyDayPayload(BaseModel):
     include_bodies: bool = Field(
         default=False,
         description="Include event agenda/body text and extracted links per "
-                    "event. Off by default to keep the response lean.",
+        "event. Off by default to keep the response lean.",
     )
 
 

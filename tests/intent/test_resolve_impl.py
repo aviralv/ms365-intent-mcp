@@ -12,8 +12,8 @@ from ms365_intent_mcp.intent.resolve.schemas import (
     ChatThreadContent,
     EmailContent,
     OneDriveFileContent,
-    ResolvePayload,
     ResolvedContent,
+    ResolvePayload,
     SharePointPageContent,
 )
 
@@ -39,16 +39,27 @@ class TestResolveV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url, output_dir=None):
-            return {"url": url, "kind": "email", "data": {"kind": "email", "subject": "Test Email", "sender": "sender@example.com", "body": ""}}, "**Subject:** Test Email\nFrom: sender@example.com"
+            return {
+                "url": url,
+                "kind": "email",
+                "data": {
+                    "kind": "email",
+                    "subject": "Test Email",
+                    "sender": "sender@example.com",
+                    "body": "",
+                },
+            }, "**Subject:** Test Email\nFrom: sender@example.com"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
             _fake,
         )
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
-        })
+        payload = ResolvePayload.model_validate(
+            {
+                "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
+            }
+        )
         response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
@@ -63,16 +74,20 @@ class TestResolveV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url, output_dir=None):
-            return {"url": url, "kind": "chat_thread", "data": {"kind": "chat_thread"}}, "**Chat Thread**\n5 recent messages"
+            return {
+                "url": url,
+                "kind": "chat_thread",
+                "data": {"kind": "chat_thread"},
+            }, "**Chat Thread**\n5 recent messages"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
             _fake,
         )
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://teams.microsoft.com/l/chat/19:abc123def456@thread.v2/0"
-        })
+        payload = ResolvePayload.model_validate(
+            {"url": "https://teams.microsoft.com/l/chat/19:abc123def456@thread.v2/0"}
+        )
         response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
@@ -85,16 +100,20 @@ class TestResolveV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url, output_dir=None):
-            return {"url": url, "kind": "sharepoint_page", "data": {"kind": "sharepoint_page", "title": "Engineering Wiki"}}, "**Page:** Engineering Wiki\nLast modified: 2026-07-01"
+            return {
+                "url": url,
+                "kind": "sharepoint_page",
+                "data": {"kind": "sharepoint_page", "title": "Engineering Wiki"},
+            }, "**Page:** Engineering Wiki\nLast modified: 2026-07-01"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
             _fake,
         )
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://contoso.sharepoint.com/sites/Engineering/SitePages/Home.aspx"
-        })
+        payload = ResolvePayload.model_validate(
+            {"url": "https://contoso.sharepoint.com/sites/Engineering/SitePages/Home.aspx"}
+        )
         response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
@@ -107,16 +126,22 @@ class TestResolveV1HappyPath:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url, output_dir=None):
-            return {"url": url, "kind": "onedrive_share_link", "data": {"kind": "onedrive_file", "name": "document.docx"}}, "**File:** document.docx\nSize: 1.2 MB"
+            return {
+                "url": url,
+                "kind": "onedrive_share_link",
+                "data": {"kind": "onedrive_file", "name": "document.docx"},
+            }, "**File:** document.docx\nSize: 1.2 MB"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
             _fake,
         )
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://contoso.sharepoint.com/personal/alice_contoso_com/_layouts/15/Doc.aspx?sourcedoc=%7Babc%7D"
-        })
+        payload = ResolvePayload.model_validate(
+            {
+                "url": "https://contoso.sharepoint.com/personal/alice_contoso_com/_layouts/15/Doc.aspx?sourcedoc=%7Babc%7D"
+            }
+        )
         response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
@@ -131,24 +156,31 @@ class TestResolveV1HappyPath:
         expected_markdown = "## My Resolved Content\nFull details here."
 
         async def _fake(client, permissions, url, output_dir=None):
-            return {"url": url, "kind": "email", "data": {"kind": "email", "subject": "x", "sender": "a", "body": ""}}, expected_markdown
+            return {
+                "url": url,
+                "kind": "email",
+                "data": {"kind": "email", "subject": "x", "sender": "a", "body": ""},
+            }, expected_markdown
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
             _fake,
         )
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
-        })
+        payload = ResolvePayload.model_validate(
+            {
+                "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
+            }
+        )
         response = await _resolve_impl(ctx, payload)
 
         assert response.rendered_markdown == expected_markdown
 
-
     @pytest.mark.asyncio
     async def test_invalid_structured_data_returns_validation_error(self, monkeypatch):
-        """Composer returning partial/invalid structured_data must yield ErrorResponse(code='validation_error')."""
+        """Composer returning partial/invalid structured_data must yield
+        ErrorResponse(code='validation_error').
+        """
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url, output_dir=None):
@@ -160,22 +192,23 @@ class TestResolveV1HappyPath:
             _fake,
         )
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
-        })
+        payload = ResolvePayload.model_validate(
+            {
+                "url": "https://outlook.office.com/mail/id/AAMkAGNhYWU5ZjBhLTQ4YjQtNGViNi1hZmM0LTJhYmJhNGE0YjFlNgBGAAAAAABmzX8NV4RzQqSJsepvY8W8BwARKi4ZYdHrQ76rWR9vLcK2AAAAAAEMAAARKi4ZYdHrQ76rWR9vLcK2AABQN3eTAAA%3D"
+            }
+        )
         response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
         assert response.code == "validation_error"
         assert "email" in response.message
+
     @pytest.mark.asyncio
     async def test_invalid_url_returns_error_response(self, monkeypatch):
         """An unrecognised URL should yield ErrorResponse with code='invalid_id'."""
         ctx, _, _ = _mock_ctx()
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://example.com/not-an-m365-url"
-        })
+        payload = ResolvePayload.model_validate({"url": "https://example.com/not-an-m365-url"})
         response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
@@ -184,20 +217,24 @@ class TestResolveV1HappyPath:
 
     @pytest.mark.asyncio
     async def test_graph_api_error_returns_error_response(self, monkeypatch):
-        """GraphAPIError from compose_resolve should yield ErrorResponse with code='graph_api_error'."""
+        """GraphAPIError from compose_resolve should yield
+        ErrorResponse with code='graph_api_error'.
+        """
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client, permissions, url, output_dir=None):
-            raise GraphAPIError(status_code=503, error_code="ServiceUnavailable", message="try later")
+            raise GraphAPIError(
+                status_code=503, error_code="ServiceUnavailable", message="try later"
+            )
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.resolve.impl.compose_resolve",
             _fake,
         )
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://teams.microsoft.com/l/chat/19:abc123def456@thread.v2/0"
-        })
+        payload = ResolvePayload.model_validate(
+            {"url": "https://teams.microsoft.com/l/chat/19:abc123def456@thread.v2/0"}
+        )
         response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)
@@ -234,40 +271,58 @@ class TestResolveChatMessageUrlThroughSchema:
 
         monkeypatch.setattr("ms365_intent_mcp.intent.resolve.impl.compose_resolve", _fake)
 
-        payload = ResolvePayload.model_validate({
-            "url": "https://teams.microsoft.com/l/message/19:somechat@unq.gbl.spaces/1234567890.123456"
-        })
+        payload = ResolvePayload.model_validate(
+            {
+                "url": "https://teams.microsoft.com/l/message/19:somechat@unq.gbl.spaces/1234567890.123456"
+            }
+        )
         response = await _resolve_impl(ctx, payload)
 
         assert isinstance(response, ResolvedContent)
         assert isinstance(response.data, ChatMessageContent)
         assert response.data.chat_id == "19:somechat@unq.gbl.spaces"
-        assert response.data.chat_url == "https://teams.microsoft.com/l/chat/19:somechat@unq.gbl.spaces"
-
-
+        assert (
+            response.data.chat_url
+            == "https://teams.microsoft.com/l/chat/19:somechat@unq.gbl.spaces"
+        )
 
 
 class TestAttachmentSchema:
     def test_email_content_accepts_attachments(self):
         from ms365_intent_mcp.intent.resolve.schemas import EmailContent
+
         ec = EmailContent(
-            kind="email", subject="s", sender="a@b.com", body="",
-            attachments=[AttachmentInfo(name="x.png", cid="a@1", is_inline=True,
-                                        size=10, attachment_id="i", local_path="/tmp/x.png")],
+            kind="email",
+            subject="s",
+            sender="a@b.com",
+            body="",
+            attachments=[
+                AttachmentInfo(
+                    name="x.png",
+                    cid="a@1",
+                    is_inline=True,
+                    size=10,
+                    attachment_id="i",
+                    local_path="/tmp/x.png",
+                )
+            ],
         )
         assert ec.attachments[0].name == "x.png"
         assert ec.attachments[0].local_path == "/tmp/x.png"
 
     def test_email_content_attachments_default_empty(self):
         from ms365_intent_mcp.intent.resolve.schemas import EmailContent
+
         ec = EmailContent(kind="email", subject="s", sender="a@b.com", body="")
         assert ec.attachments == []
 
     def test_payload_accepts_output_dir(self):
-        p = ResolvePayload.model_validate({
-            "url": "https://outlook.office.com/mail/id/AA123",
-            "output_dir": "/tmp/out",
-        })
+        p = ResolvePayload.model_validate(
+            {
+                "url": "https://outlook.office.com/mail/id/AA123",
+                "output_dir": "/tmp/out",
+            }
+        )
         assert p.output_dir == "/tmp/out"
 
 
@@ -280,22 +335,38 @@ class TestResolveOutputDir:
         async def _fake(client, permissions, url, output_dir=None):
             seen["output_dir"] = output_dir
             return (
-                {"url": url, "kind": "email",
-                 "data": {"kind": "email", "subject": "s", "sender": "a@b.com",
-                          "body": "", "attachments": [
-                              {"name": "x.png", "content_type": "image/png", "size": 5,
-                               "is_inline": True, "cid": "a@1", "attachment_id": "i",
-                               "local_path": "/tmp/out/x.png", "note": None}]}},
+                {
+                    "url": url,
+                    "kind": "email",
+                    "data": {
+                        "kind": "email",
+                        "subject": "s",
+                        "sender": "a@b.com",
+                        "body": "",
+                        "attachments": [
+                            {
+                                "name": "x.png",
+                                "content_type": "image/png",
+                                "size": 5,
+                                "is_inline": True,
+                                "cid": "a@1",
+                                "attachment_id": "i",
+                                "local_path": "/tmp/out/x.png",
+                                "note": None,
+                            }
+                        ],
+                    },
+                },
                 "rendered",
             )
 
-        monkeypatch.setattr(
-            "ms365_intent_mcp.intent.resolve.impl.compose_resolve", _fake
+        monkeypatch.setattr("ms365_intent_mcp.intent.resolve.impl.compose_resolve", _fake)
+        payload = ResolvePayload.model_validate(
+            {
+                "url": "https://outlook.office.com/mail/id/AA123",
+                "output_dir": "/tmp/out",
+            }
         )
-        payload = ResolvePayload.model_validate({
-            "url": "https://outlook.office.com/mail/id/AA123",
-            "output_dir": "/tmp/out",
-        })
         response = await _resolve_impl(ctx, payload)
         assert seen["output_dir"] == "/tmp/out"
         assert isinstance(response.data, EmailContent)

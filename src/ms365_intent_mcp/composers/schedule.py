@@ -1,7 +1,7 @@
 """schedule composer — find meeting times via POST /me/findMeetingTimes."""
 
 from ..formatters import format_meeting_times_markdown, format_section_error, graph_dt_to_aware_iso
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ._utils import _error_reason
 
@@ -18,7 +18,10 @@ async def compose_schedule(
         return {"suggestions": []}, scope_msg
 
     attendee_list = [
-        {"emailAddress": {"address": a["email"], "name": a.get("name", a["email"])}, "type": "required"}
+        {
+            "emailAddress": {"address": a["email"], "name": a.get("name", a["email"])},
+            "type": "required",
+        }
         for a in attendees
     ]
 
@@ -51,7 +54,9 @@ async def compose_schedule(
     if not suggestions:
         reason = response.get("emptySuggestionsReason", "unknown")
         if "unavailable" in reason.lower() or reason == "AttendeesUnavailable":
-            markdown = "### Schedule\nNo available slots — all attendees are unavailable in that window."
+            markdown = (
+                "### Schedule\nNo available slots — all attendees are unavailable in that window."
+            )
         else:
             markdown = f"### Schedule\nNo available meeting times found (reason: {reason})."
         return {"suggestions": []}, markdown
@@ -64,11 +69,13 @@ async def compose_schedule(
         end_iso, end_tz = graph_dt_to_aware_iso(slot.get("end", {}))
         confidence = s.get("confidence", 0.0) / 100.0  # Graph gives 0-100, TimeSlot wants 0.0-1.0
         if start_iso and end_iso:
-            data_suggestions.append({
-                "start": start_iso,
-                "end": end_iso,
-                "start_timezone": start_tz,
-                "end_timezone": end_tz,
-                "confidence": confidence,
-            })
+            data_suggestions.append(
+                {
+                    "start": start_iso,
+                    "end": end_iso,
+                    "start_timezone": start_tz,
+                    "end_timezone": end_tz,
+                    "confidence": confidence,
+                }
+            )
     return {"suggestions": data_suggestions}, markdown

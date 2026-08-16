@@ -35,9 +35,7 @@ class TokenManager:
         token = self._try_refresh()
         if token:
             return
-        raise AuthenticationError(
-            "No valid token. Run: ms365-intent-mcp auth"
-        )
+        raise AuthenticationError("No valid token. Run: ms365-intent-mcp auth")
 
     def get_access_token(self) -> str:
         if self._access_token and time.time() < self._expires_at:
@@ -80,9 +78,7 @@ class TokenManager:
 
         refresh_token = self._read_refresh_token()
         if not refresh_token:
-            raise AuthenticationError(
-                "No valid token available. Run: ms365-intent-mcp auth"
-            )
+            raise AuthenticationError("No valid token available. Run: ms365-intent-mcp auth")
 
         data = {
             "client_id": self.config.client_id,
@@ -101,15 +97,11 @@ class TokenManager:
             result = resp.json()
         except Exception as e:
             _logger.warning("SharePoint token exchange failed for %s: %s", host, e)
-            raise AuthenticationError(
-                f"Failed to acquire SharePoint token for {host}"
-            ) from e
+            raise AuthenticationError(f"Failed to acquire SharePoint token for {host}") from e
 
         access_token = result.get("access_token")
         if not access_token:
-            raise AuthenticationError(
-                f"No access_token in SharePoint token response for {host}"
-            )
+            raise AuthenticationError(f"No access_token in SharePoint token response for {host}")
         expires_at = time.time() + result.get("expires_in", 3600) - _EXPIRY_BUFFER_SECONDS
         self._spo_tokens[host] = (access_token, expires_at)
         return access_token

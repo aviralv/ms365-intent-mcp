@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC
+
 from fastmcp import Context
 
 from ...composers.meeting import compose_meeting
@@ -57,15 +59,15 @@ async def _meeting_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail:
             pass
 
     # Parse datetimes — use a fallback for empty strings
-    from datetime import datetime, timezone as _tz
+    from datetime import datetime
 
     def _parse_dt(s: str):
         if not s:
-            return datetime.now(_tz.utc)
+            return datetime.now(UTC)
         try:
             return datetime.fromisoformat(s.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
-            return datetime.now(_tz.utc)
+            return datetime.now(UTC)
 
     return MeetingDetail(
         id=data.get("id") or "unknown",

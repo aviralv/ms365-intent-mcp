@@ -34,7 +34,12 @@ class TestScheduleBasic:
     @pytest.mark.asyncio
     async def test_no_suggestions_returns_helpful_message(self, full_permissions):
         client = AsyncMock()
-        client.post = AsyncMock(return_value={"meetingTimeSuggestions": [], "emptySuggestionsReason": "AttendeesUnavailable"})
+        client.post = AsyncMock(
+            return_value={
+                "meetingTimeSuggestions": [],
+                "emptySuggestionsReason": "AttendeesUnavailable",
+            }
+        )
 
         _, result = await compose_schedule(
             client=client,
@@ -94,24 +99,26 @@ class TestScheduleTimezoneAware:
     async def test_schedule_slot_is_offset_aware_with_tz(self):
         """Slots must carry offset-aware ISO strings and sibling tz keys."""
         client = AsyncMock()
-        client.post = AsyncMock(return_value={
-            "meetingTimeSuggestions": [
-                {
-                    "meetingTimeSlot": {
-                        "start": {
-                            "dateTime": "2026-07-29T14:00:00.0000000",
-                            "timeZone": "UTC",
+        client.post = AsyncMock(
+            return_value={
+                "meetingTimeSuggestions": [
+                    {
+                        "meetingTimeSlot": {
+                            "start": {
+                                "dateTime": "2026-07-29T14:00:00.0000000",
+                                "timeZone": "UTC",
+                            },
+                            "end": {
+                                "dateTime": "2026-07-29T14:30:00.0000000",
+                                "timeZone": "UTC",
+                            },
                         },
-                        "end": {
-                            "dateTime": "2026-07-29T14:30:00.0000000",
-                            "timeZone": "UTC",
-                        },
-                    },
-                    "confidence": 90.0,
-                    "attendeeAvailability": [],
-                }
-            ]
-        })
+                        "confidence": 90.0,
+                        "attendeeAvailability": [],
+                    }
+                ]
+            }
+        )
         permissions = PermissionRegistry(["Calendars.ReadWrite"])
 
         data, _markdown = await compose_schedule(
