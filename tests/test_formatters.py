@@ -24,43 +24,49 @@ class TestFormatEventsMarkdown:
         assert "No events" in result
 
     def test_single_event(self):
-        events = [{
-            "subject": "Standup",
-            "start": {"dateTime": "2026-05-15T09:00:00", "timeZone": "UTC"},
-            "end": {"dateTime": "2026-05-15T09:30:00", "timeZone": "UTC"},
-            "location": {"displayName": "Room A"},
-            "isOnlineMeeting": True,
-            "attendees": [{"emailAddress": {"name": "Bob"}}],
-            "organizer": {"emailAddress": {"name": "Alice"}},
-        }]
+        events = [
+            {
+                "subject": "Standup",
+                "start": {"dateTime": "2026-05-15T09:00:00", "timeZone": "UTC"},
+                "end": {"dateTime": "2026-05-15T09:30:00", "timeZone": "UTC"},
+                "location": {"displayName": "Room A"},
+                "isOnlineMeeting": True,
+                "attendees": [{"emailAddress": {"name": "Bob"}}],
+                "organizer": {"emailAddress": {"name": "Alice"}},
+            }
+        ]
         result = format_events_markdown(events)
         assert "Standup" in result
         assert "09:00–09:30 UTC" in result
         assert "Room A" in result
 
     def test_named_iana_timezone_appears_in_output(self):
-        events = [{
-            "subject": "Standup",
-            "start": {"dateTime": "2026-05-15T09:00:00", "timeZone": "Europe/Berlin"},
-            "end": {"dateTime": "2026-05-15T09:30:00", "timeZone": "Europe/Berlin"},
-            "location": {"displayName": ""},
-            "isOnlineMeeting": False,
-            "attendees": [],
-            "organizer": {"emailAddress": {"name": "X"}},
-        }]
+        events = [
+            {
+                "subject": "Standup",
+                "start": {"dateTime": "2026-05-15T09:00:00", "timeZone": "Europe/Berlin"},
+                "end": {"dateTime": "2026-05-15T09:30:00", "timeZone": "Europe/Berlin"},
+                "location": {"displayName": ""},
+                "isOnlineMeeting": False,
+                "attendees": [],
+                "organizer": {"emailAddress": {"name": "X"}},
+            }
+        ]
         result = format_events_markdown(events)
         assert "Europe/Berlin" in result
 
     def test_event_no_timezone_falls_back_gracefully(self):
-        events = [{
-            "subject": "Standup",
-            "start": {"dateTime": "2026-05-15T09:00:00"},
-            "end": {"dateTime": "2026-05-15T09:30:00"},
-            "location": {"displayName": ""},
-            "isOnlineMeeting": False,
-            "attendees": [],
-            "organizer": {"emailAddress": {"name": "X"}},
-        }]
+        events = [
+            {
+                "subject": "Standup",
+                "start": {"dateTime": "2026-05-15T09:00:00"},
+                "end": {"dateTime": "2026-05-15T09:30:00"},
+                "location": {"displayName": ""},
+                "isOnlineMeeting": False,
+                "attendees": [],
+                "organizer": {"emailAddress": {"name": "X"}},
+            }
+        ]
         result = format_events_markdown(events)
         assert "Standup" in result
         assert "09:00–09:30" in result
@@ -116,7 +122,6 @@ class TestFormatEventDetailMarkdown:
         assert "Agenda" in result or "Q2 review" in result
         assert "2026-05-15T14:00 UTC" in result
         assert "2026-05-15T14:30 UTC" in result
-
 
     def test_cross_date_event_renders_both_dates(self):
         event = {
@@ -275,10 +280,12 @@ class TestFormatTeamsActivity:
         assert "No recent" in result
 
     def test_with_messages(self):
-        msgs = [{
-            "from": {"user": {"displayName": "Dave"}},
-            "body": {"content": "Hey team!", "contentType": "text"},
-        }]
+        msgs = [
+            {
+                "from": {"user": {"displayName": "Dave"}},
+                "body": {"content": "Hey team!", "contentType": "text"},
+            }
+        ]
         result = format_teams_activity_markdown(msgs)
         assert "Dave" in result
         assert "Hey team!" in result
@@ -304,15 +311,29 @@ class TestFormatPeopleMarkdown:
         assert "alice" in result.lower() or "No results" in result
 
     def test_with_person_and_mail(self):
-        people = [{"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@example.com"}]}]
-        emails = [{"subject": "Project update", "from": {"emailAddress": {"name": "Bob"}}, "receivedDateTime": "2026-05-15T10:00:00Z"}]
+        people = [
+            {"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@example.com"}]}
+        ]
+        emails = [
+            {
+                "subject": "Project update",
+                "from": {"emailAddress": {"name": "Bob"}},
+                "receivedDateTime": "2026-05-15T10:00:00Z",
+            }
+        ]
         result = format_people_markdown("alice", people, emails, None)
         assert "Alice Smith" in result
         assert "Project update" in result
 
     def test_with_teams_chat(self):
-        people = [{"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@example.com"}]}]
-        chat = {"id": "19:abc", "chatType": "oneOnOne", "lastMessagePreview": {"body": {"content": "Hey!"}}}
+        people = [
+            {"displayName": "Alice Smith", "emailAddresses": [{"address": "alice@example.com"}]}
+        ]
+        chat = {
+            "id": "19:abc",
+            "chatType": "oneOnOne",
+            "lastMessagePreview": {"body": {"content": "Hey!"}},
+        }
         result = format_people_markdown("alice", people, [], chat)
         assert "Alice Smith" in result
 
@@ -394,7 +415,6 @@ class TestFormatSearchResultsMarkdown:
         ]
         result = format_search_results_markdown("q", hits)
         assert "fallback-name" in result
-
 
     def test_email_weblink_rendered_when_present(self):
         hits = [
@@ -537,12 +557,19 @@ class TestFormatResolvedContentMarkdown:
         assert len(result) < len(oversize)
 
     def test_sharepoint_page_type(self):
-        data = {"displayName": "Project Overview", "webUrl": "https://contoso.sharepoint.com/sites/proj"}
+        data = {
+            "displayName": "Project Overview",
+            "webUrl": "https://contoso.sharepoint.com/sites/proj",
+        }
         result = format_resolved_content_markdown("sharepoint_page", data)
         assert "Project Overview" in result
 
     def test_onedrive_file_type(self):
-        data = {"name": "report.xlsx", "size": 20480, "webUrl": "https://contoso-my.sharepoint.com/files/1"}
+        data = {
+            "name": "report.xlsx",
+            "size": 20480,
+            "webUrl": "https://contoso-my.sharepoint.com/files/1",
+        }
         result = format_resolved_content_markdown("onedrive_file", data)
         assert "report.xlsx" in result
 
@@ -582,16 +609,20 @@ class TestFormatResolvedChatThread:
                 ],
             },
             "entries": [
-                {"kind": "message",
-                 "ts": "2026-05-26T10:05:00Z",
-                 "sender": "Alice",
-                 "body": "Hello world",
-                 "is_body_empty": False},
-                {"kind": "message",
-                 "ts": "2026-05-26T10:00:00Z",
-                 "sender": "Bob",
-                 "body": "Hi",
-                 "is_body_empty": False},
+                {
+                    "kind": "message",
+                    "ts": "2026-05-26T10:05:00Z",
+                    "sender": "Alice",
+                    "body": "Hello world",
+                    "is_body_empty": False,
+                },
+                {
+                    "kind": "message",
+                    "ts": "2026-05-26T10:00:00Z",
+                    "sender": "Bob",
+                    "body": "Hi",
+                    "is_body_empty": False,
+                },
             ],
             "meeting": {
                 "subject": "Project Sync",
@@ -618,33 +649,35 @@ class TestFormatResolvedChatThread:
         assert "UTC" in result
 
     def test_omits_meeting_block_when_absent(self):
-        result = format_resolved_content_markdown(
-            "chat_thread", self._data(meeting=None)
-        )
+        result = format_resolved_content_markdown("chat_thread", self._data(meeting=None))
         assert "Meeting" not in result
 
     def test_falls_back_to_member_names_when_topic_null(self):
-        data = self._data(chat={
-            "topic": None,
-            "chatType": "oneOnOne",
-            "webUrl": "https://teams.microsoft.com/l/chat/19:dm@unq.gbl.spaces/conversations",
-            "members": [
-                {"displayName": "Avi"},
-                {"displayName": "Alice"},
-            ],
-        })
+        data = self._data(
+            chat={
+                "topic": None,
+                "chatType": "oneOnOne",
+                "webUrl": "https://teams.microsoft.com/l/chat/19:dm@unq.gbl.spaces/conversations",
+                "members": [
+                    {"displayName": "Avi"},
+                    {"displayName": "Alice"},
+                ],
+            }
+        )
         result = format_resolved_content_markdown("chat_thread", data)
         assert "Avi" in result
         assert "Alice" in result
 
     def test_caps_member_list_at_six_with_more_indicator(self):
         members = [{"displayName": f"User{i}"} for i in range(10)]
-        data = self._data(chat={
-            "topic": "Big group",
-            "chatType": "group",
-            "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
-            "members": members,
-        })
+        data = self._data(
+            chat={
+                "topic": "Big group",
+                "chatType": "group",
+                "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+                "members": members,
+            }
+        )
         result = format_resolved_content_markdown("chat_thread", data)
         assert "User0" in result
         assert "User5" in result
@@ -653,13 +686,17 @@ class TestFormatResolvedChatThread:
 
     def test_truncates_long_message_with_ellipsis(self):
         pre_truncated_body = "x" * 500 + "…"
-        data = self._data(entries=[
-            {"kind": "message",
-             "ts": "2026-05-26T10:00:00Z",
-             "sender": "Alice",
-             "body": pre_truncated_body,
-             "is_body_empty": False},
-        ])
+        data = self._data(
+            entries=[
+                {
+                    "kind": "message",
+                    "ts": "2026-05-26T10:00:00Z",
+                    "sender": "Alice",
+                    "body": pre_truncated_body,
+                    "is_body_empty": False,
+                },
+            ]
+        )
         result = format_resolved_content_markdown("chat_thread", data)
         assert "x" * 500 in result
         assert "…" in result
@@ -678,65 +715,78 @@ class TestFormatResolvedChatThread:
         assert "Microsoft service error" in result
 
     def test_empty_message_body_renders_placeholder(self):
-        data = self._data(entries=[
-            {"kind": "message",
-             "ts": "2026-05-26T10:00:00Z",
-             "sender": "Alice",
-             "body": "",
-             "is_body_empty": True},
-        ])
+        data = self._data(
+            entries=[
+                {
+                    "kind": "message",
+                    "ts": "2026-05-26T10:00:00Z",
+                    "sender": "Alice",
+                    "body": "",
+                    "is_body_empty": True,
+                },
+            ]
+        )
         result = format_resolved_content_markdown("chat_thread", data)
         assert "Alice" in result
         assert "_(no text)_" in result
 
 
-
 class TestFormatTeamsActivityTruncation:
     def test_short_message_renders_intact(self):
-        msgs = [{
-            "from": {"user": {"displayName": "Alice"}},
-            "body": {"content": "Hello"},
-        }]
+        msgs = [
+            {
+                "from": {"user": {"displayName": "Alice"}},
+                "body": {"content": "Hello"},
+            }
+        ]
         result = format_teams_activity_markdown(msgs)
         assert "Hello" in result
         assert "…" not in result
 
     def test_message_at_500_chars_no_ellipsis(self):
         body = "x" * 500
-        msgs = [{
-            "from": {"user": {"displayName": "Alice"}},
-            "body": {"content": body},
-        }]
+        msgs = [
+            {
+                "from": {"user": {"displayName": "Alice"}},
+                "body": {"content": body},
+            }
+        ]
         result = format_teams_activity_markdown(msgs)
         assert body in result
         assert "…" not in result
 
     def test_message_above_500_chars_truncated_with_ellipsis(self):
         body = "x" * 600
-        msgs = [{
-            "from": {"user": {"displayName": "Alice"}},
-            "body": {"content": body},
-        }]
+        msgs = [
+            {
+                "from": {"user": {"displayName": "Alice"}},
+                "body": {"content": body},
+            }
+        ]
         result = format_teams_activity_markdown(msgs)
         assert "x" * 500 in result
         assert "…" in result
         assert "x" * 501 not in result
 
     def test_chat_web_url_renders_as_open_chat_link(self):
-        msgs = [{
-            "from": {"user": {"displayName": "Alice"}},
-            "body": {"content": "Hello"},
-            "_chat_web_url": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
-        }]
+        msgs = [
+            {
+                "from": {"user": {"displayName": "Alice"}},
+                "body": {"content": "Hello"},
+                "_chat_web_url": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+            }
+        ]
         result = format_teams_activity_markdown(msgs)
         assert "[open chat]" in result
         assert "19:abc@thread.v2" in result
 
     def test_no_chat_web_url_no_link_appended(self):
-        msgs = [{
-            "from": {"user": {"displayName": "Alice"}},
-            "body": {"content": "Hello"},
-        }]
+        msgs = [
+            {
+                "from": {"user": {"displayName": "Alice"}},
+                "body": {"content": "Hello"},
+            }
+        ]
         result = format_teams_activity_markdown(msgs)
         assert "[open chat]" not in result
 
@@ -744,54 +794,68 @@ class TestFormatTeamsActivityTruncation:
 class TestStripTeamsHtml:
     def test_strips_generic_html_tags(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         assert _strip_teams_html("<p>Hello <b>world</b></p>") == "Hello world"
 
     def test_extracts_at_mention_inner_text(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         body = '<at id="b1b7e2b5-...">@Avi</at> please review'
         assert _strip_teams_html(body) == "@Avi please review"
 
     def test_at_mention_only_message_preserves_name(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         body = '<at id="123">@Avi</at>'
         assert _strip_teams_html(body) == "@Avi"
 
     def test_at_mention_inside_other_tags(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         body = '<p><at id="123">@Avi</at> hi</p>'
         assert _strip_teams_html(body) == "@Avi hi"
 
     def test_returns_empty_for_pure_html(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         assert _strip_teams_html("<systemEventMessage/>") == ""
 
     def test_empty_input(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         assert _strip_teams_html("") == ""
 
     def test_no_html_passthrough(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         assert _strip_teams_html("plain text") == "plain text"
 
     def test_strips_surrounding_whitespace(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         assert _strip_teams_html("  <p>hi</p>  ") == "hi"
 
     def test_anchor_preserved_as_markdown_link(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         body = 'See <a href="https://example.com/doc">the doc</a> now'
-        assert _strip_teams_html(body, preserve_links=True) == "See [the doc](https://example.com/doc) now"
+        assert (
+            _strip_teams_html(body, preserve_links=True)
+            == "See [the doc](https://example.com/doc) now"
+        )
 
     def test_anchor_dropped_by_default(self):
         """Default (preserve_links=False) keeps only the anchor text — callers
         that hard-truncate the result must not receive markdown link syntax."""
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         body = 'See <a href="https://example.com/doc">the doc</a> now'
         assert _strip_teams_html(body) == "See the doc now"
 
     def test_anchor_with_url_as_text_renders_bare_url(self):
         """When display text equals the href, don't produce [url](url)."""
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         body = '<a href="https://example.com/x">https://example.com/x</a>'
         assert _strip_teams_html(body, preserve_links=True) == "https://example.com/x"
 
@@ -818,49 +882,60 @@ class TestStripTeamsBoilerplate:
 
     def test_agenda_above_block_preserved(self):
         from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+
         text = f"Agenda:\n- Discuss roadmap\n- Review metrics\n{self._BLOCK}"
         assert _strip_teams_boilerplate(text) == "Agenda:\n- Discuss roadmap\n- Review metrics"
 
     def test_boilerplate_only_collapses_to_empty(self):
         from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+
         assert _strip_teams_boilerplate(self._BLOCK) == ""
 
     def test_no_separator_unchanged(self):
         from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+
         text = "Just an agenda with no Teams block at all."
         assert _strip_teams_boilerplate(text) == text
 
     def test_empty_input(self):
         from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+
         assert _strip_teams_boilerplate("") == ""
 
     def test_short_underscore_run_not_treated_as_separator(self):
         """A brief underscore run (e.g. a fill-in blank) must not trigger a cut."""
         from ms365_intent_mcp.formatters import _strip_teams_boilerplate
+
         text = "Fill in ____ here and keep this line."
         assert _strip_teams_boilerplate(text) == text
 
-
     def test_anchor_empty_text_renders_bare_url(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         body = '<a href="https://example.com/x"></a>'
         assert _strip_teams_html(body, preserve_links=True) == "https://example.com/x"
 
     def test_teams_conversation_link_preserved(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         url = "https://teams.microsoft.com/l/message/19:abc@thread.v2/123"
         body = f'ref: <a href="{url}">this thread</a>'
         assert _strip_teams_html(body, preserve_links=True) == f"ref: [this thread]({url})"
 
     def test_multiple_anchors_preserved(self):
         from ms365_intent_mcp.formatters import _strip_teams_html
+
         body = '<a href="https://a.com">A</a> and <a href="https://b.com">B</a>'
-        assert _strip_teams_html(body, preserve_links=True) == "[A](https://a.com) and [B](https://b.com)"
+        assert (
+            _strip_teams_html(body, preserve_links=True)
+            == "[A](https://a.com) and [B](https://b.com)"
+        )
 
 
 class TestFormatChatEntry:
     def test_message_basic(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "message",
             "ts": "2026-05-29T10:00:00Z",
@@ -877,6 +952,7 @@ class TestFormatChatEntry:
 
     def test_message_empty_body_renders_no_text(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "message",
             "ts": "2026-05-29T10:00:00Z",
@@ -890,15 +966,14 @@ class TestFormatChatEntry:
 
     def test_message_with_reference_attachment_renders_link(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "message",
             "ts": "2026-07-15T10:25:00Z",
             "sender": "Alice",
             "body": "",
             "is_body_empty": True,
-            "attachments": [
-                {"name": "Meeting Recording.mp4", "url": "https://x/rec.mp4"}
-            ],
+            "attachments": [{"name": "Meeting Recording.mp4", "url": "https://x/rec.mp4"}],
         }
         line = _format_chat_entry(entry)
         assert "📎 [Meeting Recording.mp4](https://x/rec.mp4)" in line
@@ -906,15 +981,14 @@ class TestFormatChatEntry:
 
     def test_message_with_text_and_attachment_renders_both(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "message",
             "ts": "2026-07-15T10:25:00Z",
             "sender": "Alice",
             "body": "Here is the recording",
             "is_body_empty": False,
-            "attachments": [
-                {"name": "rec.mp4", "url": "https://x/rec.mp4"}
-            ],
+            "attachments": [{"name": "rec.mp4", "url": "https://x/rec.mp4"}],
         }
         line = _format_chat_entry(entry)
         assert "Here is the recording" in line
@@ -922,6 +996,7 @@ class TestFormatChatEntry:
 
     def test_message_without_attachments_no_paperclip(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "message",
             "ts": "2026-07-15T10:25:00Z",
@@ -934,6 +1009,7 @@ class TestFormatChatEntry:
 
     def test_message_with_reply_context_renders_quote(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "message",
             "ts": "2026-07-15T10:25:00Z",
@@ -950,6 +1026,7 @@ class TestFormatChatEntry:
 
     def test_message_without_reply_context_no_quote(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "message",
             "ts": "2026-07-15T10:25:00Z",
@@ -962,6 +1039,7 @@ class TestFormatChatEntry:
 
     def test_call_with_initiator_duration_recording_transcript(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "2026-05-29T10:00:00Z",
@@ -981,6 +1059,7 @@ class TestFormatChatEntry:
 
     def test_call_no_initiator(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "2026-05-29T10:00:00Z",
@@ -996,6 +1075,7 @@ class TestFormatChatEntry:
 
     def test_call_pending_recording_no_link(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "2026-05-29T10:00:00Z",
@@ -1010,6 +1090,7 @@ class TestFormatChatEntry:
 
     def test_call_single_event_no_end_ts(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "2026-05-29T10:00:00Z",
@@ -1028,6 +1109,7 @@ class TestFormatChatEntry:
     def test_call_spanning_dates_renders_both(self):
         """Bug 4: a call that spans midnight (rare) shows both dates."""
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "2026-05-29T23:30:00Z",
@@ -1044,6 +1126,7 @@ class TestFormatChatEntry:
 
     def test_event_member_added(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "event",
             "ts": "2026-05-29T10:00:00Z",
@@ -1058,6 +1141,7 @@ class TestFormatChatEntry:
 
     def test_event_call_unknown(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "event",
             "ts": "2026-05-29T10:00:00Z",
@@ -1069,11 +1153,13 @@ class TestFormatChatEntry:
 
     def test_unknown_kind_renders_fallback(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         line = _format_chat_entry({"kind": "alien"})
         assert "unknown entry: alien" in line
 
     def test_call_single_event_includes_utc(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "2026-05-29T10:00:00Z",
@@ -1088,6 +1174,7 @@ class TestFormatChatEntry:
 
     def test_call_with_null_ts_renders_empty_parens(self):
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "",
@@ -1111,6 +1198,7 @@ class TestFormatChatEntry:
         sub-bullets beneath the main call line — callers who want a
         ready-to-download URL can grab vroom_url without parsing."""
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "2026-06-30T13:00:00Z",
@@ -1140,6 +1228,7 @@ class TestFormatChatEntry:
     def test_call_without_drive_metadata_stays_single_line(self):
         """Backward-compatible: unenriched call entries render as before."""
         from ms365_intent_mcp.formatters import _format_chat_entry
+
         entry = {
             "kind": "call",
             "ts": "2026-06-30T13:00:00Z",
@@ -1159,18 +1248,21 @@ class TestFormatChatEntry:
 class TestFormatEventTimeRange:
     def test_basic_utc_range(self):
         from ms365_intent_mcp.formatters import _format_event_time_range
+
         start = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "UTC"}
         end = {"dateTime": "2026-06-02T08:00:00.0000000", "timeZone": "UTC"}
         assert _format_event_time_range(start, end) == "07:45–08:00 UTC"
 
     def test_named_iana_timezone(self):
         from ms365_intent_mcp.formatters import _format_event_time_range
+
         start = {"dateTime": "2026-06-02T09:45:00.0000000", "timeZone": "Europe/Berlin"}
         end = {"dateTime": "2026-06-02T10:00:00.0000000", "timeZone": "Europe/Berlin"}
         assert _format_event_time_range(start, end) == "09:45–10:00 Europe/Berlin"
 
     def test_falls_back_to_end_timezone_if_start_missing(self):
         from ms365_intent_mcp.formatters import _format_event_time_range
+
         start = {"dateTime": "2026-06-02T07:45:00.0000000"}
         end = {"dateTime": "2026-06-02T08:00:00.0000000", "timeZone": "UTC"}
         assert _format_event_time_range(start, end) == "07:45–08:00 UTC"
@@ -1178,6 +1270,7 @@ class TestFormatEventTimeRange:
     def test_no_timezone_no_suffix(self):
         """Defensive: if Graph somehow omits timeZone, render bare times — no ' None' artifact."""
         from ms365_intent_mcp.formatters import _format_event_time_range
+
         start = {"dateTime": "2026-06-02T07:45:00.0000000"}
         end = {"dateTime": "2026-06-02T08:00:00.0000000"}
         result = _format_event_time_range(start, end)
@@ -1186,11 +1279,13 @@ class TestFormatEventTimeRange:
 
     def test_empty_inputs(self):
         from ms365_intent_mcp.formatters import _format_event_time_range
+
         assert _format_event_time_range({}, {}) == "–"
 
     def test_short_datetime_string_passes_through(self):
         """Defensive: if dateTime is shorter than 16 chars, don't crash — render as-is."""
         from ms365_intent_mcp.formatters import _format_event_time_range
+
         start = {"dateTime": "?", "timeZone": "UTC"}
         end = {"dateTime": "?", "timeZone": "UTC"}
         result = _format_event_time_range(start, end)
@@ -1199,10 +1294,12 @@ class TestFormatEventTimeRange:
 
 class TestMentionRegressionAcrossFormatters:
     def test_format_teams_activity_extracts_at_mention(self):
-        msgs = [{
-            "from": {"user": {"displayName": "Alice"}},
-            "body": {"content": '<at id="123">@Avi</at> see this'},
-        }]
+        msgs = [
+            {
+                "from": {"user": {"displayName": "Alice"}},
+                "body": {"content": '<at id="123">@Avi</at> see this'},
+            }
+        ]
         result = format_teams_activity_markdown(msgs)
         assert "@Avi see this" in result
         assert "<at" not in result
@@ -1222,7 +1319,9 @@ class TestMentionRegressionAcrossFormatters:
         assert "@Avi" in result
 
     def test_format_people_extracts_at_mention_in_recent_chat(self):
-        people = [{"displayName": "Bawa Kulkarni", "emailAddresses": [{"address": "bawa@example.com"}]}]
+        people = [
+            {"displayName": "Bawa Kulkarni", "emailAddresses": [{"address": "bawa@example.com"}]}
+        ]
         recent_chat = {
             "lastMessagePreview": {
                 "body": {"content": '<at id="123">@Avi</at> ping'},
@@ -1235,24 +1334,29 @@ class TestMentionRegressionAcrossFormatters:
 class TestFormatOffsetDatetime:
     def test_basic_z_suffix(self):
         from ms365_intent_mcp.formatters import _format_offset_datetime
+
         assert _format_offset_datetime("2026-05-29T10:00:00Z") == "2026-05-29T10:00 UTC"
 
     def test_with_milliseconds(self):
         """Graph dateTimeOffset can include ms: '2026-05-29T10:00:00.035Z'."""
         from ms365_intent_mcp.formatters import _format_offset_datetime
+
         assert _format_offset_datetime("2026-05-29T10:00:00.035Z") == "2026-05-29T10:00 UTC"
 
     def test_empty_string(self):
         from ms365_intent_mcp.formatters import _format_offset_datetime
+
         assert _format_offset_datetime("") == ""
 
     def test_none_input(self):
         """Callers may pass `data.get('createdDateTime')` directly (no default)."""
         from ms365_intent_mcp.formatters import _format_offset_datetime
+
         assert _format_offset_datetime(None) == ""
 
     def test_short_string_passes_through(self):
         from ms365_intent_mcp.formatters import _format_offset_datetime
+
         result = _format_offset_datetime("???")
         assert "UTC" not in result  # don't slap UTC on garbage
 
@@ -1260,16 +1364,19 @@ class TestFormatOffsetDatetime:
 class TestFormatEventDatetime:
     def test_basic_utc(self):
         from ms365_intent_mcp.formatters import _format_event_datetime
+
         dt = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "UTC"}
         assert _format_event_datetime(dt) == "2026-06-02T07:45 UTC"
 
     def test_named_timezone(self):
         from ms365_intent_mcp.formatters import _format_event_datetime
+
         dt = {"dateTime": "2026-06-02T07:45:00.0000000", "timeZone": "Europe/Berlin"}
         assert _format_event_datetime(dt) == "2026-06-02T07:45 Europe/Berlin"
 
     def test_no_timezone_no_suffix(self):
         from ms365_intent_mcp.formatters import _format_event_datetime
+
         dt = {"dateTime": "2026-06-02T07:45:00.0000000"}
         result = _format_event_datetime(dt)
         assert result == "2026-06-02T07:45"
@@ -1277,20 +1384,18 @@ class TestFormatEventDatetime:
 
     def test_empty_input(self):
         from ms365_intent_mcp.formatters import _format_event_datetime
+
         assert _format_event_datetime({}) == ""
 
     def test_missing_datetime_key(self):
         from ms365_intent_mcp.formatters import _format_event_datetime
+
         dt = {"timeZone": "UTC"}
         assert _format_event_datetime(dt) == " UTC"
 
 
-
-
 def test_utc_pair_becomes_z():
-    iso, tz = graph_dt_to_aware_iso(
-        {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"}
-    )
+    iso, tz = graph_dt_to_aware_iso({"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"})
     assert iso == "2026-07-29T14:00:00+00:00"
     assert tz == "UTC"
 
@@ -1333,9 +1438,7 @@ def test_unresolvable_zone_falls_back_naive_and_warns(caplog):
 
 
 def test_null_timezone_falls_back_naive():
-    iso, tz = graph_dt_to_aware_iso(
-        {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": None}
-    )
+    iso, tz = graph_dt_to_aware_iso({"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": None})
     assert iso == "2026-07-29T14:00:00"
     assert tz is None
 
@@ -1359,17 +1462,33 @@ def test_dst_spring_forward_resolves_without_raising():
 class TestEmailAttachmentRendering:
     def test_renders_attachment_lines(self):
         data = {
-            "subject": "Bug", "from": {"emailAddress": {"name": "Cust"}},
+            "subject": "Bug",
+            "from": {"emailAddress": {"name": "Cust"}},
             "receivedDateTime": "2026-07-20T00:00:00Z",
             "body": {"contentType": "text", "content": "see attached"},
             "_attachments": [
-                {"name": "shot.png", "content_type": "image/png", "size": 20480,
-                 "is_inline": True, "cid": "a@1", "attachment_id": "i",
-                 "kind": "file", "local_path": "/tmp/shot.png", "note": None},
-                {"name": "notes.docx", "content_type": "", "size": 0,
-                 "is_inline": False, "cid": "", "attachment_id": "j",
-                 "kind": "item", "local_path": None,
-                 "note": "embedded item — not a downloadable file"},
+                {
+                    "name": "shot.png",
+                    "content_type": "image/png",
+                    "size": 20480,
+                    "is_inline": True,
+                    "cid": "a@1",
+                    "attachment_id": "i",
+                    "kind": "file",
+                    "local_path": "/tmp/shot.png",
+                    "note": None,
+                },
+                {
+                    "name": "notes.docx",
+                    "content_type": "",
+                    "size": 0,
+                    "is_inline": False,
+                    "cid": "",
+                    "attachment_id": "j",
+                    "kind": "item",
+                    "local_path": None,
+                    "note": "embedded item — not a downloadable file",
+                },
             ],
         }
         md = format_resolved_content_markdown("email", data)
@@ -1380,7 +1499,8 @@ class TestEmailAttachmentRendering:
 
     def test_no_attachment_section_when_empty(self):
         data = {
-            "subject": "plain", "from": {"emailAddress": {"name": "A"}},
+            "subject": "plain",
+            "from": {"emailAddress": {"name": "A"}},
             "receivedDateTime": "2026-07-20T00:00:00Z",
             "body": {"contentType": "text", "content": "hi"},
             "_attachments": [],
@@ -1390,7 +1510,8 @@ class TestEmailAttachmentRendering:
 
     def test_attachments_error_warning_rendered(self):
         data = {
-            "subject": "err", "from": {"emailAddress": {"name": "B"}},
+            "subject": "err",
+            "from": {"emailAddress": {"name": "B"}},
             "receivedDateTime": "2026-07-20T00:00:00Z",
             "body": {"contentType": "text", "content": "hi"},
             "_attachments": [],
@@ -1404,6 +1525,7 @@ class TestEmailAttachmentRendering:
 class TestFormatEventForwardedMarkdown:
     def test_format_event_forwarded_markdown_with_comment(self):
         from ms365_intent_mcp.formatters import format_event_forwarded_markdown
+
         md = format_event_forwarded_markdown(["Dana Swope"], "Hope you can make it")
         assert "✅" in md
         assert "Dana Swope" in md
@@ -1411,5 +1533,6 @@ class TestFormatEventForwardedMarkdown:
 
     def test_format_event_forwarded_markdown_no_comment(self):
         from ms365_intent_mcp.formatters import format_event_forwarded_markdown
+
         md = format_event_forwarded_markdown(["Dana Swope"], None)
         assert "Dana Swope" in md

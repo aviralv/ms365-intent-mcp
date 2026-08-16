@@ -17,11 +17,13 @@ class TestComposeEmailDraft:
     @pytest.mark.asyncio
     async def test_creates_draft(self, full_permissions):
         client = AsyncMock()
-        client.post = AsyncMock(return_value={
-            "subject": "Hello",
-            "id": "draft-1",
-            "toRecipients": [{"emailAddress": {"name": "Bob", "address": "bob@example.com"}}],
-        })
+        client.post = AsyncMock(
+            return_value={
+                "subject": "Hello",
+                "id": "draft-1",
+                "toRecipients": [{"emailAddress": {"name": "Bob", "address": "bob@example.com"}}],
+            }
+        )
 
         result = await compose_action(
             client=client,
@@ -42,11 +44,15 @@ class TestComposeReplyDraft:
     @pytest.mark.asyncio
     async def test_creates_reply(self, full_permissions):
         client = AsyncMock()
-        client.post = AsyncMock(return_value={
-            "subject": "Re: Hello",
-            "id": "draft-2",
-            "toRecipients": [{"emailAddress": {"name": "Alice", "address": "alice@example.com"}}],
-        })
+        client.post = AsyncMock(
+            return_value={
+                "subject": "Re: Hello",
+                "id": "draft-2",
+                "toRecipients": [
+                    {"emailAddress": {"name": "Alice", "address": "alice@example.com"}}
+                ],
+            }
+        )
 
         result = await compose_action(
             client=client,
@@ -66,13 +72,15 @@ class TestComposeEvent:
     @pytest.mark.asyncio
     async def test_creates_event(self, full_permissions):
         client = AsyncMock()
-        client.post = AsyncMock(return_value={
-            "subject": "Sync",
-            "start": {"dateTime": "2026-05-16T10:00:00"},
-            "end": {"dateTime": "2026-05-16T10:30:00"},
-            "isOnlineMeeting": False,
-            "onlineMeeting": None,
-        })
+        client.post = AsyncMock(
+            return_value={
+                "subject": "Sync",
+                "start": {"dateTime": "2026-05-16T10:00:00"},
+                "end": {"dateTime": "2026-05-16T10:30:00"},
+                "isOnlineMeeting": False,
+                "onlineMeeting": None,
+            }
+        )
 
         result = await compose_action(
             client=client,
@@ -112,11 +120,15 @@ class TestComposeEmailForward:
     @pytest.mark.asyncio
     async def test_creates_forward_draft(self, full_permissions):
         client = AsyncMock()
-        client.post = AsyncMock(return_value={
-            "subject": "FW: Hello",
-            "id": "draft-9",
-            "toRecipients": [{"emailAddress": {"name": "Carol", "address": "carol@example.com"}}],
-        })
+        client.post = AsyncMock(
+            return_value={
+                "subject": "FW: Hello",
+                "id": "draft-9",
+                "toRecipients": [
+                    {"emailAddress": {"name": "Carol", "address": "carol@example.com"}}
+                ],
+            }
+        )
 
         result = await compose_action(
             client=client,

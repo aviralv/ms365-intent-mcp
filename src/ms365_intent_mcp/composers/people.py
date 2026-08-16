@@ -75,12 +75,15 @@ async def compose_people(
     recent_emails: list[dict] = []
     if email_addr and permissions.has("Mail.Read"):
         try:
-            emails_result = await client.get("/me/messages", params={
-                "$filter": f"from/emailAddress/address eq '{_escape_odata(email_addr)}'",
-                "$select": "subject,from,receivedDateTime",
-                "$orderby": "receivedDateTime desc",
-                "$top": "5",
-            })
+            emails_result = await client.get(
+                "/me/messages",
+                params={
+                    "$filter": f"from/emailAddress/address eq '{_escape_odata(email_addr)}'",
+                    "$select": "subject,from,receivedDateTime",
+                    "$orderby": "receivedDateTime desc",
+                    "$top": "5",
+                },
+            )
             recent_emails = (emails_result or {}).get("value", [])
         except GraphAPIError:
             recent_emails = []
@@ -101,18 +104,20 @@ async def compose_people(
             for m in recent_emails
         ],
         "recent_chat": {
-            "body": ((recent_chat.get("lastMessagePreview") or {}).get("body") or {}).get("content", ""),
+            "body": ((recent_chat.get("lastMessagePreview") or {}).get("body") or {}).get(
+                "content", ""
+            ),
             "last_message_at": (recent_chat.get("lastMessagePreview") or {}).get("createdDateTime"),
             "chat_id": recent_chat.get("id", ""),
             "chat_url": recent_chat.get("webUrl", ""),
-        } if recent_chat else None,
+        }
+        if recent_chat
+        else None,
     }
     return data, markdown
 
 
-def _find_chat_with_person(
-    chats: list[dict], display_name: str, email: str
-) -> dict | None:
+def _find_chat_with_person(chats: list[dict], display_name: str, email: str) -> dict | None:
     """Find the most recent chat that includes the target person.
 
     Prefers email match (authoritative). Falls back to all-words-match on
@@ -151,9 +156,7 @@ async def _get_me_id(client: GraphClient) -> str:
     return (me or {}).get("id", "")
 
 
-def _lookup_person_via_chats(
-    chats: list[dict], query: str, me_id: str
-) -> list[dict]:
+def _lookup_person_via_chats(chats: list[dict], query: str, me_id: str) -> list[dict]:
     """Synthesize matched people from chat members (pure — no API call).
 
     Third fallback tier for compose_people: used when /me/people and
@@ -173,7 +176,7 @@ def _lookup_person_via_chats(
     people: list[dict] = []
     for chat in narrowed:
         for member in chat.get("members", []):
-            user_id = (member.get("userId") or "")
+            user_id = member.get("userId") or ""
             if me_id_lower and user_id.lower() == me_id_lower:
                 continue
             display_name = member.get("displayName") or ""
@@ -185,12 +188,14 @@ def _lookup_person_via_chats(
             if not key or key in seen:
                 continue
             seen.add(key)
-            people.append({
-                "displayName": display_name,
-                "emailAddresses": [{"address": email}] if email else [],
-                "jobTitle": None,
-                "_source_chat": chat,
-            })
+            people.append(
+                {
+                    "displayName": display_name,
+                    "emailAddresses": [{"address": email}] if email else [],
+                    "jobTitle": None,
+                    "_source_chat": chat,
+                }
+            )
     return people
 
 
@@ -205,20 +210,28 @@ async def _lookup_person(
         if not permissions.has("People.Read"):
             return []
         try:
-            r = await client.get("/me/people", params={
-                "$search": f'"{escaped}"', "$top": "5",
-                "$select": "displayName,jobTitle,scoredEmailAddresses",
-            })
+            r = await client.get(
+                "/me/people",
+                params={
+                    "$search": f'"{escaped}"',
+                    "$top": "5",
+                    "$select": "displayName,jobTitle,scoredEmailAddresses",
+                },
+            )
             return (r or {}).get("value", [])
         except GraphAPIError:
             return []
 
     async def _contacts_tier() -> list[dict]:
         try:
-            r = await client.get("/me/contacts", params={
-                "$search": f'"{escaped}"', "$top": "5",
-                "$select": "displayName,emailAddresses,jobTitle",
-            })
+            r = await client.get(
+                "/me/contacts",
+                params={
+                    "$search": f'"{escaped}"',
+                    "$top": "5",
+                    "$select": "displayName,emailAddresses,jobTitle",
+                },
+            )
             return (r or {}).get("value", [])
         except GraphAPIError:
             return []
@@ -227,10 +240,15 @@ async def _lookup_person(
         if not permissions.has("User.ReadBasic.All"):
             return []
         try:
-            r = await client.get("/users", params={
-                "$search": f'"displayName:{escaped}"', "$top": "5",
-                "$select": "displayName,mail,userPrincipalName,jobTitle",
-            }, headers={"ConsistencyLevel": "eventual"})
+            r = await client.get(
+                "/users",
+                params={
+                    "$search": f'"displayName:{escaped}"',
+                    "$top": "5",
+                    "$select": "displayName,mail,userPrincipalName,jobTitle",
+                },
+                headers={"ConsistencyLevel": "eventual"},
+            )
             return (r or {}).get("value", [])
         except GraphAPIError:
             return []

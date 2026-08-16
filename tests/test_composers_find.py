@@ -84,7 +84,9 @@ class TestFindSearch:
     @pytest.mark.asyncio
     async def test_no_results(self, full_permissions):
         client = AsyncMock()
-        client.post = AsyncMock(return_value={"value": [{"hitsContainers": [{"hits": [], "total": 0}]}]})
+        client.post = AsyncMock(
+            return_value={"value": [{"hitsContainers": [{"hits": [], "total": 0}]}]}
+        )
 
         _, result = await compose_find(
             client=client,
@@ -99,20 +101,22 @@ class TestListUserChats:
     @pytest.mark.asyncio
     async def test_returns_chats_sorted_by_recency(self):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {
-                    "id": "chat-old",
-                    "members": [],
-                    "lastMessagePreview": {"createdDateTime": "2026-06-01T10:00:00Z"},
-                },
-                {
-                    "id": "chat-new",
-                    "members": [],
-                    "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"},
-                },
-            ]
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "id": "chat-old",
+                        "members": [],
+                        "lastMessagePreview": {"createdDateTime": "2026-06-01T10:00:00Z"},
+                    },
+                    {
+                        "id": "chat-new",
+                        "members": [],
+                        "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"},
+                    },
+                ]
+            }
+        )
         chats = await _list_user_chats(client)
         assert [c["id"] for c in chats] == ["chat-new", "chat-old"]
 
@@ -128,13 +132,30 @@ class TestFetchChatMessages:
     @pytest.mark.asyncio
     async def test_filters_by_query_substring_case_insensitive(self):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {"id": "m1", "body": {"content": "<p>Second Brain rocks</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
-                {"id": "m2", "body": {"content": "<p>Unrelated</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-29T10:00:00Z"},
-                {"id": "m3", "body": {"content": "<p>second brain again</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-28T10:00:00Z"},
-            ]
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "id": "m1",
+                        "body": {"content": "<p>Second Brain rocks</p>"},
+                        "from": {"user": {"displayName": "Diana"}},
+                        "createdDateTime": "2026-06-30T10:00:00Z",
+                    },
+                    {
+                        "id": "m2",
+                        "body": {"content": "<p>Unrelated</p>"},
+                        "from": {"user": {"displayName": "Diana"}},
+                        "createdDateTime": "2026-06-29T10:00:00Z",
+                    },
+                    {
+                        "id": "m3",
+                        "body": {"content": "<p>second brain again</p>"},
+                        "from": {"user": {"displayName": "Diana"}},
+                        "createdDateTime": "2026-06-28T10:00:00Z",
+                    },
+                ]
+            }
+        )
         hits = await _fetch_chat_messages(client, "chat-1", ["second brain"])
         assert [h["id"] for h in hits] == ["m1", "m3"]
         assert all(h["_chat_id"] == "chat-1" for h in hits)
@@ -149,22 +170,36 @@ class TestFetchChatMessages:
     @pytest.mark.asyncio
     async def test_strips_html_before_matching(self):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {"id": "m1", "body": {"content": '<div><at id="0">Diana</at> found it</div>'}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
-            ]
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "id": "m1",
+                        "body": {"content": '<div><at id="0">Diana</at> found it</div>'},
+                        "from": {"user": {"displayName": "X"}},
+                        "createdDateTime": "2026-06-30T10:00:00Z",
+                    },
+                ]
+            }
+        )
         hits = await _fetch_chat_messages(client, "chat-1", ["Diana found"])
         assert len(hits) == 1
 
     @pytest.mark.asyncio
     async def test_empty_needles_returns_empty(self):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {"id": "m1", "body": {"content": "<p>anything</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
-            ]
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "id": "m1",
+                        "body": {"content": "<p>anything</p>"},
+                        "from": {"user": {"displayName": "X"}},
+                        "createdDateTime": "2026-06-30T10:00:00Z",
+                    },
+                ]
+            }
+        )
         hits = await _fetch_chat_messages(client, "chat-1", ["   "])
         assert hits == []
         client.get.assert_not_called()
@@ -172,24 +207,48 @@ class TestFetchChatMessages:
     @pytest.mark.asyncio
     async def test_decodes_html_entities_before_matching(self):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {"id": "m1", "body": {"content": "<p>Q&amp;A session</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
-            ]
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "id": "m1",
+                        "body": {"content": "<p>Q&amp;A session</p>"},
+                        "from": {"user": {"displayName": "X"}},
+                        "createdDateTime": "2026-06-30T10:00:00Z",
+                    },
+                ]
+            }
+        )
         hits = await _fetch_chat_messages(client, "chat-1", ["Q&A"])
         assert len(hits) == 1
 
     @pytest.mark.asyncio
     async def test_matches_any_needle(self):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {"id": "m1", "body": {"content": "<p>second brain note</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
-                {"id": "m2", "body": {"content": "<p>brain dump</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-29T10:00:00Z"},
-                {"id": "m3", "body": {"content": "<p>unrelated stuff</p>"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-28T10:00:00Z"},
-            ]
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "id": "m1",
+                        "body": {"content": "<p>second brain note</p>"},
+                        "from": {"user": {"displayName": "X"}},
+                        "createdDateTime": "2026-06-30T10:00:00Z",
+                    },
+                    {
+                        "id": "m2",
+                        "body": {"content": "<p>brain dump</p>"},
+                        "from": {"user": {"displayName": "X"}},
+                        "createdDateTime": "2026-06-29T10:00:00Z",
+                    },
+                    {
+                        "id": "m3",
+                        "body": {"content": "<p>unrelated stuff</p>"},
+                        "from": {"user": {"displayName": "X"}},
+                        "createdDateTime": "2026-06-28T10:00:00Z",
+                    },
+                ]
+            }
+        )
         hits = await _fetch_chat_messages(client, "chat-1", ["second", "brain"])
         hit_ids = {h["id"] for h in hits}
         assert "m1" in hit_ids
@@ -213,7 +272,12 @@ def _mock_search_response(query: str) -> dict:
                                 "resource": {
                                     "@odata.type": "#microsoft.graph.message",
                                     "subject": f"{query} Review",
-                                    "from": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
+                                    "from": {
+                                        "emailAddress": {
+                                            "name": "Alice",
+                                            "address": "alice@example.com",
+                                        }
+                                    },
                                     "receivedDateTime": "2026-05-10T09:00:00Z",
                                     "bodyPreview": f"Please review the {query} document attached.",
                                 },
@@ -286,7 +350,12 @@ class TestSearchChatMessages:
         messages_by_chat = {
             "chat-diana": {
                 "value": [
-                    {"id": "m1", "body": {"content": "<p>Second brain idea</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+                    {
+                        "id": "m1",
+                        "body": {"content": "<p>Second brain idea</p>"},
+                        "from": {"user": {"displayName": "Diana"}},
+                        "createdDateTime": "2026-06-30T10:00:00Z",
+                    },
                 ]
             },
         }
@@ -316,8 +385,25 @@ class TestSearchChatMessages:
 
         async def _get(path, params=None):
             if path == "/me/chats":
-                return {"value": [{"id": "c1", "members": [], "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"}}]}
-            return {"value": [{"id": "m1", "body": {"content": "hello"}, "from": {"user": {"displayName": "X"}}, "createdDateTime": "2026-06-30T10:00:00Z"}]}
+                return {
+                    "value": [
+                        {
+                            "id": "c1",
+                            "members": [],
+                            "lastMessagePreview": {"createdDateTime": "2026-06-30T10:00:00Z"},
+                        }
+                    ]
+                }
+            return {
+                "value": [
+                    {
+                        "id": "m1",
+                        "body": {"content": "hello"},
+                        "from": {"user": {"displayName": "X"}},
+                        "createdDateTime": "2026-06-30T10:00:00Z",
+                    }
+                ]
+            }
 
         client.get = AsyncMock(side_effect=_get)
 
@@ -349,7 +435,12 @@ class TestSearchChatMessages:
             if path == "/chats/chat-diana/messages":
                 return {
                     "value": [
-                        {"id": "m1", "body": {"content": "<p>quick note</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+                        {
+                            "id": "m1",
+                            "body": {"content": "<p>quick note</p>"},
+                            "from": {"user": {"displayName": "Diana"}},
+                            "createdDateTime": "2026-06-30T10:00:00Z",
+                        },
                     ]
                 }
             return {"value": []}
@@ -397,7 +488,12 @@ class TestFindChatUrl:
         }
         messages = {
             "value": [
-                {"id": "m1", "body": {"content": "<p>Second brain idea</p>"}, "from": {"user": {"displayName": "Diana"}}, "createdDateTime": "2026-06-30T10:00:00Z"},
+                {
+                    "id": "m1",
+                    "body": {"content": "<p>Second brain idea</p>"},
+                    "from": {"user": {"displayName": "Diana"}},
+                    "createdDateTime": "2026-06-30T10:00:00Z",
+                },
             ]
         }
 

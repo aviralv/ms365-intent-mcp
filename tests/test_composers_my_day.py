@@ -11,9 +11,13 @@ from ms365_intent_mcp.permissions import PermissionRegistry
 
 @pytest.fixture
 def full_permissions():
-    return PermissionRegistry([
-        "Calendars.ReadWrite", "Mail.Read", "Chat.ReadWrite",
-    ])
+    return PermissionRegistry(
+        [
+            "Calendars.ReadWrite",
+            "Mail.Read",
+            "Chat.ReadWrite",
+        ]
+    )
 
 
 @pytest.fixture
@@ -95,15 +99,19 @@ class TestMyDayMissingPermissions:
 
 
 def _mock_calendar_response():
-    return {"value": [{
-        "subject": "Standup",
-        "start": {"dateTime": "2026-05-15T09:00:00"},
-        "end": {"dateTime": "2026-05-15T09:30:00"},
-        "location": {"displayName": ""},
-        "isOnlineMeeting": True,
-        "attendees": [],
-        "organizer": {"emailAddress": {"name": "Alice"}},
-    }]}
+    return {
+        "value": [
+            {
+                "subject": "Standup",
+                "start": {"dateTime": "2026-05-15T09:00:00"},
+                "end": {"dateTime": "2026-05-15T09:30:00"},
+                "location": {"displayName": ""},
+                "isOnlineMeeting": True,
+                "attendees": [],
+                "organizer": {"emailAddress": {"name": "Alice"}},
+            }
+        ]
+    }
 
 
 async def _mock_graph_get(endpoint, params=None, headers=None):
@@ -148,7 +156,10 @@ class TestMyDayIncludeBodies:
         html = '<p>Agenda</p> <a href="https://wiki.example.com/x">Spec</a>'
         client, captured = self._client(html)
         data, _ = await compose_my_day(
-            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            client,
+            calendar_only_permissions,
+            "2026-08-05",
+            "Europe/Berlin",
             include_bodies=True,
         )
         assert "body" in captured["select"]
@@ -160,7 +171,10 @@ class TestMyDayIncludeBodies:
     async def test_default_omits_body(self, calendar_only_permissions):
         client, captured = self._client("<p>x</p>")
         data, _ = await compose_my_day(
-            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            client,
+            calendar_only_permissions,
+            "2026-08-05",
+            "Europe/Berlin",
         )
         assert "body" not in captured["select"]
         ev = data["events"][0]
@@ -172,7 +186,10 @@ class TestMyDayIncludeBodies:
         html = "x" * 3000
         client, _ = self._client(html)
         data, _ = await compose_my_day(
-            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            client,
+            calendar_only_permissions,
+            "2026-08-05",
+            "Europe/Berlin",
             include_bodies=True,
         )
         assert len(data["events"][0]["body"]) == 2000
@@ -180,11 +197,17 @@ class TestMyDayIncludeBodies:
     @pytest.mark.asyncio
     async def test_join_url_excluded_link_before_truncation(self, calendar_only_permissions):
         join = "https://teams.microsoft.com/l/meetup-join/19:abc@thread.v2/0"
-        html = ("z" * 2100) + '<a href="https://wiki.example.com/deep">Deep</a>' \
-               + f'<a href="{join}">Join</a>'
+        html = (
+            ("z" * 2100)
+            + '<a href="https://wiki.example.com/deep">Deep</a>'
+            + f'<a href="{join}">Join</a>'
+        )
         client, _ = self._client(html, join_url=join)
         data, _ = await compose_my_day(
-            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            client,
+            calendar_only_permissions,
+            "2026-08-05",
+            "Europe/Berlin",
             include_bodies=True,
         )
         ev = data["events"][0]
@@ -205,7 +228,10 @@ class TestMyDayIncludeBodies:
         )
         client, _ = self._client(html)
         data, _ = await compose_my_day(
-            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            client,
+            calendar_only_permissions,
+            "2026-08-05",
+            "Europe/Berlin",
             include_bodies=True,
         )
         assert data["events"][0]["body"] is None
@@ -221,7 +247,10 @@ class TestMyDayIncludeBodies:
         )
         client, _ = self._client(html)
         data, _ = await compose_my_day(
-            client, calendar_only_permissions, "2026-08-05", "Europe/Berlin",
+            client,
+            calendar_only_permissions,
+            "2026-08-05",
+            "Europe/Berlin",
             include_bodies=True,
         )
         body = data["events"][0]["body"]
@@ -237,23 +266,25 @@ class TestMyDayEventTimezones:
 
         async def fake_get(endpoint, params=None, headers=None):
             if "calendarView" in endpoint:
-                return {"value": [
-                    {
-                        "subject": "Standup",
-                        "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
-                        "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
-                        "location": {"displayName": ""},
-                        "isOnlineMeeting": True,
-                    },
-                    {
-                        "subject": "Offsite",
-                        "isAllDay": True,
-                        "start": {"dateTime": "2026-07-30", "timeZone": "UTC"},
-                        "end": {"dateTime": "2026-07-31", "timeZone": "UTC"},
-                        "location": {"displayName": ""},
-                        "isOnlineMeeting": False,
-                    },
-                ]}
+                return {
+                    "value": [
+                        {
+                            "subject": "Standup",
+                            "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
+                            "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
+                            "location": {"displayName": ""},
+                            "isOnlineMeeting": True,
+                        },
+                        {
+                            "subject": "Offsite",
+                            "isAllDay": True,
+                            "start": {"dateTime": "2026-07-30", "timeZone": "UTC"},
+                            "end": {"dateTime": "2026-07-31", "timeZone": "UTC"},
+                            "location": {"displayName": ""},
+                            "isOnlineMeeting": False,
+                        },
+                    ]
+                }
             if "mailFolders/inbox" in endpoint and "messages" not in endpoint:
                 return {"unreadItemCount": 0}
             return {"value": []}

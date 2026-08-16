@@ -39,7 +39,6 @@ def _rec(item_id: str, meeting_name: str, date_yyyymmdd: str) -> Recording:
     )
 
 
-
 def test_dest_path_writes_under_base():
     d = tempfile.mkdtemp()
     p = _dest_path(d, "Sprint Review|2026-07-09", "abc123def456")
@@ -95,9 +94,7 @@ def test_unresolved_reason_names_missing_item_id():
 
 
 def test_unresolved_reason_names_missing_site_root():
-    msg = _unresolved_reason(
-        hint="Foo|2026-01-01", site_root="", drive_id="b!x", item_id="i"
-    )
+    msg = _unresolved_reason(hint="Foo|2026-01-01", site_root="", drive_id="b!x", item_id="i")
     assert "site" in msg.lower() or "host" in msg.lower()
 
 
@@ -122,20 +119,31 @@ async def test_list_mode_returns_date_ranked_recordings(full_permissions):
         _rec("new", "Call with Vaid, Aviral", "20260714"),
     ]
     vroom = AsyncMock()
-    with patch(
-        "ms365_intent_mcp.composers.transcript._discover_own_drive",
-        AsyncMock(return_value=recs),
-    ), patch(
-        "ms365_intent_mcp.composers.transcript._discover_search",
-        AsyncMock(return_value=[]),
-    ), patch(
-        "ms365_intent_mcp.composers.transcript._discover_chats",
-        AsyncMock(return_value=[]),
+    with (
+        patch(
+            "ms365_intent_mcp.composers.transcript._discover_own_drive",
+            AsyncMock(return_value=recs),
+        ),
+        patch(
+            "ms365_intent_mcp.composers.transcript._discover_search",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "ms365_intent_mcp.composers.transcript._discover_chats",
+            AsyncMock(return_value=[]),
+        ),
     ):
         data, markdown = await compose_transcript(
-            AsyncMock(), vroom, full_permissions,
-            url=None, name=None, item_id=None, drive_id=None, site_root=None,
-            output_dir=None, list_recordings=True,
+            AsyncMock(),
+            vroom,
+            full_permissions,
+            url=None,
+            name=None,
+            item_id=None,
+            drive_id=None,
+            site_root=None,
+            output_dir=None,
+            list_recordings=True,
         )
 
     assert data["status"] == "ok"
@@ -152,9 +160,16 @@ async def test_list_mode_empty_is_ok_not_error(full_permissions):
         AsyncMock(return_value=[]),
     ):
         data, _ = await compose_transcript(
-            AsyncMock(), AsyncMock(), full_permissions,
-            url=None, name=None, item_id=None, drive_id=None, site_root=None,
-            output_dir=None, list_recordings=True,
+            AsyncMock(),
+            AsyncMock(),
+            full_permissions,
+            url=None,
+            name=None,
+            item_id=None,
+            drive_id=None,
+            site_root=None,
+            output_dir=None,
+            list_recordings=True,
         )
     assert data["status"] == "ok"
     assert data["recordings"] == []
@@ -177,10 +192,16 @@ async def test_by_coords_downloads_with_zero_discovery(full_permissions):
         AsyncMock(side_effect=AssertionError("discovery must not run")),
     ):
         data, _ = await compose_transcript(
-            AsyncMock(), vroom, full_permissions,
-            url=None, name=None,
-            item_id="013KZ", drive_id="b!drv", site_root="https://sap-my.sharepoint.com/personal/u",
-            output_dir=d, list_recordings=False,
+            AsyncMock(),
+            vroom,
+            full_permissions,
+            url=None,
+            name=None,
+            item_id="013KZ",
+            drive_id="b!drv",
+            site_root="https://sap-my.sharepoint.com/personal/u",
+            output_dir=d,
+            list_recordings=False,
         )
 
     assert data["status"] == "ok"
@@ -211,9 +232,16 @@ async def test_name_multimatch_surfaces_alternatives_in_result(full_permissions)
         AsyncMock(return_value=recs),
     ):
         data, markdown = await compose_transcript(
-            AsyncMock(), vroom, full_permissions,
-            url=None, name="Bawa", item_id=None, drive_id=None, site_root=None,
-            output_dir=d, list_recordings=False,
+            AsyncMock(),
+            vroom,
+            full_permissions,
+            url=None,
+            name="Bawa",
+            item_id=None,
+            drive_id=None,
+            site_root=None,
+            output_dir=d,
+            list_recordings=False,
         )
 
     assert data["status"] == "ok"
@@ -234,10 +262,16 @@ async def test_name_miss_surfaces_recap_link_hint(full_permissions):
         AsyncMock(return_value=[]),
     ):
         data, markdown = await compose_transcript(
-            AsyncMock(), AsyncMock(), full_permissions,
-            url=None, name="DPDHL Regular Check-In",
-            item_id=None, drive_id=None, site_root=None,
-            output_dir=None, list_recordings=False,
+            AsyncMock(),
+            AsyncMock(),
+            full_permissions,
+            url=None,
+            name="DPDHL Regular Check-In",
+            item_id=None,
+            drive_id=None,
+            site_root=None,
+            output_dir=None,
+            list_recordings=False,
         )
 
     assert data["status"] == "error"
@@ -256,9 +290,16 @@ async def test_populated_list_footer_carries_recap_hint(full_permissions):
         AsyncMock(return_value=recs),
     ):
         data, markdown = await compose_transcript(
-            AsyncMock(), AsyncMock(), full_permissions,
-            url=None, name=None, item_id=None, drive_id=None, site_root=None,
-            output_dir=None, list_recordings=True,
+            AsyncMock(),
+            AsyncMock(),
+            full_permissions,
+            url=None,
+            name=None,
+            item_id=None,
+            drive_id=None,
+            site_root=None,
+            output_dir=None,
+            list_recordings=True,
         )
 
     assert data["status"] == "ok"
@@ -274,9 +315,16 @@ async def test_empty_list_carries_recap_hint(full_permissions):
         AsyncMock(return_value=[]),
     ):
         _, markdown = await compose_transcript(
-            AsyncMock(), AsyncMock(), full_permissions,
-            url=None, name=None, item_id=None, drive_id=None, site_root=None,
-            output_dir=None, list_recordings=True,
+            AsyncMock(),
+            AsyncMock(),
+            full_permissions,
+            url=None,
+            name=None,
+            item_id=None,
+            drive_id=None,
+            site_root=None,
+            output_dir=None,
+            list_recordings=True,
         )
 
     assert RECAP_LINK_HINT in markdown

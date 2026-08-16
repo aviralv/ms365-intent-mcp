@@ -22,5 +22,8 @@ def register(mcp: FastMCP) -> None:
             "a subject substring, or 'next' for the upcoming meeting.",
         ],
     ) -> MeetingDetail:
-        """Tell me about this meeting. Returns full context: attendees, body, Teams link, recording."""
+        """Tell me about this meeting.
+
+        Returns full context: attendees, body, Teams link, recording.
+        """
         return await _meeting_impl(ctx, payload)

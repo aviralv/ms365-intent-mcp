@@ -57,7 +57,10 @@ async def _resolve_impl(ctx: Context, payload: ResolvePayload) -> ResolvedConten
     if model_cls is None:
         raise IntentError("invalid_id", f"Unknown url_type: {kind}")
 
-    structured_data_with_kind = {"kind": kind if kind != "onedrive_share_link" else "onedrive_file", **structured_data}
+    structured_data_with_kind = {
+        "kind": kind if kind != "onedrive_share_link" else "onedrive_file",
+        **structured_data,
+    }
     try:
         content_obj = model_cls.model_validate(structured_data_with_kind)
     except Exception as exc:

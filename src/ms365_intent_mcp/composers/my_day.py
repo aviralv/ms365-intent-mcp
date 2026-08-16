@@ -47,20 +47,26 @@ async def compose_my_day(
         tasks["inbox_count"] = client.get(
             "/me/mailFolders/inbox", params={"$select": "unreadItemCount"}
         )
-        tasks["unread"] = client.get("/me/mailFolders/inbox/messages", params={
-            "$filter": "isRead eq false",
-            "$select": "subject,from,receivedDateTime,importance",
-            "$orderby": "receivedDateTime desc",
-            "$top": "20",
-        })
+        tasks["unread"] = client.get(
+            "/me/mailFolders/inbox/messages",
+            params={
+                "$filter": "isRead eq false",
+                "$select": "subject,from,receivedDateTime,importance",
+                "$orderby": "receivedDateTime desc",
+                "$top": "20",
+            },
+        )
 
     teams_unavailable = permissions.check("Chat.ReadWrite")
     if not teams_unavailable:
-        tasks["chats"] = client.get("/me/chats", params={
-            "$top": "10",
-            "$expand": "lastMessagePreview",
-            "$orderby": "lastMessagePreview/createdDateTime desc",
-        })
+        tasks["chats"] = client.get(
+            "/me/chats",
+            params={
+                "$top": "10",
+                "$expand": "lastMessagePreview",
+                "$orderby": "lastMessagePreview/createdDateTime desc",
+            },
+        )
 
     keys = list(tasks.keys())
     results_list = await asyncio.gather(*tasks.values(), return_exceptions=True)
@@ -93,21 +99,19 @@ async def compose_my_day(
             sections.append(format_section_error("Mail", _error_reason(first_err)))
         else:
             unread_count = (
-                inbox_result.get("unreadItemCount", 0)
-                if isinstance(inbox_result, dict) else 0
+                inbox_result.get("unreadItemCount", 0) if isinstance(inbox_result, dict) else 0
             )
-            unread_msgs = (
-                unread_result.get("value", [])
-                if isinstance(unread_result, dict) else []
-            )
+            unread_msgs = unread_result.get("value", []) if isinstance(unread_result, dict) else []
             summary = _build_mail_summary(unread_msgs)
-            sections.append(format_mail_summary_markdown(
-                unread_count=unread_count,
-                relevant_count=summary["relevant_count"],
-                flagged_count=0,
-                high_importance=summary["high_importance"],
-                needs_attention=summary["needs_attention"],
-            ))
+            sections.append(
+                format_mail_summary_markdown(
+                    unread_count=unread_count,
+                    relevant_count=summary["relevant_count"],
+                    flagged_count=0,
+                    high_importance=summary["high_importance"],
+                    needs_attention=summary["needs_attention"],
+                )
+            )
 
     # Teams section
     if teams_unavailable:
@@ -122,10 +126,12 @@ async def compose_my_day(
             for chat in chats_raw[:5]:
                 preview = chat.get("lastMessagePreview")
                 if preview:
-                    preview_msgs.append({
-                        "from": {"user": {"displayName": _chat_sender(preview)}},
-                        "body": preview.get("body", {}),
-                    })
+                    preview_msgs.append(
+                        {
+                            "from": {"user": {"displayName": _chat_sender(preview)}},
+                            "body": preview.get("body", {}),
+                        }
+                    )
             sections.append(format_teams_activity_markdown(preview_msgs))
 
     markdown = "\n\n".join(sections)
@@ -152,10 +158,12 @@ async def compose_my_day(
             event_entry["body"] = text[:2000] or None
         event_list.append(event_entry)
 
-    mail_summary = _build_mail_summary(unread_msgs) if unread_msgs else {"relevant_count": 0, "high_importance": [], "needs_attention": [], "all_count": 0}
-    teams_count = sum(
-        1 for chat in chats_raw if chat.get("lastMessagePreview")
+    mail_summary = (
+        _build_mail_summary(unread_msgs)
+        if unread_msgs
+        else {"relevant_count": 0, "high_importance": [], "needs_attention": [], "all_count": 0}
     )
+    teams_count = sum(1 for chat in chats_raw if chat.get("lastMessagePreview"))
 
     data = {
         "date": date,
@@ -170,5 +178,3 @@ async def compose_my_day(
         },
     }
     return data, markdown
-
-

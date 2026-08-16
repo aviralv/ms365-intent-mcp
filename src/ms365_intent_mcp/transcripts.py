@@ -27,9 +27,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 # distinguished as independent sibling groups by _select_canonical_items.
 # Assumes English-language Teams clients; non-English clients localize the
 # "Meeting Recording" string and would not match.
-TEAMS_FILENAME_RE = re.compile(
-    r"^(.+?)-(\d{8}_\d{6})-Meeting (Recording|Transcript)\."
-)
+TEAMS_FILENAME_RE = re.compile(r"^(.+?)-(\d{8}_\d{6})-Meeting (Recording|Transcript)\.")
 RECORDING_NAME_RE = re.compile(r"-\d{8}_\d{6}-Meeting Recording\.")
 
 # Teams 1:1 ad-hoc call recordings follow the same convention as scheduled
@@ -63,9 +61,7 @@ def tenant_host_from_upn(upn: str) -> str:
     domain = upn.split("@")[-1] if "@" in upn else ""
     tenant = domain.split(".")[0] if domain else ""
     if not tenant:
-        raise RuntimeError(
-            "Cannot derive tenant from UPN. Set MS365_INTENT_TENANT_HOST."
-        )
+        raise RuntimeError("Cannot derive tenant from UPN. Set MS365_INTENT_TENANT_HOST.")
     return f"{tenant}-my.sharepoint.com"
 
 

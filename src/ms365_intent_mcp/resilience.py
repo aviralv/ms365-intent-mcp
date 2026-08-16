@@ -31,6 +31,7 @@ class CircuitOpenError(Exception):
 
 def _is_server_error(exc: BaseException) -> bool:
     from .graph import GraphAPIError
+
     if isinstance(exc, GraphAPIError):
         return exc.status_code >= 500
     if isinstance(exc, httpx.HTTPStatusError):

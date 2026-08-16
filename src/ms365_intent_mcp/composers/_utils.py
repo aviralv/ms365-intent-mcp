@@ -7,11 +7,24 @@ def _escape_odata(value: str) -> str:
     """Escape a string for use in OData $filter expressions (doubles single quotes)."""
     return value.replace("'", "''")
 
+
 NOISE_PATTERNS = [
-    "noreply@", "no-reply@", "notifications@", "mailer@",
-    "newsletter@", "digest@", "productboard", "stackoverflow",
-    "github.com", "jira", "confluence", "atlassian", "slack",
-    "successfactors", "concur", "workday",
+    "noreply@",
+    "no-reply@",
+    "notifications@",
+    "mailer@",
+    "newsletter@",
+    "digest@",
+    "productboard",
+    "stackoverflow",
+    "github.com",
+    "jira",
+    "confluence",
+    "atlassian",
+    "slack",
+    "successfactors",
+    "concur",
+    "workday",
 ]
 
 
@@ -50,11 +63,11 @@ def _build_mail_summary(all_msgs: list[dict]) -> dict:
     relevant = [m for m in all_msgs if not _is_noise(m)]
     high_importance = [
         {"subject": m.get("subject", "?"), "from": _sender_name(m)}
-        for m in relevant if m.get("importance") == "high"
+        for m in relevant
+        if m.get("importance") == "high"
     ]
     needs_attention = [
-        {"subject": m.get("subject", "?"), "from": _sender_name(m)}
-        for m in relevant[:5]
+        {"subject": m.get("subject", "?"), "from": _sender_name(m)} for m in relevant[:5]
     ]
     return {
         "all_count": len(all_msgs),
@@ -71,10 +84,13 @@ async def _list_user_chats(client: GraphClient) -> list[dict]:
     formats an error message rather than confusing "no chats" with
     "call failed".
     """
-    response = await client.get("/me/chats", params={
-        "$expand": "members,lastMessagePreview",
-        "$top": "50",
-    })
+    response = await client.get(
+        "/me/chats",
+        params={
+            "$expand": "members,lastMessagePreview",
+            "$top": "50",
+        },
+    )
     chats = (response or {}).get("value", [])
     chats.sort(
         key=lambda c: (c.get("lastMessagePreview") or {}).get("createdDateTime") or "",
@@ -99,8 +115,7 @@ def _prefilter_chats_by_query(chats: list[dict], query: str) -> tuple[list[dict]
     matched_words: set[str] = set()
     for chat in chats:
         member_names = " ".join(
-            (m.get("displayName") or "").lower()
-            for m in chat.get("members") or []
+            (m.get("displayName") or "").lower() for m in chat.get("members") or []
         )
         chat_matched = False
         for word in words:

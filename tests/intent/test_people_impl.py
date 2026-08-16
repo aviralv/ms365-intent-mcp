@@ -32,7 +32,13 @@ class TestPeopleV1Impl:
         markdown = "## Avi Vaid\n**Title:** Senior PM"
 
         async def _fake(client_arg, perms_arg, query):
-            return {"name": "Avi Vaid", "email": "avi@example.com", "job_title": "Senior PM", "recent_mail": [], "recent_chat": None}, markdown
+            return {
+                "name": "Avi Vaid",
+                "email": "avi@example.com",
+                "job_title": "Senior PM",
+                "recent_mail": [],
+                "recent_chat": None,
+            }, markdown
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.people.impl.compose_people",
@@ -56,7 +62,13 @@ class TestPeopleV1Impl:
 
         async def _fake(client_arg, perms_arg, query):
             captured.append(query)
-            return {"name": query, "email": "", "job_title": None, "recent_mail": [], "recent_chat": None}, "markdown"
+            return {
+                "name": query,
+                "email": "",
+                "job_title": None,
+                "recent_mail": [],
+                "recent_chat": None,
+            }, "markdown"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.people.impl.compose_people",
@@ -108,7 +120,6 @@ class TestPeopleV1Impl:
         assert isinstance(response, ErrorResponse)
         assert response.retryable is True
 
-
     @pytest.mark.asyncio
     async def test_partial_composer_dict_no_key_error(self, monkeypatch):
         """Partial composer response (missing name/recent_mail) must not raise KeyError."""
@@ -130,7 +141,6 @@ class TestPeopleV1Impl:
         assert response.name == ""
         assert response.recent_mail == []
         assert response.email == "partial@example.com"
-
 
     def test_empty_query_rejected(self):
         """min_length=1 on query: empty string must raise ValidationError."""
@@ -184,4 +194,7 @@ class TestPeopleChatUrlThroughSchema:
         assert isinstance(response, PersonDetail)
         assert response.recent_chat is not None
         assert response.recent_chat.chat_id == "chat-alice"
-        assert response.recent_chat.chat_url == "https://teams.microsoft.com/l/chat/19:alice@unq.gbl.spaces/0"
+        assert (
+            response.recent_chat.chat_url
+            == "https://teams.microsoft.com/l/chat/19:alice@unq.gbl.spaces/0"
+        )

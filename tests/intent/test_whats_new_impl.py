@@ -33,7 +33,12 @@ class TestWhatsNewV1Happy:
         since = datetime(2026, 7, 1, 9, 0, 0, tzinfo=UTC)
 
         async def _fake(client, permissions, since, scope, timezone):
-            return {"since": since, "mail": [], "events": [], "teams": []}, "### Calendar\nTeam sync.\n\n### Mail\n2 unread."
+            return {
+                "since": since,
+                "mail": [],
+                "events": [],
+                "teams": [],
+            }, "### Calendar\nTeam sync.\n\n### Mail\n2 unread."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.whats_new.impl.compose_whats_new",
@@ -81,7 +86,12 @@ class TestWhatsNewV1Happy:
 
         async def _fake(client, permissions, since, scope, timezone):
             captured_kwargs["scope"] = scope
-            return {"since": since, "mail": [], "events": [], "teams": []}, "### Teams\nNo new messages."
+            return {
+                "since": since,
+                "mail": [],
+                "events": [],
+                "teams": [],
+            }, "### Teams\nNo new messages."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.whats_new.impl.compose_whats_new",

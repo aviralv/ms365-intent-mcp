@@ -83,12 +83,15 @@ class TestWhatsNewMailFilterFormat:
     """Regression for issue #27: mail $filter must be RFC-3339 (single UTC marker)."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("since", [
-        "2026-07-09T06:12:54Z",           # 'Z' shorthand
-        "2026-07-09T06:12:54+00:00",      # explicit UTC offset
-        "2026-07-09T06:12:54",            # naive, treated as UTC
-        "2026-07-09T08:12:54+02:00",      # non-UTC offset — same instant
-    ])
+    @pytest.mark.parametrize(
+        "since",
+        [
+            "2026-07-09T06:12:54Z",  # 'Z' shorthand
+            "2026-07-09T06:12:54+00:00",  # explicit UTC offset
+            "2026-07-09T06:12:54",  # naive, treated as UTC
+            "2026-07-09T08:12:54+02:00",  # non-UTC offset — same instant
+        ],
+    )
     async def test_mail_filter_is_rfc3339_utc(self, full_permissions, since):
         client = AsyncMock()
         captured = {}
@@ -114,8 +117,6 @@ class TestWhatsNewMailFilterFormat:
         # Never both markers concatenated (the specific shape Graph rejected)
         assert "+00:00Z" not in filter_clause
 
-
-
     @pytest.mark.asyncio
     async def test_teams_section_includes_chat_web_url(self, full_permissions):
         client = AsyncMock()
@@ -126,22 +127,30 @@ class TestWhatsNewMailFilterFormat:
             if "/me/messages" in endpoint:
                 return {"value": []}
             if endpoint.endswith("/messages") and "/me/chats/" in endpoint:
-                return {"value": [{
-                    "id": "m1",
-                    "createdDateTime": "2026-05-15T09:00:00Z",
-                    "from": {"user": {"displayName": "Alice"}},
-                    "body": {"content": "Hello there"},
-                }]}
+                return {
+                    "value": [
+                        {
+                            "id": "m1",
+                            "createdDateTime": "2026-05-15T09:00:00Z",
+                            "from": {"user": {"displayName": "Alice"}},
+                            "body": {"content": "Hello there"},
+                        }
+                    ]
+                }
             if "/me/chats" in endpoint:
-                return {"value": [{
-                    "id": "19:abc@thread.v2",
-                    "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
-                    "lastMessagePreview": {
-                        "createdDateTime": "2026-05-15T09:00:00Z",
-                        "from": {"user": {"displayName": "Alice"}},
-                        "body": {"content": "Hello there"},
-                    },
-                }]}
+                return {
+                    "value": [
+                        {
+                            "id": "19:abc@thread.v2",
+                            "webUrl": "https://teams.microsoft.com/l/chat/19:abc@thread.v2/conversations",
+                            "lastMessagePreview": {
+                                "createdDateTime": "2026-05-15T09:00:00Z",
+                                "from": {"user": {"displayName": "Alice"}},
+                                "body": {"content": "Hello there"},
+                            },
+                        }
+                    ]
+                }
             return {}
 
         client.get = AsyncMock(side_effect=fake_get)
@@ -175,31 +184,37 @@ class TestWhatsNewTeamsWindowMessages:
                 return {"value": []}
             if endpoint.endswith("/messages") and "/me/chats/" in endpoint:
                 # Per-chat message fetch — newest first. Both are in-window.
-                return {"value": [
-                    {
-                        "id": "m2",
-                        "createdDateTime": "2026-08-12T11:33:00Z",
-                        "from": {"user": {"displayName": "Avi"}},
-                        "body": {"content": "sounds good, will do"},
-                    },
-                    {
-                        "id": "m1",
-                        "createdDateTime": "2026-08-12T11:17:00Z",
-                        "from": {"user": {"displayName": "Counterpart"}},
-                        "body": {"content": "can you review the doc?"},
-                    },
-                ]}
+                return {
+                    "value": [
+                        {
+                            "id": "m2",
+                            "createdDateTime": "2026-08-12T11:33:00Z",
+                            "from": {"user": {"displayName": "Avi"}},
+                            "body": {"content": "sounds good, will do"},
+                        },
+                        {
+                            "id": "m1",
+                            "createdDateTime": "2026-08-12T11:17:00Z",
+                            "from": {"user": {"displayName": "Counterpart"}},
+                            "body": {"content": "can you review the doc?"},
+                        },
+                    ]
+                }
             if "/me/chats" in endpoint:
-                return {"value": [{
-                    "id": "19:xyz@thread.v2",
-                    "topic": None,
-                    "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
-                    "lastMessagePreview": {
-                        "createdDateTime": "2026-08-12T11:33:00Z",
-                        "from": {"user": {"displayName": "Avi"}},
-                        "body": {"content": "sounds good, will do"},
-                    },
-                }]}
+                return {
+                    "value": [
+                        {
+                            "id": "19:xyz@thread.v2",
+                            "topic": None,
+                            "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
+                            "lastMessagePreview": {
+                                "createdDateTime": "2026-08-12T11:33:00Z",
+                                "from": {"user": {"displayName": "Avi"}},
+                                "body": {"content": "sounds good, will do"},
+                            },
+                        }
+                    ]
+                }
             return {"value": []}
 
         client.get = AsyncMock(side_effect=fake_get)
@@ -222,31 +237,37 @@ class TestWhatsNewTeamsWindowMessages:
 
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint.endswith("/messages") and "/me/chats/" in endpoint:
-                return {"value": [
-                    {
-                        "id": "m2",
-                        "createdDateTime": "2026-08-12T11:00:00Z",
-                        "from": {"user": {"displayName": "Counterpart"}},
-                        "body": {"content": "in window"},
-                    },
-                    {
-                        "id": "m1",
-                        "createdDateTime": "2026-08-11T08:00:00Z",
-                        "from": {"user": {"displayName": "Counterpart"}},
-                        "body": {"content": "before window"},
-                    },
-                ]}
+                return {
+                    "value": [
+                        {
+                            "id": "m2",
+                            "createdDateTime": "2026-08-12T11:00:00Z",
+                            "from": {"user": {"displayName": "Counterpart"}},
+                            "body": {"content": "in window"},
+                        },
+                        {
+                            "id": "m1",
+                            "createdDateTime": "2026-08-11T08:00:00Z",
+                            "from": {"user": {"displayName": "Counterpart"}},
+                            "body": {"content": "before window"},
+                        },
+                    ]
+                }
             if "/me/chats" in endpoint:
-                return {"value": [{
-                    "id": "19:xyz@thread.v2",
-                    "topic": None,
-                    "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
-                    "lastMessagePreview": {
-                        "createdDateTime": "2026-08-12T11:00:00Z",
-                        "from": {"user": {"displayName": "Counterpart"}},
-                        "body": {"content": "in window"},
-                    },
-                }]}
+                return {
+                    "value": [
+                        {
+                            "id": "19:xyz@thread.v2",
+                            "topic": None,
+                            "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
+                            "lastMessagePreview": {
+                                "createdDateTime": "2026-08-12T11:00:00Z",
+                                "from": {"user": {"displayName": "Counterpart"}},
+                                "body": {"content": "in window"},
+                            },
+                        }
+                    ]
+                }
             return {"value": []}
 
         client.get = AsyncMock(side_effect=fake_get)
@@ -273,33 +294,39 @@ class TestWhatsNewTeamsWindowMessages:
 
         async def fake_get(endpoint, params=None, headers=None):
             if endpoint.endswith("/messages") and "/me/chats/" in endpoint:
-                return {"value": [
-                    {
-                        "id": "m2",
-                        "messageType": "message",
-                        "createdDateTime": "2026-08-12T11:10:00Z",
-                        "from": {"user": {"displayName": "Counterpart"}},
-                        "body": {"content": "a real message"},
-                    },
-                    {
-                        "id": "m1",
-                        "messageType": "unknownFutureValue",
-                        "createdDateTime": "2026-08-12T11:05:00Z",
-                        "from": None,
-                        "body": {"content": "<systemEventMessage/>"},
-                    },
-                ]}
+                return {
+                    "value": [
+                        {
+                            "id": "m2",
+                            "messageType": "message",
+                            "createdDateTime": "2026-08-12T11:10:00Z",
+                            "from": {"user": {"displayName": "Counterpart"}},
+                            "body": {"content": "a real message"},
+                        },
+                        {
+                            "id": "m1",
+                            "messageType": "unknownFutureValue",
+                            "createdDateTime": "2026-08-12T11:05:00Z",
+                            "from": None,
+                            "body": {"content": "<systemEventMessage/>"},
+                        },
+                    ]
+                }
             if "/me/chats" in endpoint:
-                return {"value": [{
-                    "id": "19:xyz@thread.v2",
-                    "topic": None,
-                    "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
-                    "lastMessagePreview": {
-                        "createdDateTime": "2026-08-12T11:10:00Z",
-                        "from": {"user": {"displayName": "Counterpart"}},
-                        "body": {"content": "a real message"},
-                    },
-                }]}
+                return {
+                    "value": [
+                        {
+                            "id": "19:xyz@thread.v2",
+                            "topic": None,
+                            "webUrl": "https://teams.microsoft.com/l/chat/19:xyz@thread.v2/conversations",
+                            "lastMessagePreview": {
+                                "createdDateTime": "2026-08-12T11:10:00Z",
+                                "from": {"user": {"displayName": "Counterpart"}},
+                                "body": {"content": "a real message"},
+                            },
+                        }
+                    ]
+                }
             return {"value": []}
 
         client.get = AsyncMock(side_effect=fake_get)
@@ -318,26 +345,30 @@ class TestWhatsNewTeamsWindowMessages:
 
 async def _mock_get(endpoint, params=None, headers=None):
     if "calendarView" in endpoint:
-        return {"value": [
-            {
-                "subject": "New meeting",
-                "start": {"dateTime": "2026-05-15T09:00:00"},
-                "end": {"dateTime": "2026-05-15T09:30:00"},
-                "location": {"displayName": ""},
-                "isOnlineMeeting": True,
-                "attendees": [],
-                "organizer": {"emailAddress": {"name": "Alice"}},
-            }
-        ]}
+        return {
+            "value": [
+                {
+                    "subject": "New meeting",
+                    "start": {"dateTime": "2026-05-15T09:00:00"},
+                    "end": {"dateTime": "2026-05-15T09:30:00"},
+                    "location": {"displayName": ""},
+                    "isOnlineMeeting": True,
+                    "attendees": [],
+                    "organizer": {"emailAddress": {"name": "Alice"}},
+                }
+            ]
+        }
     if "messages" in endpoint:
-        return {"value": [
-            {
-                "subject": "Budget update",
-                "from": {"emailAddress": {"name": "Finance", "address": "finance@example.com"}},
-                "receivedDateTime": "2026-05-15T10:00:00Z",
-                "importance": "normal",
-            }
-        ]}
+        return {
+            "value": [
+                {
+                    "subject": "Budget update",
+                    "from": {"emailAddress": {"name": "Finance", "address": "finance@example.com"}},
+                    "receivedDateTime": "2026-05-15T10:00:00Z",
+                    "importance": "normal",
+                }
+            ]
+        }
     if "chats" in endpoint:
         return {"value": []}
     return {"value": []}
@@ -353,15 +384,19 @@ class TestWhatsNewIsReadPropagation:
             if "calendarView" in endpoint:
                 return {"value": []}
             if "messages" in endpoint:
-                return {"value": [
-                    {
-                        "subject": "Read mail",
-                        "from": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
-                        "receivedDateTime": "2026-07-01T10:00:00Z",
-                        "importance": "normal",
-                        "isRead": True,
-                    }
-                ]}
+                return {
+                    "value": [
+                        {
+                            "subject": "Read mail",
+                            "from": {
+                                "emailAddress": {"name": "Alice", "address": "alice@example.com"}
+                            },
+                            "receivedDateTime": "2026-07-01T10:00:00Z",
+                            "importance": "normal",
+                            "isRead": True,
+                        }
+                    ]
+                }
             return {"value": []}
 
         client.get = AsyncMock(side_effect=fake_get)
@@ -386,15 +421,17 @@ class TestWhatsNewIsReadPropagation:
             if "calendarView" in endpoint:
                 return {"value": []}
             if "messages" in endpoint:
-                return {"value": [
-                    {
-                        "subject": "Unread mail",
-                        "from": {"emailAddress": {"name": "Bob", "address": "bob@example.com"}},
-                        "receivedDateTime": "2026-07-01T10:00:00Z",
-                        "importance": "normal",
-                        "isRead": False,
-                    }
-                ]}
+                return {
+                    "value": [
+                        {
+                            "subject": "Unread mail",
+                            "from": {"emailAddress": {"name": "Bob", "address": "bob@example.com"}},
+                            "receivedDateTime": "2026-07-01T10:00:00Z",
+                            "importance": "normal",
+                            "isRead": False,
+                        }
+                    ]
+                }
             return {"value": []}
 
         client.get = AsyncMock(side_effect=fake_get)
@@ -418,23 +455,25 @@ class TestWhatsNewEventTimezones:
 
         async def fake_get(endpoint, params=None, headers=None):
             if "calendarView" in endpoint:
-                return {"value": [
-                    {
-                        "subject": "Standup",
-                        "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
-                        "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
-                        "location": {"displayName": ""},
-                        "isOnlineMeeting": True,
-                    },
-                    {
-                        "subject": "Offsite",
-                        "isAllDay": True,
-                        "start": {"dateTime": "2026-07-30", "timeZone": "UTC"},
-                        "end": {"dateTime": "2026-07-31", "timeZone": "UTC"},
-                        "location": {"displayName": ""},
-                        "isOnlineMeeting": False,
-                    },
-                ]}
+                return {
+                    "value": [
+                        {
+                            "subject": "Standup",
+                            "start": {"dateTime": "2026-07-29T14:00:00.0000000", "timeZone": "UTC"},
+                            "end": {"dateTime": "2026-07-29T14:30:00.0000000", "timeZone": "UTC"},
+                            "location": {"displayName": ""},
+                            "isOnlineMeeting": True,
+                        },
+                        {
+                            "subject": "Offsite",
+                            "isAllDay": True,
+                            "start": {"dateTime": "2026-07-30", "timeZone": "UTC"},
+                            "end": {"dateTime": "2026-07-31", "timeZone": "UTC"},
+                            "location": {"displayName": ""},
+                            "isOnlineMeeting": False,
+                        },
+                    ]
+                }
             return {"value": []}
 
         client.get = AsyncMock(side_effect=fake_get)
@@ -466,17 +505,23 @@ async def test_mail_items_carry_message_id_and_web_link(full_permissions):
             # assert the $select requests id + webLink
             assert "id" in params["$select"]
             assert "webLink" in params["$select"]
-            return {"value": [{
-                "id": "AAMkMSG1",
-                "subject": "Hi",
-                "from": {"emailAddress": {"name": "Bob", "address": "bob@x.com"}},
-                "receivedDateTime": "2026-07-30T10:00:00Z",
-                "importance": "normal",
-                "webLink": "https://outlook.office365.com/owa/?ItemID=AAMkMSG1",
-            }]}
+            return {
+                "value": [
+                    {
+                        "id": "AAMkMSG1",
+                        "subject": "Hi",
+                        "from": {"emailAddress": {"name": "Bob", "address": "bob@x.com"}},
+                        "receivedDateTime": "2026-07-30T10:00:00Z",
+                        "importance": "normal",
+                        "webLink": "https://outlook.office365.com/owa/?ItemID=AAMkMSG1",
+                    }
+                ]
+            }
         return {"value": []}
 
     client.get = AsyncMock(side_effect=_get)
-    data, _ = await compose_whats_new(client, full_permissions, "2026-07-30T00:00:00Z", "mail", "UTC")
+    data, _ = await compose_whats_new(
+        client, full_permissions, "2026-07-30T00:00:00Z", "mail", "UTC"
+    )
     assert data["mail"][0]["message_id"] == "AAMkMSG1"
     assert data["mail"][0]["web_link"] == "https://outlook.office365.com/owa/?ItemID=AAMkMSG1"

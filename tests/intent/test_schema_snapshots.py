@@ -321,7 +321,9 @@ def test_resolved_content_data_union(snapshot: Any) -> None:
     # Gate: discriminated union on ``kind`` must render with both keywords
     on_disk = json.loads((_SNAPSHOT_DIR / "resolved_content_data_union.json").read_text())
     assert "oneOf" in on_disk, "resolved_content_data_union.json must contain 'oneOf'"
-    assert "discriminator" in on_disk, "resolved_content_data_union.json must contain 'discriminator'"
+    assert "discriminator" in on_disk, (
+        "resolved_content_data_union.json must contain 'discriminator'"
+    )
     # Gate: must have exactly 7 variants
     assert len(on_disk["oneOf"]) == 7, (
         f"Expected 7 variants in resolved_content_data_union.json, got {len(on_disk['oneOf'])}"

@@ -41,16 +41,23 @@ class TestClassifyAttachment:
     def test_cid_angle_brackets_stripped(self):
         raw = {
             "@odata.type": "#microsoft.graph.fileAttachment",
-            "name": "x.png", "size": 1, "isInline": True,
-            "contentId": "<abc@xyz>", "contentBytes": "AA==", "id": "i",
+            "name": "x.png",
+            "size": 1,
+            "isInline": True,
+            "contentId": "<abc@xyz>",
+            "contentBytes": "AA==",
+            "id": "i",
         }
         assert classify_attachment(raw)["cid"] == "abc@xyz"
 
     def test_regular_file_has_empty_cid(self):
         raw = {
             "@odata.type": "#microsoft.graph.fileAttachment",
-            "name": "report.pdf", "contentType": "application/pdf",
-            "size": 5000, "isInline": False, "id": "i2",
+            "name": "report.pdf",
+            "contentType": "application/pdf",
+            "size": 5000,
+            "isInline": False,
+            "id": "i2",
             "contentBytes": "AA==",
         }
         m = classify_attachment(raw)
@@ -61,7 +68,9 @@ class TestClassifyAttachment:
     def test_item_attachment_flagged_not_downloadable(self):
         raw = {
             "@odata.type": "#microsoft.graph.itemAttachment",
-            "name": "Fwd: hi", "size": 900, "id": "i3",
+            "name": "Fwd: hi",
+            "size": 900,
+            "id": "i3",
         }
         m = classify_attachment(raw)
         assert m["kind"] == "item"
@@ -71,7 +80,8 @@ class TestClassifyAttachment:
     def test_reference_attachment_flagged_not_downloadable(self):
         raw = {
             "@odata.type": "#microsoft.graph.referenceAttachment",
-            "name": "cloud.docx", "id": "i4",
+            "name": "cloud.docx",
+            "id": "i4",
         }
         m = classify_attachment(raw)
         assert m["kind"] == "reference"
@@ -125,13 +135,21 @@ class TestEnumerateAttachments:
     @pytest.mark.asyncio
     async def test_single_page(self):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {"@odata.type": "#microsoft.graph.fileAttachment",
-                 "name": "a.png", "size": 10, "isInline": True,
-                 "contentId": "a@1", "contentBytes": "AA==", "id": "i1"},
-            ]
-        })
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "@odata.type": "#microsoft.graph.fileAttachment",
+                        "name": "a.png",
+                        "size": 10,
+                        "isInline": True,
+                        "contentId": "a@1",
+                        "contentBytes": "AA==",
+                        "id": "i1",
+                    },
+                ]
+            }
+        )
         entries, err = await enumerate_attachments(client, "/me/messages/M1")
         assert err is None
         assert len(entries) == 1
@@ -142,13 +160,27 @@ class TestEnumerateAttachments:
     async def test_follows_next_link(self):
         client = AsyncMock()
         page1 = {
-            "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
-                       "name": "a.png", "size": 1, "id": "i1", "contentBytes": "AA=="}],
+            "value": [
+                {
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                    "name": "a.png",
+                    "size": 1,
+                    "id": "i1",
+                    "contentBytes": "AA==",
+                }
+            ],
             "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/messages/M1/attachments?$skip=100",
         }
         page2 = {
-            "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
-                       "name": "b.png", "size": 1, "id": "i2", "contentBytes": "AA=="}],
+            "value": [
+                {
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                    "name": "b.png",
+                    "size": 1,
+                    "id": "i2",
+                    "contentBytes": "AA==",
+                }
+            ],
         }
         client.get = AsyncMock(side_effect=[page1, page2])
         entries, err = await enumerate_attachments(client, "/me/messages/M1")
@@ -166,7 +198,9 @@ class TestEnumerateAttachments:
 
     @pytest.mark.asyncio
     async def test_non_graph_error_does_not_propagate(self):
-        """A non-GraphAPIError (e.g. network/transport error) must not raise — returns ([], note)."""
+        """A non-GraphAPIError (e.g. network/transport error) must not
+        raise — returns ([], note).
+        """
         client = AsyncMock()
         client.get = AsyncMock(side_effect=RuntimeError("network down"))
         entries, err = await enumerate_attachments(client, "/me/messages/M1")
@@ -180,8 +214,15 @@ class TestEnumerateAttachments:
         When the cap is hit with nextLink still set, a truncation note is returned."""
         client = AsyncMock()
         infinite_page = {
-            "value": [{"@odata.type": "#microsoft.graph.fileAttachment",
-                       "name": "a.png", "size": 1, "id": "i1", "contentBytes": "AA=="}],
+            "value": [
+                {
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                    "name": "a.png",
+                    "size": 1,
+                    "id": "i1",
+                    "contentBytes": "AA==",
+                }
+            ],
             "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/messages/M1/attachments?$skip=100",
         }
         client.get = AsyncMock(return_value=infinite_page)
@@ -193,9 +234,16 @@ class TestEnumerateAttachments:
 
 def _file_entry(name, cid="", content_bytes: str | None = "AA==", size=1, aid="i", ct="image/png"):
     return {
-        "name": name, "content_type": ct, "size": size, "is_inline": bool(cid),
-        "cid": cid, "attachment_id": aid, "kind": "file",
-        "_content_bytes": content_bytes, "note": None, "local_path": None,
+        "name": name,
+        "content_type": ct,
+        "size": size,
+        "is_inline": bool(cid),
+        "cid": cid,
+        "attachment_id": aid,
+        "kind": "file",
+        "_content_bytes": content_bytes,
+        "note": None,
+        "local_path": None,
     }
 
 
@@ -225,10 +273,20 @@ class TestDownloadAttachments:
     @pytest.mark.asyncio
     async def test_item_attachment_not_downloaded(self, tmp_path):
         client = AsyncMock()
-        entries = [{"name": "Fwd", "content_type": "", "size": 1, "is_inline": False,
-                    "cid": "", "attachment_id": "i", "kind": "item",
-                    "_content_bytes": None, "note": "embedded item — not a downloadable file",
-                    "local_path": None}]
+        entries = [
+            {
+                "name": "Fwd",
+                "content_type": "",
+                "size": 1,
+                "is_inline": False,
+                "cid": "",
+                "attachment_id": "i",
+                "kind": "item",
+                "_content_bytes": None,
+                "note": "embedded item — not a downloadable file",
+                "local_path": None,
+            }
+        ]
         await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
         assert entries[0]["local_path"] is None
         client.get_content.assert_not_awaited()
@@ -236,7 +294,9 @@ class TestDownloadAttachments:
     @pytest.mark.asyncio
     async def test_oversized_attachment_skipped(self, tmp_path):
         client = AsyncMock()
-        entries = [_file_entry("huge.bin", content_bytes=None, size=MAX_ATTACHMENT_BYTES + 1, aid="X")]
+        entries = [
+            _file_entry("huge.bin", content_bytes=None, size=MAX_ATTACHMENT_BYTES + 1, aid="X")
+        ]
         await download_attachments(client, "/me/messages/M1", entries, str(tmp_path))
         assert entries[0]["local_path"] is None
         assert "too large" in entries[0]["note"].lower()
@@ -245,6 +305,7 @@ class TestDownloadAttachments:
     @pytest.mark.asyncio
     async def test_total_cap_skips_remainder(self, tmp_path, monkeypatch):
         import ms365_intent_mcp.composers.attachments as att
+
         monkeypatch.setattr(att, "MAX_TOTAL_ATTACHMENT_BYTES", 10)
         client = AsyncMock()
         payload = _b64.b64encode(b"1234567").decode()  # 7 bytes

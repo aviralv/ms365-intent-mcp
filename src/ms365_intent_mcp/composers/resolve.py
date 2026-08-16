@@ -5,7 +5,7 @@ import base64
 import json
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone, UTC
+from datetime import UTC, datetime, timedelta
 
 from ..formatters import (
     _strip_teams_html,
@@ -74,14 +74,11 @@ async def _enrich_call_recording(client: GraphClient, entry: dict) -> None:
     entry["owner_upn"] = owner_upn
     if host and owner_upn:
         entry["vroom_url"] = (
-            f"https://{host}/personal/{owner_upn}"
-            f"/_api/v2.0/drives/{drive_id}/items/{drive_item_id}"
+            f"https://{host}/personal/{owner_upn}/_api/v2.0/drives/{drive_id}/items/{drive_item_id}"
         )
 
 
-_ISO_DURATION_RE = re.compile(
-    r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$"
-)
+_ISO_DURATION_RE = re.compile(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$")
 
 
 def _parse_iso_duration(iso: str) -> str:
@@ -288,7 +285,12 @@ def _event_entry(msg: dict, name_map: dict[str, str] | None = None) -> dict:
             if resolved:
                 names.append(resolved)
         joined = ", ".join(names) if names else "(someone)"
-        return {"kind": "event", "ts": ts, "event_type": event_type, "summary": f"Member {verb}: {joined}"}
+        return {
+            "kind": "event",
+            "ts": ts,
+            "event_type": event_type,
+            "summary": f"Member {verb}: {joined}",
+        }
 
     if "chatRenamed" in odata_type:
         new_name = detail.get("chatDisplayName") or ""
@@ -311,12 +313,14 @@ def _group_call_events(call_events: list[dict], name_map: dict[str, str]) -> lis
         if call_id:
             by_call_id[call_id].append(msg)
         else:
-            orphans.append({
-                "kind": "event",
-                "ts": msg.get("createdDateTime", ""),
-                "event_type": "call_unknown",
-                "summary": "Call event (no callId)",
-            })
+            orphans.append(
+                {
+                    "kind": "event",
+                    "ts": msg.get("createdDateTime", ""),
+                    "event_type": "call_unknown",
+                    "summary": "Call event (no callId)",
+                }
+            )
 
     entries: list[dict] = []
     for call_id, events in by_call_id.items():
@@ -375,19 +379,27 @@ def _group_call_events(call_events: list[dict], name_map: dict[str, str]) -> lis
         if ended_duration:
             duration = _parse_iso_duration(ended_duration) or None
         elif recording_durations:
-            success_durations = [(ts, raw) for ts, status, raw in recording_durations if status == "success"]
-            chosen = max(success_durations, key=lambda x: x[0])[1] if success_durations else max(recording_durations, key=lambda x: x[0])[2]
+            success_durations = [
+                (ts, raw) for ts, status, raw in recording_durations if status == "success"
+            ]
+            chosen = (
+                max(success_durations, key=lambda x: x[0])[1]
+                if success_durations
+                else max(recording_durations, key=lambda x: x[0])[2]
+            )
             duration = _parse_iso_duration(chosen) or None
 
-        entries.append({
-            "kind": "call",
-            "ts": ts_first,
-            "end_ts": ts_last,
-            "duration": duration,
-            "recording_url": recording_url,
-            "transcript_ready": transcript_ready,
-            "initiator": initiator,
-        })
+        entries.append(
+            {
+                "kind": "call",
+                "ts": ts_first,
+                "end_ts": ts_last,
+                "duration": duration,
+                "recording_url": recording_url,
+                "transcript_ready": transcript_ready,
+                "initiator": initiator,
+            }
+        )
 
     return entries + orphans
 
@@ -506,8 +518,7 @@ def _build_structured_data(url_type: str, data: dict, extra: dict | None = None)
     if url_type == "email":
         raw_atts = data.get("_attachments") or []
         attachments = [
-            {k: v for k, v in a.items() if k not in ("_content_bytes", "kind")}
-            for a in raw_atts
+            {k: v for k, v in a.items() if k not in ("_content_bytes", "kind")} for a in raw_atts
         ]
         return {
             "kind": "email",
@@ -582,12 +593,16 @@ async def _find_meeting_by_join_url(client: GraphClient, join_url: str) -> dict 
     start = (now - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
     end = (now + timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
-        result = await client.get("/me/calendarView", params={
-            "startDateTime": start,
-            "endDateTime": end,
-            "$top": "50",
-            "$select": "subject,start,end,organizer,attendees,body,location,isOnlineMeeting,onlineMeeting",
-        })
+        result = await client.get(
+            "/me/calendarView",
+            params={
+                "startDateTime": start,
+                "endDateTime": end,
+                "$top": "50",
+                "$select": "subject,start,end,organizer,attendees,"
+                "body,location,isOnlineMeeting,onlineMeeting",
+            },
+        )
     except GraphAPIError:
         return None
     events = (result or {}).get("value", [])
@@ -607,9 +622,13 @@ async def _get_event_by_id(client: GraphClient, event_id: str) -> dict | None:
     if not event_id:
         return None
     try:
-        return await client.get(f"/me/events/{event_id}", params={
-            "$select": "subject,start,end,organizer,attendees,body,location,isOnlineMeeting,onlineMeeting",
-        })
+        return await client.get(
+            f"/me/events/{event_id}",
+            params={
+                "$select": "subject,start,end,organizer,attendees,"
+                "body,location,isOnlineMeeting,onlineMeeting",
+            },
+        )
     except GraphAPIError:
         return None
 
@@ -624,7 +643,8 @@ async def _fetch_resolved(
         message = await client.get(
             endpoint,
             params={
-                "$select": "subject,from,receivedDateTime,bodyPreview,body,toRecipients,ccRecipients,webLink,hasAttachments",
+                "$select": "subject,from,receivedDateTime,bodyPreview,"
+                "body,toRecipients,ccRecipients,webLink,hasAttachments",
             },
             headers={"Prefer": 'outlook.body-content-type="text"'},
         )
@@ -646,21 +666,30 @@ async def _fetch_resolved(
         return message
 
     elif url_type == "channel_message":
-        return await client.get(endpoint, params={
-            "$select": "body,from,createdDateTime,subject",
-        })
+        return await client.get(
+            endpoint,
+            params={
+                "$select": "body,from,createdDateTime,subject",
+            },
+        )
 
     elif url_type == "chat_message":
-        return await client.get(endpoint, params={
-            "$select": "body,from,createdDateTime",
-        })
+        return await client.get(
+            endpoint,
+            params={
+                "$select": "body,from,createdDateTime",
+            },
+        )
 
     elif url_type == "chat_thread":
         chat_id = resolved.extra["chat_id"]
-        chat_task = client.get(f"/chats/{chat_id}", params={
-            "$select": "id,topic,chatType,webUrl,onlineMeetingInfo",
-            "$expand": "members",
-        })
+        chat_task = client.get(
+            f"/chats/{chat_id}",
+            params={
+                "$select": "id,topic,chatType,webUrl,onlineMeetingInfo",
+                "$expand": "members",
+            },
+        )
         msgs_task = _paginate_chat_messages(client, chat_id)
         chat_result, msgs_result = await asyncio.gather(
             chat_task, msgs_task, return_exceptions=True
@@ -682,7 +711,9 @@ async def _fetch_resolved(
         # multi-recording chats don't serialize the /shares/ lookups. Failures
         # are silent — enrichment is best-effort, chat-thread render must not
         # depend on it.
-        recording_entries = [e for e in entries if e.get("kind") == "call" and e.get("recording_url")]
+        recording_entries = [
+            e for e in entries if e.get("kind") == "call" and e.get("recording_url")
+        ]
         if recording_entries:
             await asyncio.gather(
                 *[_enrich_call_recording(client, e) for e in recording_entries],
@@ -703,7 +734,9 @@ async def _fetch_resolved(
             "chat": chat,
             "entries": entries,
             "meeting": meeting_event,
-            "_chat_error": _error_reason(chat_result) if isinstance(chat_result, BaseException) else None,
+            "_chat_error": _error_reason(chat_result)
+            if isinstance(chat_result, BaseException)
+            else None,
             "_messages_error": msgs_error_reason,
             "_url_type": "chat_thread",
         }
@@ -716,9 +749,12 @@ async def _fetch_resolved(
         return event
 
     elif url_type in ("onedrive_file", "onedrive_share_link"):
-        return await client.get(endpoint, params={
-            "$select": "name,size,webUrl,lastModifiedDateTime,createdDateTime,file",
-        })
+        return await client.get(
+            endpoint,
+            params={
+                "$select": "name,size,webUrl,lastModifiedDateTime,createdDateTime,file",
+            },
+        )
 
     elif url_type == "sharepoint_page":
         site_data = await client.get(endpoint)

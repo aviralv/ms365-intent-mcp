@@ -118,7 +118,9 @@ def _hit_to_structured(hit: dict) -> dict | None:
     return None
 
 
-async def _search_chat_messages_with_hits(client: GraphClient, query: str) -> tuple[str, list[dict]]:
+async def _search_chat_messages_with_hits(
+    client: GraphClient, query: str
+) -> tuple[str, list[dict]]:
     """Search user's chat messages via enumeration, returning markdown + structured hits.
 
     Delegated-scope alternative to POST /search/query (which requires
@@ -179,7 +181,9 @@ async def _search_chat_messages_with_hits(client: GraphClient, query: str) -> tu
     return markdown, structured
 
 
-async def _search_single_raw(client: GraphClient, query: str, entity_types: list[str]) -> list[dict]:
+async def _search_single_raw(
+    client: GraphClient, query: str, entity_types: list[str]
+) -> list[dict]:
     request: dict = {
         "entityTypes": entity_types,
         "query": {"queryString": query},
@@ -241,9 +245,12 @@ async def _fetch_chat_messages(
     if not lowered:
         return []
     try:
-        response = await client.get(f"/chats/{chat_id}/messages", params={
-            "$top": str(limit),
-        })
+        response = await client.get(
+            f"/chats/{chat_id}/messages",
+            params={
+                "$top": str(limit),
+            },
+        )
     except GraphAPIError:
         return []
 
@@ -269,9 +276,12 @@ async def _recent_chat_messages(
     messages with this person", not substring search.
     """
     try:
-        response = await client.get(f"/chats/{chat_id}/messages", params={
-            "$top": str(limit),
-        })
+        response = await client.get(
+            f"/chats/{chat_id}/messages",
+            params={
+                "$top": str(limit),
+            },
+        )
     except GraphAPIError:
         return []
 
