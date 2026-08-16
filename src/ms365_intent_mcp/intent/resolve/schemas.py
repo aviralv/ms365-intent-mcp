@@ -23,7 +23,6 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from .._shared import BaseResponse
 
-
 # ============================================================
 # Payload
 # ============================================================
@@ -140,7 +139,13 @@ class OneDriveFileContent(BaseModel):
 
 
 ResolvedContentData = Annotated[
-    EmailContent | ChatThreadContent | ChatMessageContent | ChannelMessageContent | MeetingContent | SharePointPageContent | OneDriveFileContent,
+    EmailContent
+    | ChatThreadContent
+    | ChatMessageContent
+    | ChannelMessageContent
+    | MeetingContent
+    | SharePointPageContent
+    | OneDriveFileContent,
     Field(discriminator="kind"),
 ]
 

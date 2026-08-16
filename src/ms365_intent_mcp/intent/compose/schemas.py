@@ -18,7 +18,6 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
 from .._shared import Attendee, BaseResponse, Recipient
 
-
 # ============================================================
 # Payload variants
 # ============================================================
@@ -44,7 +43,7 @@ class ComposeEmail(BaseModel):
     idempotency_key: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
-    def _check_mode_fields(self) -> "ComposeEmail":
+    def _check_mode_fields(self) -> ComposeEmail:
         needs_parent = self.mode in ("reply", "reply_all", "forward")
         if needs_parent and not self.in_reply_to_message_id:
             raise ValueError(f"mode='{self.mode}' requires in_reply_to_message_id")
@@ -80,7 +79,7 @@ class ComposeEvent(BaseModel):
     idempotency_key: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
-    def _check_times(self) -> "ComposeEvent":
+    def _check_times(self) -> ComposeEvent:
         if self.mode == "forward":
             if not self.event_id:
                 raise ValueError("mode='forward' requires 'event_id'")

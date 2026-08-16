@@ -75,34 +75,30 @@ async def _handle_email(
         params: dict = {
             "subject": payload.subject,
             "body": payload.body,
-            "to": [
-                {"email": r.email, "name": r.name or r.email}
-                for r in (payload.to or [])
-            ],
+            "to": [{"email": r.email, "name": r.name or r.email} for r in (payload.to or [])],
             "importance": payload.importance,
         }
         if payload.cc:
-            params["cc"] = [
-                {"email": r.email, "name": r.name or r.email} for r in payload.cc
-            ]
+            params["cc"] = [{"email": r.email, "name": r.name or r.email} for r in payload.cc]
         data, markdown = await compose_action(
-            client, permissions, ComposeType.EMAIL_DRAFT, params,
+            client,
+            permissions,
+            ComposeType.EMAIL_DRAFT,
+            params,
         )
     elif payload.mode == "forward":
         params = {
             "message_id": payload.in_reply_to_message_id,
             "body": payload.body,
-            "to": [
-                {"email": r.email, "name": r.name or r.email}
-                for r in (payload.to or [])
-            ],
+            "to": [{"email": r.email, "name": r.name or r.email} for r in (payload.to or [])],
         }
         if payload.cc:
-            params["cc"] = [
-                {"email": r.email, "name": r.name or r.email} for r in payload.cc
-            ]
+            params["cc"] = [{"email": r.email, "name": r.name or r.email} for r in payload.cc]
         data, markdown = await compose_action(
-            client, permissions, ComposeType.EMAIL_FORWARD, params,
+            client,
+            permissions,
+            ComposeType.EMAIL_FORWARD,
+            params,
         )
     else:
         params = {
@@ -113,7 +109,10 @@ async def _handle_email(
         if payload.comment:
             params["comment"] = payload.comment
         data, markdown = await compose_action(
-            client, permissions, ComposeType.REPLY_DRAFT, params,
+            client,
+            permissions,
+            ComposeType.REPLY_DRAFT,
+            params,
         )
 
     # Build recipient list from data (preferred) or payload (fallback for error paths)
@@ -144,19 +143,18 @@ async def _handle_event(
     if payload.mode == "forward":
         params_fwd: dict = {
             "event_id": payload.event_id,
-            "to": [
-                {"email": r.email, "name": r.name or r.email}
-                for r in (payload.to or [])
-            ],
+            "to": [{"email": r.email, "name": r.name or r.email} for r in (payload.to or [])],
         }
         if payload.comment:
             params_fwd["comment"] = payload.comment
         data, markdown = await compose_action(
-            client, permissions, ComposeType.EVENT_FORWARD, params_fwd,
+            client,
+            permissions,
+            ComposeType.EVENT_FORWARD,
+            params_fwd,
         )
         to_list = [
-            Recipient(email=r["email"], name=r.get("name") or None)
-            for r in data.get("to", [])
+            Recipient(email=r["email"], name=r.get("name") or None) for r in data.get("to", [])
         ]
         return EventForwarded(to=to_list, rendered_markdown=markdown)
 
@@ -173,8 +171,7 @@ async def _handle_event(
         params["location"] = payload.location
     if payload.attendees:
         params["attendees"] = [
-            {"email": a.email, "name": a.name or a.email, "type": a.type}
-            for a in payload.attendees
+            {"email": a.email, "name": a.name or a.email, "type": a.type} for a in payload.attendees
         ]
 
     data, markdown = await compose_action(client, permissions, ComposeType.EVENT, params)

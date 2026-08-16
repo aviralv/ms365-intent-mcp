@@ -16,10 +16,7 @@ async def _schedule_impl(ctx: Context, payload: SchedulePayload) -> ScheduleSugg
     """Execute a schedule request via the underlying composer."""
     _, client, permissions = _get_deps(ctx)
 
-    attendees_flat = [
-        {"email": a.email, "name": a.name or a.email}
-        for a in payload.attendees
-    ]
+    attendees_flat = [{"email": a.email, "name": a.name or a.email} for a in payload.attendees]
     constraints_dict = None
     if payload.constraints:
         constraints_dict = payload.constraints.model_dump(exclude_none=True)

@@ -127,18 +127,27 @@ async def compose_transcript(
     try:
         if item_id and drive_id and site_root:
             resolved_site, resolved_drive, resolved_item, hint = (
-                site_root, drive_id, item_id, "",
+                site_root,
+                drive_id,
+                item_id,
+                "",
             )
         elif url:
             resolved_site, resolved_drive, resolved_item, hint = await _resolve_from_url(
                 graph, vroom, url
             )
         elif name:
-            resolved_site, resolved_drive, resolved_item, hint, alternatives = (
-                await _resolve_from_name(graph, vroom, name)
-            )
+            (
+                resolved_site,
+                resolved_drive,
+                resolved_item,
+                hint,
+                alternatives,
+            ) = await _resolve_from_name(graph, vroom, name)
         else:
-            return _fail("Provide `url`, `name`, an item_id+drive_id+site_root triple, or list=true.")
+            return _fail(
+                "Provide `url`, `name`, an item_id+drive_id+site_root triple, or list=true."
+            )
     except VroomError as exc:
         return _fail(_vroom_reason(exc))
     except GraphAPIError as exc:
@@ -210,23 +219,28 @@ async def _resolve_from_url(
 
     if drive_id and item_id:
         if not site_root:
-            return "", "", "", (
-                "This URL carries drive/item IDs but no site host "
-                "(older Teams recap link). Provide the OneDrive 'Copy link' "
-                "URL or meeting()'s vroom_url instead."
+            return (
+                "",
+                "",
+                "",
+                (
+                    "This URL carries drive/item IDs but no site host "
+                    "(older Teams recap link). Provide the OneDrive 'Copy link' "
+                    "URL or meeting()'s vroom_url instead."
+                ),
             )
         return site_root, drive_id, item_id, _filename_hint(url)
 
     # Filename-only (sharable /:v:/r/ or onedrive.aspx) — resolve via Vroom
     # path-addressing against the site's Recordings folder.
     if parsed.filename:
-        drive_id, item_id = await vroom.resolve_item_by_filename(
-            parsed.site_root, parsed.filename
-        )
+        drive_id, item_id = await vroom.resolve_item_by_filename(parsed.site_root, parsed.filename)
         if not (drive_id and item_id):
-            return "", "", "", (
-                f"'{parsed.filename}' not found in the Recordings folder at "
-                f"{parsed.site_root}."
+            return (
+                "",
+                "",
+                "",
+                (f"'{parsed.filename}' not found in the Recordings folder at {parsed.site_root}."),
             )
         return parsed.site_root, drive_id, item_id, parsed.filename
 
@@ -257,9 +271,7 @@ async def _resolve_share(graph: GraphClient, share_url: str) -> tuple[str, str, 
 # ---------------------------------------------------------------------------
 
 
-async def _discover_all_recordings(
-    graph: GraphClient, vroom: VroomClient
-) -> list[Recording]:
+async def _discover_all_recordings(graph: GraphClient, vroom: VroomClient) -> list[Recording]:
     """Run 3-source discovery (own-drive + Graph Search + Teams chats), dedupe
     by item_id, and return newest-first.
 
@@ -306,7 +318,7 @@ async def _compose_list(graph: GraphClient, vroom: VroomClient) -> tuple[dict, s
     lines.append("")
     lines.append(
         f"{len(rows)} recording(s). Download one with "
-        "`transcript(payload={\"name\": \"<meeting>\"})` or its `id`."
+        '`transcript(payload={"name": "<meeting>"})` or its `id`.'
     )
     lines.append("")
     lines.append(f"_Don't see the meeting you want? {RECAP_LINK_HINT}_")
@@ -397,9 +409,7 @@ async def _discover_search(graph: GraphClient) -> list[Recording]:
         "requests": [
             {
                 "entityTypes": ["driveItem"],
-                "query": {
-                    "queryString": 'filename:"Meeting Recording" OR filename:"Call with"'
-                },
+                "query": {"queryString": 'filename:"Meeting Recording" OR filename:"Call with"'},
                 "from": 0,
                 "size": 200,
                 "sortProperties": [{"name": "createdDateTime", "isDescending": True}],
@@ -545,9 +555,7 @@ def _dest_path(output_dir: str | None, hint: str, transcript_id: str) -> Path:
     return dest
 
 
-def _unresolved_reason(
-    hint: str, site_root: str, drive_id: str, item_id: str
-) -> str:
+def _unresolved_reason(hint: str, site_root: str, drive_id: str, item_id: str) -> str:
     """Build a diagnostic message naming *which* coordinate failed to resolve.
 
     The old guard echoed the meeting name (``hint``) verbatim, which made a

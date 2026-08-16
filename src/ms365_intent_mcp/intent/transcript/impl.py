@@ -12,9 +12,7 @@ TOOL_NAME = "transcript"
 
 
 @wrap_errors(TOOL_NAME)
-async def _transcript_impl(
-    ctx: Context, payload: TranscriptPayload
-) -> TranscriptResultResponse:
+async def _transcript_impl(ctx: Context, payload: TranscriptPayload) -> TranscriptResultResponse:
     """Call the underlying composer and return a typed TranscriptResultResponse."""
     _config, client, permissions = _get_deps(ctx)
     vroom = ctx.request_context.lifespan_context["vroom"]

@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.intent._shared import ErrorResponse
 from ms365_intent_mcp.intent.schedule.impl import _schedule_impl
 from ms365_intent_mcp.intent.schedule.schemas import SchedulePayload, ScheduleSuggestions
-from ms365_intent_mcp.graph import GraphAPIError
 
 
 def _mock_ctx():
@@ -38,10 +38,12 @@ class TestScheduleV1HappyPath:
             _fake,
         )
 
-        payload = SchedulePayload.model_validate({
-            "attendees": [{"email": "alice@example.com"}],
-            "duration_minutes": 30,
-        })
+        payload = SchedulePayload.model_validate(
+            {
+                "attendees": [{"email": "alice@example.com"}],
+                "duration_minutes": 30,
+            }
+        )
         response = await _schedule_impl(ctx, payload)
 
         assert isinstance(response, ScheduleSuggestions)
@@ -64,9 +66,11 @@ class TestScheduleV1HappyPath:
             _fake,
         )
 
-        payload = SchedulePayload.model_validate({
-            "attendees": [{"email": "bob@example.com"}],
-        })
+        payload = SchedulePayload.model_validate(
+            {
+                "attendees": [{"email": "bob@example.com"}],
+            }
+        )
         await _schedule_impl(ctx, payload)
 
         assert len(captured_attendees) == 1
@@ -90,13 +94,15 @@ class TestScheduleV1AttendeeConversion:
             _fake,
         )
 
-        payload = SchedulePayload.model_validate({
-            "attendees": [
-                {"email": "alice@example.com", "name": "Alice"},
-                {"email": "bob@example.com"},
-            ],
-            "duration_minutes": 45,
-        })
+        payload = SchedulePayload.model_validate(
+            {
+                "attendees": [
+                    {"email": "alice@example.com", "name": "Alice"},
+                    {"email": "bob@example.com"},
+                ],
+                "duration_minutes": 45,
+            }
+        )
         await _schedule_impl(ctx, payload)
 
         assert len(captured_attendees) == 2
@@ -110,10 +116,12 @@ class TestScheduleV1Validation:
         import pydantic
 
         with pytest.raises(pydantic.ValidationError) as exc_info:
-            SchedulePayload.model_validate({
-                "attendees": [],
-                "duration_minutes": 30,
-            })
+            SchedulePayload.model_validate(
+                {
+                    "attendees": [],
+                    "duration_minutes": 30,
+                }
+            )
         errors = exc_info.value.errors()
         assert any("attendees" in str(e) for e in errors)
 
@@ -121,19 +129,23 @@ class TestScheduleV1Validation:
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            SchedulePayload.model_validate({
-                "attendees": [{"email": "alice@example.com"}],
-                "duration_minutes": 4,
-            })
+            SchedulePayload.model_validate(
+                {
+                    "attendees": [{"email": "alice@example.com"}],
+                    "duration_minutes": 4,
+                }
+            )
 
     def test_duration_above_maximum_rejected(self):
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            SchedulePayload.model_validate({
-                "attendees": [{"email": "alice@example.com"}],
-                "duration_minutes": 481,
-            })
+            SchedulePayload.model_validate(
+                {
+                    "attendees": [{"email": "alice@example.com"}],
+                    "duration_minutes": 481,
+                }
+            )
 
 
 class TestScheduleV1ErrorHandling:
@@ -142,16 +154,20 @@ class TestScheduleV1ErrorHandling:
         ctx, _, _ = _mock_ctx()
 
         async def _fail(client, permissions, attendees, duration_minutes, constraints):
-            raise GraphAPIError(status_code=429, error_code="TooManyRequests", message="rate limited")
+            raise GraphAPIError(
+                status_code=429, error_code="TooManyRequests", message="rate limited"
+            )
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.schedule.impl.compose_schedule",
             _fail,
         )
 
-        payload = SchedulePayload.model_validate({
-            "attendees": [{"email": "alice@example.com"}],
-        })
+        payload = SchedulePayload.model_validate(
+            {
+                "attendees": [{"email": "alice@example.com"}],
+            }
+        )
         response = await _schedule_impl(ctx, payload)
 
         assert isinstance(response, ErrorResponse)

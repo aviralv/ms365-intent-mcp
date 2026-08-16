@@ -44,10 +44,9 @@ def make(name: str, created: str = "2026-05-19T11:00:00Z") -> Recording:
 
 # ---------- RECORDING_NAME_RE: discovery filter ----------
 
+
 def test_filter_accepts_standard_recording():
-    assert RECORDING_NAME_RE.search(
-        "Sprint Review-20260518_130242-Meeting Recording.mp4"
-    )
+    assert RECORDING_NAME_RE.search("Sprint Review-20260518_130242-Meeting Recording.mp4")
 
 
 def test_filter_accepts_recording_with_dashes_in_meeting_name():
@@ -73,6 +72,7 @@ def test_filter_rejects_manually_renamed_vtt():
 
 # ---------- ONE_ON_ONE_NAME_RE + is_recording: 1:1 ad-hoc call carve-out ----------
 
+
 def test_is_recording_accepts_one_on_one_call():
     assert is_recording("Call with Kulkarni, Bawa-20260410_090059-Meeting Transcript.mp4")
 
@@ -87,12 +87,11 @@ def test_is_recording_rejects_arbitrary_call_with_files():
 
 
 def test_one_on_one_name_re_requires_transcript_role():
-    assert not ONE_ON_ONE_NAME_RE.search(
-        "Call with X-20260101_120000-Meeting Recording.mp4"
-    )
+    assert not ONE_ON_ONE_NAME_RE.search("Call with X-20260101_120000-Meeting Recording.mp4")
 
 
 # ---------- _select_canonical_items: pair-aware selection ----------
+
 
 def _it(name: str, item_id: str = "x") -> dict:
     return {"name": name, "id": item_id}
@@ -139,6 +138,7 @@ def test_pair_select_handles_multiple_meetings():
 
 
 # ---------- _select_canonical_items: on_reject callback ----------
+
 
 def test_pair_select_on_reject_unparseable_filename():
     rejects: list[tuple[str, str]] = []
@@ -194,6 +194,7 @@ def test_pair_select_same_day_different_timestamps_independent():
 
 # ---------- Recording.meeting_name ----------
 
+
 def test_meeting_name_strips_date_and_role_suffix():
     r = make("Sprint Review-20260518_130242-Meeting Recording.mp4")
     assert r.meeting_name == "Sprint Review"
@@ -215,6 +216,7 @@ def test_meeting_name_for_one_on_one_call():
 
 
 # ---------- Recording.meeting_date ----------
+
 
 def test_meeting_date_uses_filename_when_pattern_matches():
     r = make(
@@ -262,6 +264,7 @@ def test_meeting_date_for_transcript_sibling_still_parses():
 
 # ---------- TEAMS_FILENAME_RE: full structural match ----------
 
+
 def test_teams_filename_re_captures_groups():
     m = TEAMS_FILENAME_RE.match(
         "Weekly - EA Agents PM Meeting-20260518_130242-Meeting Recording.mp4"
@@ -285,6 +288,7 @@ def test_default_search_budget_is_set():
 
 # ---------- tenant_host_from_upn ----------
 
+
 def test_tenant_host_from_upn_derives_my_host():
     assert tenant_host_from_upn("aviral.vaid@sap.com") == "sap-my.sharepoint.com"
 
@@ -302,6 +306,7 @@ def test_tenant_host_from_upn_raises_without_tenant(monkeypatch):
 
 # ---------- Recording.to_dict() and JSON contract ----------
 
+
 def make_full(name="Sprint Review-20260518_130242-Meeting Recording.mp4") -> Recording:
     return Recording(
         name=name,
@@ -316,9 +321,15 @@ def make_full(name="Sprint Review-20260518_130242-Meeting Recording.mp4") -> Rec
 
 def test_to_dict_contains_curated_keys():
     expected_keys = {
-        "id", "meeting_date", "meeting_name", "filename",
-        "organizer_account", "personal_site", "web_url",
-        "created", "size_bytes",
+        "id",
+        "meeting_date",
+        "meeting_name",
+        "filename",
+        "organizer_account",
+        "personal_site",
+        "web_url",
+        "created",
+        "size_bytes",
     }
     assert set(make_full().to_dict().keys()) == expected_keys
 
@@ -350,7 +361,11 @@ def test_organizer_account_extracts_slug():
 
 def test_organizer_account_handles_trailing_slash():
     r = Recording(
-        name="x", item_id="x", drive_id="", size=0, created="",
+        name="x",
+        item_id="x",
+        drive_id="",
+        size=0,
+        created="",
         personal_site="https://sap-my.sharepoint.com/personal/abc_sap_com/",
     )
     assert r.organizer_account == "abc_sap_com"
@@ -358,13 +373,18 @@ def test_organizer_account_handles_trailing_slash():
 
 def test_organizer_account_empty_for_non_personal_url():
     r = Recording(
-        name="x", item_id="x", drive_id="", size=0, created="",
+        name="x",
+        item_id="x",
+        drive_id="",
+        size=0,
+        created="",
         personal_site="https://leanix.sharepoint.com/sites/team-x",
     )
     assert r.organizer_account == ""
 
 
 # ---------- parse_recording_url ----------
+
 
 def test_parse_url_extracts_drive_and_item_from_direct_path():
     url = (
@@ -441,6 +461,7 @@ def test_parse_url_explicitly_rejects_xplatplugins():
 
 # ---------- parse_recording_url: Shape 4 (Teams recap link) ----------
 
+
 def test_parse_url_recap_link_extracts_drive_and_item_from_query():
     url = (
         "https://teams.microsoft.com/l/meetingrecap"
@@ -459,11 +480,8 @@ def test_parse_url_recap_link_extracts_drive_and_item_from_query():
     assert p.filename == ""
 
 
-def test_parse_url_recap_link_works_without_fileUrl():
-    url = (
-        "https://teams.microsoft.com/l/meetingrecap"
-        "?driveId=b%21abc123&driveItemId=01XYZ"
-    )
+def test_parse_url_recap_link_works_without_fileUrl():  # noqa: N802
+    url = "https://teams.microsoft.com/l/meetingrecap?driveId=b%21abc123&driveItemId=01XYZ"
     p = parse_recording_url(url)
     assert p is not None
     assert p.drive_id == "b!abc123"
@@ -477,6 +495,7 @@ def test_parse_url_recap_link_without_ids_returns_none():
 
 
 # ---------- parse_recording_url: Shape 5 (`:v:/p/` short share URL) ----------
+
 
 def test_parse_url_short_share_v_p_link_returns_share_url_only():
     url = (
@@ -526,6 +545,7 @@ def test_parse_url_v_r_form_still_works_after_shape_5_added():
 
 
 # ---------- recording_from_message: chat-event extraction ----------
+
 
 def _recording_event(
     status: str = "success",
@@ -612,6 +632,7 @@ def test_recording_from_message_emits_unparseable_filename_warning():
 
 # ---------- find_match (ambiguous prefix detection) ----------
 
+
 def _make_rec_with_id(item_id: str, name: str = "Meeting") -> Recording:
     return Recording(
         name=f"{name}-20260101_120000-Meeting Recording.mp4",
@@ -663,6 +684,7 @@ def test_find_match_no_match_returns_none_none():
 
 
 # ---------- find_match (name recency-rank + non-fatal alternatives, #34) ----------
+
 
 def _make_rec_dated(item_id: str, meeting_name: str, date_yyyymmdd: str) -> Recording:
     """Recording whose Teams filename encodes a specific meeting date."""

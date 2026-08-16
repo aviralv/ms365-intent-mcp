@@ -4,8 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from ms365_intent_mcp.composers.meeting import compose_meeting, _resolve_recording_for_event
-from ms365_intent_mcp.graph import GraphAPIError
+from ms365_intent_mcp.composers.meeting import _resolve_recording_for_event, compose_meeting
 from ms365_intent_mcp.permissions import PermissionRegistry
 
 
@@ -76,7 +75,10 @@ def _full_event():
         "onlineMeeting": {"joinUrl": "https://teams.microsoft.com/l/meetup-join/123"},
         "organizer": {"emailAddress": {"name": "Alice", "address": "alice@example.com"}},
         "attendees": [
-            {"emailAddress": {"name": "Bob", "address": "bob@example.com"}, "status": {"response": "accepted"}},
+            {
+                "emailAddress": {"name": "Bob", "address": "bob@example.com"},
+                "status": {"response": "accepted"},
+            },
         ],
         "body": {"content": "<p>Agenda: review Q2 progress</p>", "contentType": "html"},
     }
@@ -108,19 +110,21 @@ class TestResolveRecordingForEvent:
     async def test_extracts_thread_from_join_url_and_calls_chat(self):
         """The joinUrl carries the same threadId that chatInfo would give us."""
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {
-                    "createdDateTime": "2026-06-30T13:00:00Z",
-                    "eventDetail": {
-                        "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
-                        "callRecordingStatus": "success",
-                        "callRecordingUrl": "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw",
-                        "callRecordingDisplayName": "[NOVA] Refinement.mp4",
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "createdDateTime": "2026-06-30T13:00:00Z",
+                        "eventDetail": {
+                            "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                            "callRecordingStatus": "success",
+                            "callRecordingUrl": "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw",
+                            "callRecordingDisplayName": "[NOVA] Refinement.mp4",
+                        },
                     },
-                },
-            ]
-        })
+                ]
+            }
+        )
         # Guard the enrichment step — we're testing thread extraction here.
         with patch("ms365_intent_mcp.composers.meeting._enrich_call_recording") as enrich:
             enrich.return_value = None
@@ -136,7 +140,9 @@ class TestResolveRecordingForEvent:
             result = await _resolve_recording_for_event(client, event)
 
         assert result is not None
-        assert result["recording_url"] == "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw"
+        assert (
+            result["recording_url"] == "https://sap-my.sharepoint.com/:v:/p/marcus_karlbowski/IQBw"
+        )
         assert result["display_name"] == "[NOVA] Refinement.mp4"
         # Chat was fetched using the thread id extracted from the joinUrl.
         endpoint = client.get.call_args[0][0]
@@ -150,8 +156,7 @@ class TestResolveRecordingForEvent:
             "isOnlineMeeting": True,
             "onlineMeeting": {
                 "joinUrl": (
-                    "https://teams.microsoft.com/l/meetup-join/"
-                    "19%3Ameeting_abc%40thread.v2/0"
+                    "https://teams.microsoft.com/l/meetup-join/19%3Ameeting_abc%40thread.v2/0"
                 ),
             },
         }
@@ -161,24 +166,26 @@ class TestResolveRecordingForEvent:
     @pytest.mark.asyncio
     async def test_transcript_ready_when_transcript_event_present(self):
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {
-                    "createdDateTime": "2026-06-30T13:00:00Z",
-                    "eventDetail": {
-                        "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
-                        "callRecordingStatus": "success",
-                        "callRecordingUrl": "https://sap-my.sharepoint.com/:v:/p/x/y",
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "createdDateTime": "2026-06-30T13:00:00Z",
+                        "eventDetail": {
+                            "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                            "callRecordingStatus": "success",
+                            "callRecordingUrl": "https://sap-my.sharepoint.com/:v:/p/x/y",
+                        },
                     },
-                },
-                {
-                    "createdDateTime": "2026-06-30T13:05:00Z",
-                    "eventDetail": {
-                        "@odata.type": "#microsoft.graph.callTranscriptEventMessageDetail",
+                    {
+                        "createdDateTime": "2026-06-30T13:05:00Z",
+                        "eventDetail": {
+                            "@odata.type": "#microsoft.graph.callTranscriptEventMessageDetail",
+                        },
                     },
-                },
-            ]
-        })
+                ]
+            }
+        )
         with patch("ms365_intent_mcp.composers.meeting._enrich_call_recording") as enrich:
             enrich.return_value = None
             event = {
@@ -196,26 +203,28 @@ class TestResolveRecordingForEvent:
     async def test_prefers_latest_success_recording_url(self):
         """When multiple callRecording events fire, the freshest success wins."""
         client = AsyncMock()
-        client.get = AsyncMock(return_value={
-            "value": [
-                {
-                    "createdDateTime": "2026-06-30T13:00:00Z",
-                    "eventDetail": {
-                        "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
-                        "callRecordingStatus": "initial",
-                        "callRecordingUrl": "https://old",
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "createdDateTime": "2026-06-30T13:00:00Z",
+                        "eventDetail": {
+                            "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                            "callRecordingStatus": "initial",
+                            "callRecordingUrl": "https://old",
+                        },
                     },
-                },
-                {
-                    "createdDateTime": "2026-06-30T13:05:00Z",
-                    "eventDetail": {
-                        "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
-                        "callRecordingStatus": "success",
-                        "callRecordingUrl": "https://new",
+                    {
+                        "createdDateTime": "2026-06-30T13:05:00Z",
+                        "eventDetail": {
+                            "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                            "callRecordingStatus": "success",
+                            "callRecordingUrl": "https://new",
+                        },
                     },
-                },
-            ]
-        })
+                ]
+            }
+        )
         with patch("ms365_intent_mcp.composers.meeting._enrich_call_recording"):
             event = {
                 "isOnlineMeeting": True,
@@ -266,8 +275,7 @@ class TestMeetingWithRecording:
         event = _full_event()
         # Overwrite joinUrl with one that has an extractable thread id.
         event["onlineMeeting"]["joinUrl"] = (
-            "https://teams.microsoft.com/l/meetup-join/"
-            "19%3Ameeting_xyz%40thread.v2/0"
+            "https://teams.microsoft.com/l/meetup-join/19%3Ameeting_xyz%40thread.v2/0"
         )
         client = AsyncMock()
 
@@ -315,8 +323,7 @@ class TestMeetingWithRecording:
         Previous behavior preserved for meetings without recordings."""
         event = _full_event()
         event["onlineMeeting"]["joinUrl"] = (
-            "https://teams.microsoft.com/l/meetup-join/"
-            "19%3Ameeting_xyz%40thread.v2/0"
+            "https://teams.microsoft.com/l/meetup-join/19%3Ameeting_xyz%40thread.v2/0"
         )
         client = AsyncMock()
 

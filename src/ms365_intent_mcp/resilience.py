@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable, Coroutine
 from enum import Enum
-from typing import Callable, Coroutine, TypeVar
+from typing import TypeVar
 
 import httpx
 
@@ -30,6 +31,7 @@ class CircuitOpenError(Exception):
 
 def _is_server_error(exc: BaseException) -> bool:
     from .graph import GraphAPIError
+
     if isinstance(exc, GraphAPIError):
         return exc.status_code >= 500
     if isinstance(exc, httpx.HTTPStatusError):

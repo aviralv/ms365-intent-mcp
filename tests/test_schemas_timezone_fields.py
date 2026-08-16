@@ -3,11 +3,12 @@
 These tests FAIL before the schema edits (extra="forbid" rejects unknown fields,
 and pure date values fail datetime coercion), and PASS after.
 """
+
 import datetime as _dt
 
-from ms365_intent_mcp.intent.whats_new.schemas import EventSummary as WNEvent
 from ms365_intent_mcp.intent.my_day.schemas import EventSummary as MDEvent
 from ms365_intent_mcp.intent.schedule.schemas import TimeSlot
+from ms365_intent_mcp.intent.whats_new.schemas import EventSummary as WNEvent
 
 
 def test_whats_new_event_accepts_timezone_and_date():
@@ -35,16 +36,21 @@ def test_whats_new_event_accepts_aware_datetime():
 
 def test_my_day_event_accepts_timezone_fields():
     e = MDEvent(
-        subject="X", start="2026-07-29T09:00:00+00:00",
-        end="2026-07-29T09:30:00+00:00", start_timezone="UTC",
+        subject="X",
+        start="2026-07-29T09:00:00+00:00",
+        end="2026-07-29T09:30:00+00:00",
+        start_timezone="UTC",
     )
     assert e.start_timezone == "UTC"
 
 
 def test_schedule_timeslot_has_timezone_fields_but_stays_datetime():
     s = TimeSlot(
-        start="2026-07-29T14:00:00+00:00", end="2026-07-29T14:30:00+00:00",
-        confidence=0.9, start_timezone="UTC", end_timezone="UTC",
+        start="2026-07-29T14:00:00+00:00",
+        end="2026-07-29T14:30:00+00:00",
+        confidence=0.9,
+        start_timezone="UTC",
+        end_timezone="UTC",
     )
     assert s.start_timezone == "UTC"
 
@@ -104,6 +110,4 @@ def test_timed_offset_aware_string_round_trips():
     assert "T" in dumped["start"], (
         f"Timed event start lost its time component: got {dumped['start']!r}"
     )
-    assert "T" in dumped["end"], (
-        f"Timed event end lost its time component: got {dumped['end']!r}"
-    )
+    assert "T" in dumped["end"], f"Timed event end lost its time component: got {dumped['end']!r}"

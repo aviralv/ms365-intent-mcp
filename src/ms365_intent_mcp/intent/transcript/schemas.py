@@ -81,14 +81,13 @@ class TranscriptPayload(BaseModel):
         Field(
             default=None,
             description=(
-                "Directory to write the VTT to. Defaults to "
-                "~/.cache/ms365-intent-mcp/transcripts."
+                "Directory to write the VTT to. Defaults to ~/.cache/ms365-intent-mcp/transcripts."
             ),
         ),
     ]
 
     @model_validator(mode="after")
-    def _require_exactly_one_input(self) -> "TranscriptPayload":
+    def _require_exactly_one_input(self) -> TranscriptPayload:
         coords = bool(self.item_id or self.drive_id or self.site_root)
         modes = [bool(self.url), bool(self.name), coords, self.list]
         if sum(modes) == 0:
@@ -103,8 +102,7 @@ class TranscriptPayload(BaseModel):
             )
         if coords and not (self.item_id and self.drive_id and self.site_root):
             raise ValueError(
-                "By-id download needs all three: `item_id`, `drive_id`, and "
-                "`site_root`."
+                "By-id download needs all three: `item_id`, `drive_id`, and `site_root`."
             )
         return self
 

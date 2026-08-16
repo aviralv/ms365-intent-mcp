@@ -13,6 +13,7 @@ from ms365_intent_mcp.vroom import VroomClient, VroomError, _is_allowed_host, _i
 
 # ---------- _is_allowed_host: authenticated-request host allowlist ----------
 
+
 def test_allowed_host_accepts_sharepoint_subdomains():
     assert _is_allowed_host("sap-my.sharepoint.com")
     assert _is_allowed_host("sap.sharepoint.com")
@@ -35,6 +36,7 @@ def test_allowed_host_rejects_empty():
 
 
 # ---------- _is_allowed_redirect: CDN redirect allowlist + scheme ----------
+
 
 def test_redirect_accepts_https_sharepoint_and_cdn():
     assert _is_allowed_redirect("https://foo.sharepoint.com/x")

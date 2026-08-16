@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ms365_intent_mcp.intent._helpers import idempotency_clear, idempotency_lookup, idempotency_store
+from ms365_intent_mcp.intent._helpers import (
+    idempotency_clear,
+    idempotency_lookup,
+    idempotency_store,
+)
 from ms365_intent_mcp.intent.compose.impl import _compose_impl, _handle_email
 from ms365_intent_mcp.intent.compose.schemas import (
     ComposeEmail,
@@ -45,20 +49,27 @@ class TestComposeV1Email:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client_arg, perms_arg, action_type, params):
-            return {"draft_id": "draft-abc", "subject": "Hi", "to": [{"email": "a@b.com", "name": "A"}], "web_link": "https://outlook.office.com/mail/inbox"}, "✅ Draft created\n**Subject:** Hi"
+            return {
+                "draft_id": "draft-abc",
+                "subject": "Hi",
+                "to": [{"email": "a@b.com", "name": "A"}],
+                "web_link": "https://outlook.office.com/mail/inbox",
+            }, "✅ Draft created\n**Subject:** Hi"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
             _fake,
         )
 
-        payload = ComposeEmail.model_validate({
-            "type": "email",
-            "mode": "new",
-            "to": [{"email": "a@b.com"}],
-            "subject": "Hi",
-            "body": "Hello",
-        })
+        payload = ComposeEmail.model_validate(
+            {
+                "type": "email",
+                "mode": "new",
+                "to": [{"email": "a@b.com"}],
+                "subject": "Hi",
+                "body": "Hello",
+            }
+        )
         response = await _compose_impl(ctx, payload)
 
         assert isinstance(response, EmailDraftCreated)
@@ -72,19 +83,26 @@ class TestComposeV1Email:
 
         async def _fake(client_arg, perms_arg, action_type, params):
             captured_action.append(action_type)
-            return {"draft_id": "reply-1", "subject": "Re: Hi", "to": [], "web_link": "https://outlook.office.com/mail/inbox"}, "✅ Reply draft created"
+            return {
+                "draft_id": "reply-1",
+                "subject": "Re: Hi",
+                "to": [],
+                "web_link": "https://outlook.office.com/mail/inbox",
+            }, "✅ Reply draft created"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
             _fake,
         )
 
-        payload = ComposeEmail.model_validate({
-            "type": "email",
-            "mode": "reply",
-            "in_reply_to_message_id": "AAM123",
-            "body": "Reply body",
-        })
+        payload = ComposeEmail.model_validate(
+            {
+                "type": "email",
+                "mode": "reply",
+                "in_reply_to_message_id": "AAM123",
+                "body": "Reply body",
+            }
+        )
         await _compose_impl(ctx, payload)
 
         assert len(captured_action) == 1
@@ -99,20 +117,28 @@ class TestComposeV1Event:
 
         async def _fake(client_arg, perms_arg, action_type, params):
             captured_params.update(params)
-            return {"event_id": "evt-123", "subject": "Sync", "start": "2026-07-08T10:00:00Z", "end": "2026-07-08T11:00:00Z", "join_url": None}, "✅ Event created\n**Subject:** Sync"
+            return {
+                "event_id": "evt-123",
+                "subject": "Sync",
+                "start": "2026-07-08T10:00:00Z",
+                "end": "2026-07-08T11:00:00Z",
+                "join_url": None,
+            }, "✅ Event created\n**Subject:** Sync"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
             _fake,
         )
 
-        payload = ComposeEvent.model_validate({
-            "type": "event",
-            "subject": "Sync",
-            "start": "2026-07-08T10:00:00Z",
-            "end": "2026-07-08T11:00:00Z",
-            "timezone": "Europe/Berlin",
-        })
+        payload = ComposeEvent.model_validate(
+            {
+                "type": "event",
+                "subject": "Sync",
+                "start": "2026-07-08T10:00:00Z",
+                "end": "2026-07-08T11:00:00Z",
+                "timezone": "Europe/Berlin",
+            }
+        )
         response = await _compose_impl(ctx, payload)
 
         assert isinstance(response, EventCreated)
@@ -128,18 +154,23 @@ class TestComposeV1TeamsMessage:
         ctx, _, _ = _mock_ctx()
 
         async def _fake(client_arg, perms_arg, action_type, params):
-            return {"message_id": "msg-456", "chat_id": "19:abc@thread.v2"}, "✅ Message sent to Teams chat."
+            return {
+                "message_id": "msg-456",
+                "chat_id": "19:abc@thread.v2",
+            }, "✅ Message sent to Teams chat."
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
             _fake,
         )
 
-        payload = ComposeTeamsMessage.model_validate({
-            "type": "teams_message",
-            "chat_id": "19:abc@thread.v2",
-            "content": "hi",
-        })
+        payload = ComposeTeamsMessage.model_validate(
+            {
+                "type": "teams_message",
+                "chat_id": "19:abc@thread.v2",
+                "content": "hi",
+            }
+        )
         response = await _compose_impl(ctx, payload)
 
         assert isinstance(response, TeamsMessageSent)
@@ -155,21 +186,28 @@ class TestIdempotencyKey:
         async def _fake(client_arg, perms_arg, action_type, params):
             nonlocal call_count
             call_count += 1
-            return {"draft_id": f"d{call_count}", "subject": "Hi", "to": [{"email": "a@b.com", "name": "A"}], "web_link": "https://outlook.office.com/mail/inbox"}, f"✅ Draft created (call {call_count})"
+            return {
+                "draft_id": f"d{call_count}",
+                "subject": "Hi",
+                "to": [{"email": "a@b.com", "name": "A"}],
+                "web_link": "https://outlook.office.com/mail/inbox",
+            }, f"✅ Draft created (call {call_count})"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
             _fake,
         )
 
-        payload = ComposeEmail.model_validate({
-            "type": "email",
-            "mode": "new",
-            "to": [{"email": "a@b.com"}],
-            "subject": "Hi",
-            "body": "Hello",
-            "idempotency_key": "abc-123",
-        })
+        payload = ComposeEmail.model_validate(
+            {
+                "type": "email",
+                "mode": "new",
+                "to": [{"email": "a@b.com"}],
+                "subject": "Hi",
+                "body": "Hello",
+                "idempotency_key": "abc-123",
+            }
+        )
         r1 = await _compose_impl(ctx, payload)
         r2 = await _compose_impl(ctx, payload)
 
@@ -190,21 +228,28 @@ class TestIdempotencyKey:
             async def _fake(*args, **kwargs):
                 nonlocal call_count
                 call_count += 1
-                return {"draft_id": f"d{call_count}", "subject": "Hi", "to": [{"email": "a@b.com", "name": "A"}], "web_link": "https://outlook.office.com/mail/inbox"}, f"call {call_count}"
+                return {
+                    "draft_id": f"d{call_count}",
+                    "subject": "Hi",
+                    "to": [{"email": "a@b.com", "name": "A"}],
+                    "web_link": "https://outlook.office.com/mail/inbox",
+                }, f"call {call_count}"
 
             monkeypatch.setattr(
                 "ms365_intent_mcp.intent.compose.impl.compose_action",
                 _fake,
             )
 
-            payload = ComposeEmail.model_validate({
-                "type": "email",
-                "mode": "new",
-                "to": [{"email": "a@b.com"}],
-                "subject": "Hi",
-                "body": "Hi",
-                "idempotency_key": "expiry-test",
-            })
+            payload = ComposeEmail.model_validate(
+                {
+                    "type": "email",
+                    "mode": "new",
+                    "to": [{"email": "a@b.com"}],
+                    "subject": "Hi",
+                    "body": "Hi",
+                    "idempotency_key": "expiry-test",
+                }
+            )
             await _compose_impl(ctx, payload)
             await _compose_impl(ctx, payload)
             assert call_count == 2, "past-TTL call should re-execute"
@@ -220,20 +265,27 @@ class TestIdempotencyKey:
         async def _fake(*args, **kwargs):
             nonlocal call_count
             call_count += 1
-            return {"draft_id": f"d{call_count}", "subject": "Hi", "to": [{"email": "a@b.com", "name": "A"}], "web_link": "https://outlook.office.com/mail/inbox"}, f"call {call_count}"
+            return {
+                "draft_id": f"d{call_count}",
+                "subject": "Hi",
+                "to": [{"email": "a@b.com", "name": "A"}],
+                "web_link": "https://outlook.office.com/mail/inbox",
+            }, f"call {call_count}"
 
         monkeypatch.setattr(
             "ms365_intent_mcp.intent.compose.impl.compose_action",
             _fake,
         )
 
-        payload = ComposeEmail.model_validate({
-            "type": "email",
-            "mode": "new",
-            "to": [{"email": "a@b.com"}],
-            "subject": "Hi",
-            "body": "Hi",
-        })
+        payload = ComposeEmail.model_validate(
+            {
+                "type": "email",
+                "mode": "new",
+                "to": [{"email": "a@b.com"}],
+                "subject": "Hi",
+                "body": "Hi",
+            }
+        )
         await _compose_impl(ctx, payload)
         await _compose_impl(ctx, payload)
         assert call_count == 2, "no key should mean no cache"
@@ -258,6 +310,7 @@ class TestIdempotencyLookupDirect:
 
     def test_lookup_returns_none_after_ttl_expiry(self):
         import ms365_intent_mcp.intent._helpers as h
+
         original_ttl = h._IDEMPOTENCY_TTL_SECONDS
         h._IDEMPOTENCY_TTL_SECONDS = -1  # always expired (any elapsed time > -1)
         try:
@@ -347,12 +400,15 @@ class TestHandleEventForward:
         client = AsyncMock()
         client.post = AsyncMock(return_value={})
         perms = PermissionRegistry(["Calendars.ReadWrite"])
-        payload = ComposeEvent.model_validate({
-            "type": "event", "mode": "forward",
-            "event_id": "AAMkEVT",
-            "to": [{"email": "dana@contoso.com", "name": "Dana Swope"}],
-            "comment": "please join",
-        })
+        payload = ComposeEvent.model_validate(
+            {
+                "type": "event",
+                "mode": "forward",
+                "event_id": "AAMkEVT",
+                "to": [{"email": "dana@contoso.com", "name": "Dana Swope"}],
+                "comment": "please join",
+            }
+        )
         resp = await _handle_event(payload, client, perms, "Europe/Berlin")
         assert resp.type == "event_forwarded"
         assert resp.to[0].email == "dana@contoso.com"
@@ -365,18 +421,24 @@ class TestHandleEmailForward:
         from ms365_intent_mcp.permissions import PermissionRegistry
 
         client = AsyncMock()
-        client.post = AsyncMock(return_value={
-            "id": "d-1", "subject": "FW: X",
-            "toRecipients": [{"emailAddress": {"address": "z@z.com", "name": "Z"}}],
-            "webLink": "https://outlook.office.com/mail/x",
-        })
+        client.post = AsyncMock(
+            return_value={
+                "id": "d-1",
+                "subject": "FW: X",
+                "toRecipients": [{"emailAddress": {"address": "z@z.com", "name": "Z"}}],
+                "webLink": "https://outlook.office.com/mail/x",
+            }
+        )
         perms = PermissionRegistry(["Mail.ReadWrite"])
-        payload = ComposeEmail.model_validate({
-            "type": "email", "mode": "forward",
-            "in_reply_to_message_id": "m-1",
-            "to": [{"email": "z@z.com", "name": "Z"}],
-            "body": "fyi",
-        })
+        payload = ComposeEmail.model_validate(
+            {
+                "type": "email",
+                "mode": "forward",
+                "in_reply_to_message_id": "m-1",
+                "to": [{"email": "z@z.com", "name": "Z"}],
+                "body": "fyi",
+            }
+        )
         resp = await _handle_email(payload, client, perms)
         assert resp.type == "email_draft_created"
         assert client.post.call_args.args[0] == "/me/messages/m-1/createForward"

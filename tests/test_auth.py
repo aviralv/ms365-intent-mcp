@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from ms365_intent_mcp.auth import TokenManager, AuthenticationError
+from ms365_intent_mcp.auth import AuthenticationError, TokenManager
 from ms365_intent_mcp.config import Config
 
 

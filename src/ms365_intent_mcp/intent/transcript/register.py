@@ -25,5 +25,8 @@ def register(mcp: FastMCP) -> None:
             "`output_dir`.",
         ],
     ) -> TranscriptResultResponse:
-        """Get the VTT transcript for a meeting recording (or list recordings). Writes the file to disk and returns the path."""
+        """Get the VTT transcript for a meeting recording (or list recordings).
+
+        Writes the file to disk and returns the path.
+        """
         return await _transcript_impl(ctx, payload)

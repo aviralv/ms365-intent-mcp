@@ -136,7 +136,7 @@ def _strip_teams_boilerplate(text: str) -> str:
     match = _TEAMS_BOILERPLATE_SEPARATOR.search(text)
     if not match:
         return text
-    return text[:match.start()].strip()
+    return text[: match.start()].strip()
 
 
 def _extract_event_links(raw_html: str, event: dict) -> list[str]:
@@ -153,9 +153,7 @@ def _extract_event_links(raw_html: str, event: dict) -> list[str]:
     """
     if not raw_html:
         return []
-    join_url = html.unescape(
-        ((event.get("onlineMeeting") or {}).get("joinUrl") or "").strip()
-    )
+    join_url = html.unescape(((event.get("onlineMeeting") or {}).get("joinUrl") or "").strip())
     seen: set[str] = set()
     out: list[str] = []
     for href in _HREF_RE.findall(raw_html):
@@ -210,7 +208,7 @@ def graph_dt_to_aware_iso(dt: dict) -> tuple[str | None, str | None]:
     zone = None
     if tz_name:
         if tz_name == "UTC":
-            zone = _dt.timezone.utc
+            zone = _dt.UTC
         else:
             iana = windows_to_iana(tz_name) or tz_name
             try:
@@ -221,8 +219,8 @@ def graph_dt_to_aware_iso(dt: dict) -> tuple[str | None, str | None]:
     if zone is None:
         if tz_name:
             logger.warning(
-                "graph_dt_to_aware_iso: could not resolve timezone %r; "
-                "emitting naive timestamp", tz_name,
+                "graph_dt_to_aware_iso: could not resolve timezone %r; emitting naive timestamp",
+                tz_name,
             )
         return core, tz_name
 
@@ -485,7 +483,7 @@ def format_people_markdown(
             sender = m.get("from", {}).get("emailAddress", {}).get("name", "?")
             lines.append(f"- {subject} (from {sender})")
     if recent_chat:
-        preview = (recent_chat.get("lastMessagePreview") or {})
+        preview = recent_chat.get("lastMessagePreview") or {}
         body = preview.get("body", {}).get("content", "") if preview else ""
         chat_url = recent_chat.get("webUrl", "")
         link = _teams_open_chat_link(chat_url)
@@ -571,7 +569,7 @@ def format_resolved_content_markdown(url_type: str, data: dict, chat_url: str = 
         if body_content:
             rendered = body_content if body_type == "text" else _strip_teams_html(body_content)
         else:
-            rendered = (data.get("bodyPreview") or "")
+            rendered = data.get("bodyPreview") or ""
         rendered = _truncate_email_body(rendered)
         lines = [f"### Email: {subject}", f"**From:** {sender}  |  **Received:** {received}"]
         if rendered:
@@ -676,10 +674,14 @@ def _format_chat_thread(data: dict) -> str:
         m_start = _format_event_datetime(meeting.get("start", {}) or {})
         end_dt_obj = meeting.get("end", {}) or {}
         end_dt = end_dt_obj.get("dateTime", "")
-        end_tz = end_dt_obj.get("timeZone") or (meeting.get("start", {}) or {}).get("timeZone") or ""
+        end_tz = (
+            end_dt_obj.get("timeZone") or (meeting.get("start", {}) or {}).get("timeZone") or ""
+        )
         end_hm = end_dt[11:16] if len(end_dt) >= 16 else end_dt
         m_end = f"{end_hm} {end_tz}".strip()
-        m_organizer = ((meeting.get("organizer", {}) or {}).get("emailAddress", {}) or {}).get("name", "Unknown")
+        m_organizer = ((meeting.get("organizer", {}) or {}).get("emailAddress", {}) or {}).get(
+            "name", "Unknown"
+        )
         lines.append("")
         lines.append("**Meeting context:**")
         lines.append(f"- {m_subject}")

@@ -5,11 +5,10 @@ import urllib.parse
 from datetime import datetime, timedelta
 
 from ..formatters import format_event_detail_markdown, graph_dt_to_aware_iso
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ._utils import _escape_odata
 from .resolve import _enrich_call_recording
-
 
 _JOIN_THREAD_RE = re.compile(r"meetup-join/(19:[^/]+@thread\.v2)")
 
@@ -23,7 +22,15 @@ async def compose_meeting(
     event = await _resolve_event(client, identifier, timezone)
     if event is None:
         markdown = f'❌ No meeting found matching "{identifier}"'
-        return {"id": "", "subject": identifier, "start": "", "end": "", "organizer": {}, "attendees": [], "recording": None}, markdown
+        return {
+            "id": "",
+            "subject": identifier,
+            "start": "",
+            "end": "",
+            "organizer": {},
+            "attendees": [],
+            "recording": None,
+        }, markdown
 
     recording = await _resolve_recording_for_event(client, event)
     if recording:
@@ -41,11 +48,13 @@ async def compose_meeting(
     attendees_data = []
     for a in event.get("attendees", []):
         ea = a.get("emailAddress", {})
-        attendees_data.append({
-            "name": ea.get("name", ""),
-            "email": ea.get("address") or None,
-            "response": a.get("status", {}).get("response", "none"),
-        })
+        attendees_data.append(
+            {
+                "name": ea.get("name", ""),
+                "email": ea.get("address") or None,
+                "response": a.get("status", {}).get("response", "none"),
+            }
+        )
 
     online_meeting_data = None
     if event.get("isOnlineMeeting"):
@@ -97,7 +106,7 @@ async def _resolve_recording_for_event(client: GraphClient, event: dict) -> dict
     """
     if not event.get("isOnlineMeeting"):
         return None
-    join_url = ((event.get("onlineMeeting") or {}).get("joinUrl") or "")
+    join_url = (event.get("onlineMeeting") or {}).get("joinUrl") or ""
     if not join_url:
         return None
     join_url_decoded = urllib.parse.unquote(join_url)
@@ -127,11 +136,13 @@ def _extract_recording_entry(messages: list[dict]) -> dict | None:
     success URL, transcript_ready flag, and initiator. Returns None if no
     callRecording events are present."""
     recording_events = [
-        m for m in messages
+        m
+        for m in messages
         if "callRecording" in ((m.get("eventDetail") or {}).get("@odata.type", ""))
     ]
     transcript_events = [
-        m for m in messages
+        m
+        for m in messages
         if "callTranscript" in ((m.get("eventDetail") or {}).get("@odata.type", ""))
     ]
     if not recording_events:
@@ -184,12 +195,16 @@ async def _find_next_event(client: GraphClient, timezone: str) -> dict | None:
     end_iso = (now + timedelta(days=1)).strftime("%Y-%m-%dT23:59:59")
 
     headers = GraphClient.calendar_headers(timezone)
-    result = await client.get("/me/calendarView", params={
-        "startDateTime": start_iso,
-        "endDateTime": end_iso,
-        "$orderby": "start/dateTime",
-        "$top": "1",
-    }, headers=headers)
+    result = await client.get(
+        "/me/calendarView",
+        params={
+            "startDateTime": start_iso,
+            "endDateTime": end_iso,
+            "$orderby": "start/dateTime",
+            "$top": "1",
+        },
+        headers=headers,
+    )
 
     events = result.get("value", [])
     return events[0] if events else None
@@ -207,13 +222,17 @@ async def _search_by_subject(
     headers = GraphClient.calendar_headers(timezone)
 
     try:
-        result = await client.get("/me/calendarView", params={
-            "startDateTime": start_iso,
-            "endDateTime": end_iso,
-            "$orderby": "start/dateTime asc",
-            "$top": "50",
-            "$filter": f"contains(subject, '{_escape_odata(subject)}')",
-        }, headers=headers)
+        result = await client.get(
+            "/me/calendarView",
+            params={
+                "startDateTime": start_iso,
+                "endDateTime": end_iso,
+                "$orderby": "start/dateTime asc",
+                "$top": "50",
+                "$filter": f"contains(subject, '{_escape_odata(subject)}')",
+            },
+            headers=headers,
+        )
 
         events = result.get("value", [])
         if events:
@@ -221,12 +240,16 @@ async def _search_by_subject(
     except GraphAPIError:
         pass
 
-    result = await client.get("/me/calendarView", params={
-        "startDateTime": start_iso,
-        "endDateTime": end_iso,
-        "$orderby": "start/dateTime asc",
-        "$top": "50",
-    }, headers=headers)
+    result = await client.get(
+        "/me/calendarView",
+        params={
+            "startDateTime": start_iso,
+            "endDateTime": end_iso,
+            "$orderby": "start/dateTime asc",
+            "$top": "50",
+        },
+        headers=headers,
+    )
 
     subject_lower = subject.lower()
     for event in result.get("value", []):
