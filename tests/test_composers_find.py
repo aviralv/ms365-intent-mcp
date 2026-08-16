@@ -297,8 +297,6 @@ def _mock_search_response(query: str) -> dict:
     }
 
 
-
-
 class TestPrefilterChatsByQuery:
     def test_filters_when_query_matches_member_name(self):
         chats = [
