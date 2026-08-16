@@ -247,13 +247,39 @@ async def _send_teams_message(client: GraphClient, params: dict) -> tuple[dict, 
     chat_id = params["chat_id"]
     content = params["content"]
     content_type = params.get("content_type", "text")
+    attachments = params.get("attachments") or []
 
-    payload = {
+    # Build attachment payload for Graph (reference type)
+    graph_attachments = []
+    for i, att in enumerate(attachments):
+        att_id = f"file-{i}"
+        graph_attachments.append({
+            "id": att_id,
+            "contentType": "reference",
+            "contentUrl": att["url"],
+            "name": att["name"],
+        })
+
+    # If attachments are present, ensure content_type is html (attachment tags are HTML)
+    if graph_attachments and content_type == "text":
+        content_type = "html"
+        content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    # Append attachment tags to body so Teams renders them as cards
+    if graph_attachments:
+        tags = "".join(f'<attachment id="{a["id"]}"></attachment>' for a in graph_attachments)
+        content = f"{content}<br>{tags}"
+
+    payload: dict = {
         "body": {"contentType": content_type, "content": content},
     }
+    if graph_attachments:
+        payload["attachments"] = graph_attachments
+
     msg = await client.post(f"/chats/{chat_id}/messages", payload)
     data = {
         "message_id": (msg or {}).get("id", ""),
         "chat_id": chat_id,
     }
-    return data, "✅ Message sent to Teams chat."
+    att_note = f" with {len(graph_attachments)} attachment(s)" if graph_attachments else ""
+    return data, f"✅ Message sent to Teams chat{att_note}."

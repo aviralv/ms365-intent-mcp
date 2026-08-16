@@ -115,6 +115,80 @@ class TestComposeTeamsMessage:
         _, markdown = result
         assert "✅" in markdown or "sent" in markdown.lower()
 
+    @pytest.mark.asyncio
+    async def test_sends_message_with_reference_attachments(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={"id": "msg-789"})
+
+        data, markdown = await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.TEAMS_MESSAGE,
+            params={
+                "chat_id": "19:abc123",
+                "content": "See attached",
+                "attachments": [
+                    {"name": "report.xlsx", "url": "https://sp.com/sites/team/report.xlsx"},
+                    {"name": "notes.pdf", "url": "https://sp.com/sites/team/notes.pdf"},
+                ],
+            },
+        )
+        assert "attachment" in markdown.lower()
+        # Verify Graph payload shape
+        call_payload = client.post.call_args.args[1]
+        assert call_payload["body"]["contentType"] == "html"
+        assert "attachments" in call_payload
+        assert len(call_payload["attachments"]) == 2
+        assert call_payload["attachments"][0]["contentType"] == "reference"
+        assert call_payload["attachments"][0]["name"] == "report.xlsx"
+        assert call_payload["attachments"][0]["contentUrl"] == "https://sp.com/sites/team/report.xlsx"
+        # Attachment tags in body
+        assert '<attachment id="file-0"></attachment>' in call_payload["body"]["content"]
+        assert '<attachment id="file-1"></attachment>' in call_payload["body"]["content"]
+
+    @pytest.mark.asyncio
+    async def test_text_content_escaped_when_attachments_force_html(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={"id": "msg-101"})
+
+        await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.TEAMS_MESSAGE,
+            params={
+                "chat_id": "19:abc123",
+                "content": "A < B & C > D",
+                "content_type": "text",
+                "attachments": [
+                    {"name": "file.txt", "url": "https://sp.com/file.txt"},
+                ],
+            },
+        )
+        call_payload = client.post.call_args.args[1]
+        body_content = call_payload["body"]["content"]
+        assert "&lt;" in body_content
+        assert "&amp;" in body_content
+        assert "&gt;" in body_content
+
+    @pytest.mark.asyncio
+    async def test_no_attachments_sends_plain_text(self, full_permissions):
+        client = AsyncMock()
+        client.post = AsyncMock(return_value={"id": "msg-200"})
+
+        await compose_action(
+            client=client,
+            permissions=full_permissions,
+            action_type=ComposeType.TEAMS_MESSAGE,
+            params={
+                "chat_id": "19:abc123",
+                "content": "plain text",
+                "content_type": "text",
+            },
+        )
+        call_payload = client.post.call_args.args[1]
+        assert call_payload["body"]["contentType"] == "text"
+        assert "attachments" not in call_payload
+
 
 class TestComposeEmailForward:
     @pytest.mark.asyncio

@@ -192,11 +192,15 @@ async def _handle_teams_message(
     permissions,
 ) -> TeamsMessageSent:
     """Send a Teams chat message via the legacy composer."""
-    params = {
+    params: dict = {
         "chat_id": payload.chat_id,
         "content": payload.content,
         "content_type": payload.content_type,
     }
+    if payload.attachments:
+        params["attachments"] = [
+            {"name": a.name, "url": a.url} for a in payload.attachments
+        ]
     data, markdown = await compose_action(client, permissions, ComposeType.TEAMS_MESSAGE, params)
 
     return TeamsMessageSent(
