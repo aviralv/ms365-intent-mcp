@@ -571,3 +571,132 @@ class TestExtractEmail:
         from ms365_intent_mcp.composers.people import _extract_email
 
         assert _extract_email({"displayName": "No Email"}) == ""
+
+
+class TestOutOfOffice:
+    """#65: OOO / automatic-replies status in people() response."""
+
+    @pytest.fixture
+    def ooo_permissions(self):
+        return PermissionRegistry(
+            ["People.Read", "Mail.Read", "Chat.ReadWrite", "MailboxSettings.Read"]
+        )
+
+    def _client(self, auto_reply_response):
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return _mock_people_response()
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if "/me/chats" in endpoint:
+                return {"value": []}
+            if "mailboxSettings/automaticRepliesSetting" in endpoint:
+                return auto_reply_response
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        return client
+
+    @pytest.mark.asyncio
+    async def test_ooo_scheduled_shows_in_data(self, ooo_permissions):
+        auto_reply = {
+            "status": "scheduled",
+            "scheduledStartDateTime": {"dateTime": "2026-08-10T00:00:00", "timeZone": "UTC"},
+            "scheduledEndDateTime": {"dateTime": "2026-08-24T00:00:00", "timeZone": "UTC"},
+            "internalReplyMessage": "<p>I'm on vacation until Aug 24.</p>",
+            "externalReplyMessage": "",
+        }
+        data, markdown = await compose_people(
+            client=self._client(auto_reply), permissions=ooo_permissions, query="alice"
+        )
+        assert data["out_of_office"] is not None
+        assert data["out_of_office"]["status"] == "scheduled"
+        assert data["out_of_office"]["scheduled_start"] == "2026-08-10T00:00:00"
+        assert data["out_of_office"]["scheduled_end"] == "2026-08-24T00:00:00"
+        assert "vacation" in data["out_of_office"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_ooo_always_enabled_shows_in_data(self, ooo_permissions):
+        auto_reply = {
+            "status": "alwaysEnabled",
+            "scheduledStartDateTime": {"dateTime": "", "timeZone": "UTC"},
+            "scheduledEndDateTime": {"dateTime": "", "timeZone": "UTC"},
+            "internalReplyMessage": "I am out of the office.",
+            "externalReplyMessage": "",
+        }
+        data, _ = await compose_people(
+            client=self._client(auto_reply), permissions=ooo_permissions, query="alice"
+        )
+        assert data["out_of_office"] is not None
+        assert data["out_of_office"]["status"] == "alwaysEnabled"
+
+    @pytest.mark.asyncio
+    async def test_ooo_disabled_returns_none(self, ooo_permissions):
+        auto_reply = {
+            "status": "disabled",
+            "scheduledStartDateTime": {"dateTime": "", "timeZone": "UTC"},
+            "scheduledEndDateTime": {"dateTime": "", "timeZone": "UTC"},
+            "internalReplyMessage": "",
+            "externalReplyMessage": "",
+        }
+        data, _ = await compose_people(
+            client=self._client(auto_reply), permissions=ooo_permissions, query="alice"
+        )
+        assert data["out_of_office"] is None
+
+    @pytest.mark.asyncio
+    async def test_ooo_markdown_shows_vacation_indicator(self, ooo_permissions):
+        auto_reply = {
+            "status": "scheduled",
+            "scheduledStartDateTime": {"dateTime": "2026-08-10T00:00:00", "timeZone": "UTC"},
+            "scheduledEndDateTime": {"dateTime": "2026-08-24T00:00:00", "timeZone": "UTC"},
+            "internalReplyMessage": "<p>On vacation</p>",
+            "externalReplyMessage": "",
+        }
+        _, markdown = await compose_people(
+            client=self._client(auto_reply), permissions=ooo_permissions, query="alice"
+        )
+        assert "🏖️" in markdown
+        assert "Out of Office" in markdown
+        assert "2026-08-10" in markdown
+        assert "2026-08-24" in markdown
+
+    @pytest.mark.asyncio
+    async def test_ooo_graceful_when_scope_missing(self, full_permissions):
+        """No MailboxSettings.Read scope → OOO silently None."""
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return _mock_people_response()
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if "/me/chats" in endpoint:
+                return {"value": []}
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        data, _ = await compose_people(client=client, permissions=full_permissions, query="alice")
+        assert data["out_of_office"] is None
+
+    @pytest.mark.asyncio
+    async def test_ooo_graceful_on_graph_error(self, ooo_permissions):
+        """GraphAPIError from mailboxSettings → OOO silently None."""
+        client = AsyncMock()
+
+        async def _get(endpoint, params=None, headers=None):
+            if "/me/people" in endpoint:
+                return _mock_people_response()
+            if "/me/messages" in endpoint:
+                return {"value": []}
+            if "/me/chats" in endpoint:
+                return {"value": []}
+            if "mailboxSettings" in endpoint:
+                raise GraphAPIError(403, "Forbidden", "no access")
+            return {"value": []}
+
+        client.get = AsyncMock(side_effect=_get)
+        data, _ = await compose_people(client=client, permissions=ooo_permissions, query="alice")
+        assert data["out_of_office"] is None

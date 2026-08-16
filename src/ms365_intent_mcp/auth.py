@@ -119,17 +119,40 @@ class TokenManager:
             return None
         return token_data.get("refresh_token")
 
+    def _read_granted_scopes(self) -> str:
+        """Read the scope string from the stored token (what was actually granted).
+
+        Returns the scope string as-is, or '' if unavailable. The refresh
+        request should use these scopes — not the config scopes — to avoid
+        Azure AD rejecting scope expansion on refresh.
+        """
+        if not self.config.token_path.exists():
+            return ""
+        try:
+            token_data = json.loads(self.config.token_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return ""
+        return token_data.get("scope", "")
+
     def _try_refresh(self) -> str | None:
         refresh_token = self._read_refresh_token()
         if not refresh_token:
             _logger.warning("No refresh_token available")
             return None
 
+        # Use the scopes from the stored token (what was actually granted) for
+        # the refresh request. Azure AD rejects scope expansion on refresh —
+        # new scopes require a fresh device-code auth. Falling back to the
+        # granted set means existing installs continue to work after a config
+        # scope addition, with graceful degradation for the missing scope.
+        granted_scopes = self._read_granted_scopes()
+        scope = granted_scopes if granted_scopes else " ".join(self.config.scopes)
+
         data = {
             "client_id": self.config.client_id,
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
-            "scope": " ".join(self.config.scopes),
+            "scope": scope,
         }
 
         try:
