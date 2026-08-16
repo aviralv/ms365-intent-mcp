@@ -210,7 +210,7 @@ def graph_dt_to_aware_iso(dt: dict) -> tuple[str | None, str | None]:
     zone = None
     if tz_name:
         if tz_name == "UTC":
-            zone = _dt.timezone.utc
+            zone = _dt.UTC
         else:
             iana = windows_to_iana(tz_name) or tz_name
             try:

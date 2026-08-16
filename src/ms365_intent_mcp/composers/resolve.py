@@ -5,7 +5,7 @@ import base64
 import json
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 
 from ..formatters import (
     _strip_teams_html,
@@ -578,7 +578,7 @@ async def _find_meeting_by_join_url(client: GraphClient, join_url: str) -> dict 
     """
     if not join_url:
         return None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     start = (now - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
     end = (now + timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:

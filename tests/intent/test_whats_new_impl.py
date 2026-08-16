@@ -1,6 +1,6 @@
 """Unit tests for _whats_new_impl — mocked context, no FastMCP."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -30,7 +30,7 @@ class TestWhatsNewV1Happy:
     @pytest.mark.asyncio
     async def test_happy_path_returns_whats_new_summary(self, monkeypatch):
         ctx, _, _ = _mock_ctx()
-        since = datetime(2026, 7, 1, 9, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 7, 1, 9, 0, 0, tzinfo=UTC)
 
         async def _fake(client, permissions, since, scope, timezone):
             return {"since": since, "mail": [], "events": [], "teams": []}, "### Calendar\nTeam sync.\n\n### Mail\n2 unread."
@@ -55,7 +55,7 @@ class TestWhatsNewV1Happy:
     async def test_scope_all_translates_to_none(self, monkeypatch):
         """scope='all' must be translated to None before calling the composer."""
         ctx, _, _ = _mock_ctx()
-        since = datetime(2026, 7, 1, 0, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
         captured_kwargs = {}
 
         async def _fake(client, permissions, since, scope, timezone):
@@ -76,7 +76,7 @@ class TestWhatsNewV1Happy:
     async def test_scope_teams_passes_through(self, monkeypatch):
         """scope='teams' must be forwarded to the composer unchanged."""
         ctx, _, _ = _mock_ctx()
-        since = datetime(2026, 7, 1, 0, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
         captured_kwargs = {}
 
         async def _fake(client, permissions, since, scope, timezone):
@@ -97,7 +97,7 @@ class TestWhatsNewV1Happy:
     async def test_stub_fields_are_empty(self, monkeypatch):
         """Structured fields reflect what the composer returns."""
         ctx, _, _ = _mock_ctx()
-        since = datetime(2026, 7, 1, 0, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
 
         async def _fake(client, permissions, since, scope, timezone):
             return {"since": since, "mail": [], "events": [], "teams": []}, "content"
@@ -119,7 +119,7 @@ class TestWhatsNewV1Errors:
     @pytest.mark.asyncio
     async def test_graph_api_error_returns_error_response(self, monkeypatch):
         ctx, _, _ = _mock_ctx()
-        since = datetime(2026, 7, 1, 0, 0, 0, tzinfo=timezone.utc)
+        since = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
 
         async def _fake(client, permissions, since, scope, timezone):
             raise GraphAPIError(status_code=429, error_code="TooManyRequests", message="slow down")

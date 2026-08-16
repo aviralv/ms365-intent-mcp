@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import datetime, timedelta
-from datetime import timezone as _tz
+from datetime import timezone as _tz, UTC
 
 from ..formatters import (
     format_events_markdown,
@@ -30,7 +30,7 @@ def _parse_graph_dt(raw: str | None) -> datetime | None:
         dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except (ValueError, TypeError):
         return None
-    return dt.replace(tzinfo=_tz.utc) if dt.tzinfo is None else dt
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
 
 
 async def _fetch_chat_window_messages(
@@ -77,12 +77,12 @@ async def compose_whats_new(
         markdown = "❌ Invalid 'since' format. Use ISO datetime, e.g. '2026-05-14T00:00:00'."
         return {"since": since, "mail": [], "events": [], "teams": []}, markdown
     if since_dt.tzinfo is None:
-        since_dt = since_dt.replace(tzinfo=_tz.utc)
+        since_dt = since_dt.replace(tzinfo=UTC)
 
     tasks = {}
 
     if scope in ("calendar", "all"):
-        now = datetime.now(_tz.utc)
+        now = datetime.now(UTC)
         max_end = since_dt + timedelta(days=14)
         cal_end = min(now + timedelta(days=7), max_end)
         cal_end_iso = cal_end.strftime("%Y-%m-%dT23:59:59")
@@ -101,7 +101,7 @@ async def compose_whats_new(
         # Graph's $filter parser requires RFC-3339 with a single UTC marker.
         # Format from the parsed datetime so we don't have to guess whether the
         # caller-supplied string ends in 'Z', '+00:00', or nothing at all.
-        since_z = since_dt.astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        since_z = since_dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         tasks["messages"] = client.get("/me/messages", params={
             "$filter": f"receivedDateTime ge {since_z}",
             "$select": "id,subject,from,receivedDateTime,importance,webLink",

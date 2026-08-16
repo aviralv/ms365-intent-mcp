@@ -1086,7 +1086,7 @@ class TestForwardedMessageExtraction:
             "attachments": [
                 {
                     "contentType": "forwardedMessageReference",
-                    "content": '{"originalMessageContent": "%s"}' % long_text,
+                    "content": f'{{"originalMessageContent": "{long_text}"}}',
                 }
             ],
         }

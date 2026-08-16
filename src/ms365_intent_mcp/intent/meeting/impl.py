@@ -14,6 +14,7 @@ from .schemas import (
     PersonRef,
     RecordingMetadata,
 )
+from datetime import UTC
 
 TOOL_NAME = "meeting"
 
@@ -62,11 +63,11 @@ async def _meeting_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail:
 
     def _parse_dt(s: str):
         if not s:
-            return datetime.now(_tz.utc)
+            return datetime.now(UTC)
         try:
             return datetime.fromisoformat(s.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
-            return datetime.now(_tz.utc)
+            return datetime.now(UTC)
 
     return MeetingDetail(
         id=data.get("id") or "unknown",

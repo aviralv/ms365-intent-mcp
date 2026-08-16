@@ -2,7 +2,7 @@
 
 import html
 import urllib.parse
-from enum import Enum
+from enum import StrEnum
 
 from ..formatters import (
     format_draft_created_markdown,
@@ -14,7 +14,7 @@ from ..permissions import PermissionRegistry
 from ..resolver import normalize_message_id
 
 
-class ComposeType(str, Enum):
+class ComposeType(StrEnum):
     EMAIL_DRAFT = "email_draft"
     REPLY_DRAFT = "reply_draft"
     EMAIL_FORWARD = "email_forward"
