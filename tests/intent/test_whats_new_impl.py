@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
+from ms365_intent_mcp.intent._shared import ErrorResponse
 from ms365_intent_mcp.intent.whats_new.impl import _whats_new_impl
 from ms365_intent_mcp.intent.whats_new.schemas import WhatsNewPayload, WhatsNewSummary
-from ms365_intent_mcp.intent._shared import ErrorResponse
 
 
 def _mock_ctx():

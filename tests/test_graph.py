@@ -1,7 +1,8 @@
 """Tests for GraphClient response handling."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
 from tests.conftest import make_graph_client, make_graph_response

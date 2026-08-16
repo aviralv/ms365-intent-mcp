@@ -88,7 +88,7 @@ class TranscriptPayload(BaseModel):
     ]
 
     @model_validator(mode="after")
-    def _require_exactly_one_input(self) -> "TranscriptPayload":
+    def _require_exactly_one_input(self) -> TranscriptPayload:
         coords = bool(self.item_id or self.drive_id or self.site_root)
         modes = [bool(self.url), bool(self.name), coords, self.list]
         if sum(modes) == 0:

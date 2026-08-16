@@ -4,7 +4,7 @@ import json
 
 import httpx
 
-from ms365_intent_mcp.graph import GraphClient, GraphAPIError
+from ms365_intent_mcp.graph import GraphClient
 
 
 def make_graph_response(

@@ -1,7 +1,8 @@
 """whats_new composer — mail/calendar/teams since a given datetime."""
 
 import asyncio
-from datetime import datetime, timedelta, timezone as _tz
+from datetime import datetime, timedelta
+from datetime import timezone as _tz
 
 from ..formatters import (
     format_events_markdown,

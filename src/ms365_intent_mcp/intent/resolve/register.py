@@ -7,7 +7,7 @@ from typing import Annotated
 from fastmcp import Context, FastMCP
 
 from .impl import _resolve_impl
-from .schemas import ResolvePayload, ResolvedContent
+from .schemas import ResolvedContent, ResolvePayload
 
 
 def register(mcp: FastMCP) -> None:

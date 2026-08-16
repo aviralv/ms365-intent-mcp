@@ -4,8 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from ms365_intent_mcp.composers.meeting import compose_meeting, _resolve_recording_for_event
-from ms365_intent_mcp.graph import GraphAPIError
+from ms365_intent_mcp.composers.meeting import _resolve_recording_for_event, compose_meeting
 from ms365_intent_mcp.permissions import PermissionRegistry
 
 

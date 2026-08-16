@@ -3,17 +3,17 @@
 import logging
 
 from ms365_intent_mcp.formatters import (
-    format_events_markdown,
-    format_event_detail_markdown,
-    format_mail_summary_markdown,
     format_draft_created_markdown,
     format_event_created_markdown,
+    format_event_detail_markdown,
+    format_events_markdown,
+    format_mail_summary_markdown,
+    format_meeting_times_markdown,
+    format_people_markdown,
+    format_resolved_content_markdown,
+    format_search_results_markdown,
     format_section_error,
     format_teams_activity_markdown,
-    format_people_markdown,
-    format_search_results_markdown,
-    format_meeting_times_markdown,
-    format_resolved_content_markdown,
     graph_dt_to_aware_iso,
 )
 

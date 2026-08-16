@@ -7,7 +7,12 @@ import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from ..formatters import _strip_teams_html, format_resolved_content_markdown, format_section_error, graph_dt_to_aware_iso
+from ..formatters import (
+    _strip_teams_html,
+    format_resolved_content_markdown,
+    format_section_error,
+    graph_dt_to_aware_iso,
+)
 from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ..resolver import ResolvedUrl, UrlParseError, build_chat_thread_url, resolve_url

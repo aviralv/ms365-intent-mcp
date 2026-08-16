@@ -1,6 +1,5 @@
 """Tests for my_day composer — partial failure and formatting."""
 
-import asyncio
 from unittest.mock import AsyncMock
 
 import pytest

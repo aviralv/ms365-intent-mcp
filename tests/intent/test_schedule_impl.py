@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.intent._shared import ErrorResponse
 from ms365_intent_mcp.intent.schedule.impl import _schedule_impl
 from ms365_intent_mcp.intent.schedule.schemas import SchedulePayload, ScheduleSuggestions
-from ms365_intent_mcp.graph import GraphAPIError
 
 
 def _mock_ctx():

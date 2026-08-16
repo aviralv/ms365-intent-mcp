@@ -1,17 +1,17 @@
 import base64 as _b64
 from pathlib import Path
-
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
 from ms365_intent_mcp.composers.attachments import (
+    _ENUM_MAX_PAGES,
+    MAX_ATTACHMENT_BYTES,
     body_has_cid,
     classify_attachment,
     download_attachments,
     enumerate_attachments,
     safe_filename,
-    MAX_ATTACHMENT_BYTES,
-    _ENUM_MAX_PAGES,
 )
 from ms365_intent_mcp.graph import GraphAPIError
 

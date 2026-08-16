@@ -15,12 +15,12 @@ class PermissionRegistry:
         self._scopes = set(scopes)
 
     @classmethod
-    def from_token(cls, access_token: str) -> "PermissionRegistry":
+    def from_token(cls, access_token: str) -> PermissionRegistry:
         scopes = cls._decode_scopes(access_token)
         return cls(scopes)
 
     @classmethod
-    def from_token_provider(cls, token_provider: Callable[[], str | None]) -> "LazyPermissionRegistry":
+    def from_token_provider(cls, token_provider: Callable[[], str | None]) -> LazyPermissionRegistry:
         return LazyPermissionRegistry(token_provider)
 
     @staticmethod

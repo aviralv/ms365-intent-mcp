@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ms365_intent_mcp.intent._helpers import idempotency_clear, idempotency_lookup, idempotency_store
+from ms365_intent_mcp.intent._helpers import (
+    idempotency_clear,
+    idempotency_lookup,
+    idempotency_store,
+)
 from ms365_intent_mcp.intent.compose.impl import _compose_impl, _handle_email
 from ms365_intent_mcp.intent.compose.schemas import (
     ComposeEmail,

@@ -57,7 +57,8 @@ async def _meeting_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail:
             pass
 
     # Parse datetimes — use a fallback for empty strings
-    from datetime import datetime, timezone as _tz
+    from datetime import datetime
+    from datetime import timezone as _tz
 
     def _parse_dt(s: str):
         if not s:

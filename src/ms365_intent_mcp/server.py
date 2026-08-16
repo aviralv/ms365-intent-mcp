@@ -67,6 +67,7 @@ mcp = FastMCP(
 )
 
 from .intent import register_all as _register_intent_surface
+
 _register_intent_surface(mcp)
 
 

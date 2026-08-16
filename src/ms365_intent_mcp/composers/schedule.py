@@ -1,7 +1,7 @@
 """schedule composer — find meeting times via POST /me/findMeetingTimes."""
 
 from ..formatters import format_meeting_times_markdown, format_section_error, graph_dt_to_aware_iso
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ._utils import _error_reason
 

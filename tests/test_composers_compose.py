@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from ms365_intent_mcp.composers.compose import compose_action, ComposeType
+from ms365_intent_mcp.composers.compose import ComposeType, compose_action
 from ms365_intent_mcp.permissions import PermissionRegistry
 
 

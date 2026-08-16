@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable, Coroutine
 from enum import Enum
-from typing import Callable, Coroutine, TypeVar
+from typing import TypeVar
 
 import httpx
 

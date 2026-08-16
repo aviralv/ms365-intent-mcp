@@ -5,9 +5,9 @@ and pure date values fail datetime coercion), and PASS after.
 """
 import datetime as _dt
 
-from ms365_intent_mcp.intent.whats_new.schemas import EventSummary as WNEvent
 from ms365_intent_mcp.intent.my_day.schemas import EventSummary as MDEvent
 from ms365_intent_mcp.intent.schedule.schemas import TimeSlot
+from ms365_intent_mcp.intent.whats_new.schemas import EventSummary as WNEvent
 
 
 def test_whats_new_event_accepts_timezone_and_date():

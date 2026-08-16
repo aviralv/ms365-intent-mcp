@@ -4,7 +4,7 @@ import asyncio
 import html
 
 from ..formatters import _strip_teams_html, format_search_results_markdown, format_section_error
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ._utils import _error_reason, _list_user_chats, _prefilter_chats_by_query
 

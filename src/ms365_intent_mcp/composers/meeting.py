@@ -5,11 +5,10 @@ import urllib.parse
 from datetime import datetime, timedelta
 
 from ..formatters import format_event_detail_markdown, graph_dt_to_aware_iso
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ._utils import _escape_odata
 from .resolve import _enrich_call_recording
-
 
 _JOIN_THREAD_RE = re.compile(r"meetup-join/(19:[^/]+@thread\.v2)")
 

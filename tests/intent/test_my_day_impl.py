@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
+from ms365_intent_mcp.intent._shared import ErrorResponse
 from ms365_intent_mcp.intent.my_day.impl import _my_day_impl
 from ms365_intent_mcp.intent.my_day.schemas import (
     MailSummary,
@@ -13,7 +14,6 @@ from ms365_intent_mcp.intent.my_day.schemas import (
     MyDaySummary,
     TeamsActivitySummary,
 )
-from ms365_intent_mcp.intent._shared import ErrorResponse
 
 
 def _mock_ctx():

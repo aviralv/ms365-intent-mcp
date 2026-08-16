@@ -4,13 +4,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from ms365_intent_mcp.graph import GraphAPIError
+from ms365_intent_mcp.intent._shared import ErrorResponse
 from ms365_intent_mcp.intent.meeting.impl import _meeting_impl
 from ms365_intent_mcp.intent.meeting.schemas import (
     MeetingDetail,
     MeetingPayload,
 )
-from ms365_intent_mcp.intent._shared import ErrorResponse
-from ms365_intent_mcp.graph import GraphAPIError
 
 
 def _mock_ctx():

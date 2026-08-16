@@ -1,6 +1,11 @@
 """Tests for shared composer utilities."""
 
-from ms365_intent_mcp.composers._utils import _error_reason, _escape_odata, _build_mail_summary, NOISE_PATTERNS
+from ms365_intent_mcp.composers._utils import (
+    NOISE_PATTERNS,
+    _build_mail_summary,
+    _error_reason,
+    _escape_odata,
+)
 from ms365_intent_mcp.graph import GraphAPIError
 
 

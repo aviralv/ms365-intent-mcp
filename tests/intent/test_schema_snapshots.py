@@ -15,7 +15,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
 from pydantic import TypeAdapter
 
 from ms365_intent_mcp.intent._shared import ErrorResponse
@@ -28,33 +27,6 @@ from ms365_intent_mcp.intent.compose.schemas import (
     EventCreated,
     TeamsMessageSent,
 )
-from ms365_intent_mcp.intent.my_day.schemas import (
-    EventSummary,
-    MailSummary,
-    MyDayPayload,
-    MyDaySummary,
-    TeamsActivitySummary,
-)
-from ms365_intent_mcp.intent.meeting.schemas import (
-    AttendeeStatus,
-    MeetingDetail,
-    MeetingPayload,
-    OnlineMeetingInfo,
-    PersonRef,
-    RecordingMetadata,
-)
-from ms365_intent_mcp.intent.people.schemas import (
-    ChatPreview,
-    MailPreview,
-    PeoplePayload,
-    PersonDetail,
-)
-from ms365_intent_mcp.intent.schedule.schemas import (
-    ScheduleConstraints,
-    SchedulePayload,
-    ScheduleSuggestions,
-    TimeSlot,
-)
 from ms365_intent_mcp.intent.find.schemas import (
     EmailHit,
     FileHit,
@@ -64,12 +36,26 @@ from ms365_intent_mcp.intent.find.schemas import (
     PageHit,
     SearchHit,
 )
-from ms365_intent_mcp.intent.whats_new.schemas import (
-    EventSummary as WhatsNewEventSummary,
-    MailItem,
-    TeamsItem,
-    WhatsNewPayload,
-    WhatsNewSummary,
+from ms365_intent_mcp.intent.meeting.schemas import (
+    AttendeeStatus,
+    MeetingDetail,
+    MeetingPayload,
+    OnlineMeetingInfo,
+    PersonRef,
+    RecordingMetadata,
+)
+from ms365_intent_mcp.intent.my_day.schemas import (
+    EventSummary,
+    MailSummary,
+    MyDayPayload,
+    MyDaySummary,
+    TeamsActivitySummary,
+)
+from ms365_intent_mcp.intent.people.schemas import (
+    ChatPreview,
+    MailPreview,
+    PeoplePayload,
+    PersonDetail,
 )
 from ms365_intent_mcp.intent.resolve.schemas import (
     ChannelMessageContent,
@@ -78,10 +64,25 @@ from ms365_intent_mcp.intent.resolve.schemas import (
     EmailContent,
     MeetingContent,
     OneDriveFileContent,
-    ResolvePayload,
     ResolvedContent,
     ResolvedContentData,
+    ResolvePayload,
     SharePointPageContent,
+)
+from ms365_intent_mcp.intent.schedule.schemas import (
+    ScheduleConstraints,
+    SchedulePayload,
+    ScheduleSuggestions,
+    TimeSlot,
+)
+from ms365_intent_mcp.intent.whats_new.schemas import (
+    EventSummary as WhatsNewEventSummary,
+)
+from ms365_intent_mcp.intent.whats_new.schemas import (
+    MailItem,
+    TeamsItem,
+    WhatsNewPayload,
+    WhatsNewSummary,
 )
 
 _SNAPSHOT_DIR = Path(__file__).parent / "snapshots" / "schemas"

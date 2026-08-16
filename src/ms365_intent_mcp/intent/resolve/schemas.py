@@ -23,7 +23,6 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from .._shared import BaseResponse
 
-
 # ============================================================
 # Payload
 # ============================================================

@@ -1372,6 +1372,7 @@ class TestReplyContextExtraction:
 
     def test_reply_sender_falls_back_when_missing(self):
         import json as _json
+
         from ms365_intent_mcp.composers.resolve import _message_entry
         msg = {
             "createdDateTime": "2026-07-15T10:25:00Z",

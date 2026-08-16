@@ -6,7 +6,7 @@ from fastmcp import Context
 
 from ...composers.people import compose_people
 from .._helpers import _get_deps, wrap_errors
-from .schemas import MailPreview, ChatPreview, PeoplePayload, PersonDetail
+from .schemas import ChatPreview, MailPreview, PeoplePayload, PersonDetail
 
 TOOL_NAME = "people"
 

@@ -12,8 +12,8 @@ from ms365_intent_mcp.intent.resolve.schemas import (
     ChatThreadContent,
     EmailContent,
     OneDriveFileContent,
-    ResolvePayload,
     ResolvedContent,
+    ResolvePayload,
     SharePointPageContent,
 )
 

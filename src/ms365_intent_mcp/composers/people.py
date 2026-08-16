@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..formatters import format_people_markdown
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ._utils import _escape_odata, _list_user_chats, _prefilter_chats_by_query
 

@@ -13,10 +13,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from ms365_intent_mcp.composers.transcript import (
+    RECAP_LINK_HINT,
     _dest_path,
     _unresolved_reason,
     compose_transcript,
-    RECAP_LINK_HINT,
 )
 from ms365_intent_mcp.permissions import PermissionRegistry
 from ms365_intent_mcp.transcripts import Recording
