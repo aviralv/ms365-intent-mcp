@@ -103,14 +103,26 @@ class ComposeEvent(BaseModel):
         return self
 
 
+class FileAttachment(BaseModel):
+    """A reference attachment (link to an existing OneDrive/SharePoint file)."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: Annotated[str, Field(min_length=1, description="Display name (e.g. 'report.xlsx').")]
+    url: Annotated[str, Field(min_length=1, description="SharePoint or OneDrive URL of the file.")]
+
+
 class ComposeTeamsMessage(BaseModel):
-    """Send a Teams chat message."""
+    """Send a Teams chat message, optionally with file attachments."""
 
     model_config = ConfigDict(extra="forbid")
     type: Literal["teams_message"]
     chat_id: Annotated[str, Field(min_length=1)]
     content: Annotated[str, Field(min_length=1)]
     content_type: Literal["text", "html"] = "text"
+    attachments: list[FileAttachment] | None = Field(
+        default=None,
+        description="Optional file attachments (OneDrive/SharePoint URLs) to include.",
+    )
     idempotency_key: str | None = Field(default=None, min_length=1)
 
 

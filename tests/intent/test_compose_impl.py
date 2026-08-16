@@ -380,3 +380,63 @@ class TestHandleEmailForward:
         resp = await _handle_email(payload, client, perms)
         assert resp.type == "email_draft_created"
         assert client.post.call_args.args[0] == "/me/messages/m-1/createForward"
+
+
+class TestComposeTeamsMessageAttachments:
+    @pytest.mark.asyncio
+    async def test_attachments_passed_to_composer(self, monkeypatch):
+        ctx, _, _ = _mock_ctx()
+        captured_params = {}
+
+        async def _fake(client_arg, perms_arg, action_type, params):
+            captured_params.update(params)
+            return {
+                "message_id": "msg-789",
+                "chat_id": "19:abc@thread.v2",
+            }, "✅ Message sent to Teams chat with 1 attachment(s)."
+
+        monkeypatch.setattr(
+            "ms365_intent_mcp.intent.compose.impl.compose_action",
+            _fake,
+        )
+
+        payload = ComposeTeamsMessage.model_validate({
+            "type": "teams_message",
+            "chat_id": "19:abc@thread.v2",
+            "content": "Check this file",
+            "attachments": [
+                {"name": "report.xlsx", "url": "https://sp.com/report.xlsx"},
+            ],
+        })
+        response = await _compose_impl(ctx, payload)
+
+        assert isinstance(response, TeamsMessageSent)
+        assert captured_params["attachments"] == [
+            {"name": "report.xlsx", "url": "https://sp.com/report.xlsx"},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_no_attachments_omits_key(self, monkeypatch):
+        ctx, _, _ = _mock_ctx()
+        captured_params = {}
+
+        async def _fake(client_arg, perms_arg, action_type, params):
+            captured_params.update(params)
+            return {
+                "message_id": "msg-1",
+                "chat_id": "19:abc@thread.v2",
+            }, "✅ Message sent to Teams chat."
+
+        monkeypatch.setattr(
+            "ms365_intent_mcp.intent.compose.impl.compose_action",
+            _fake,
+        )
+
+        payload = ComposeTeamsMessage.model_validate({
+            "type": "teams_message",
+            "chat_id": "19:abc@thread.v2",
+            "content": "just text",
+        })
+        await _compose_impl(ctx, payload)
+
+        assert "attachments" not in captured_params

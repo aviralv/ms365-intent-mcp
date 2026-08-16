@@ -335,8 +335,24 @@
     },
     "ComposeTeamsMessage": {
       "additionalProperties": false,
-      "description": "Send a Teams chat message.",
+      "description": "Send a Teams chat message, optionally with file attachments.",
       "properties": {
+        "attachments": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/FileAttachment"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional file attachments (OneDrive/SharePoint URLs) to include.",
+          "title": "Attachments"
+        },
         "chat_id": {
           "minLength": 1,
           "title": "Chat Id",
@@ -381,6 +397,30 @@
         "content"
       ],
       "title": "ComposeTeamsMessage",
+      "type": "object"
+    },
+    "FileAttachment": {
+      "additionalProperties": false,
+      "description": "A reference attachment (link to an existing OneDrive/SharePoint file).",
+      "properties": {
+        "name": {
+          "description": "Display name (e.g. 'report.xlsx').",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "url": {
+          "description": "SharePoint or OneDrive URL of the file.",
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "url"
+      ],
+      "title": "FileAttachment",
       "type": "object"
     },
     "Recipient": {
