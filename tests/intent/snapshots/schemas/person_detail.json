@@ -68,6 +68,56 @@
       ],
       "title": "MailPreview",
       "type": "object"
+    },
+    "OutOfOfficeStatus": {
+      "additionalProperties": false,
+      "description": "Automatic-replies (OOO) status for a person.",
+      "properties": {
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        },
+        "scheduled_end": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduled End"
+        },
+        "scheduled_start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduled Start"
+        },
+        "status": {
+          "enum": [
+            "scheduled",
+            "alwaysEnabled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "OutOfOfficeStatus",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -101,6 +151,17 @@
     "name": {
       "title": "Name",
       "type": "string"
+    },
+    "out_of_office": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OutOfOfficeStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "recent_chat": {
       "anyOf": [

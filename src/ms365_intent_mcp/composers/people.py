@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..formatters import format_people_markdown
-from ..graph import GraphClient, GraphAPIError
+from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
 from ._utils import _escape_odata, _list_user_chats, _prefilter_chats_by_query
 
@@ -29,6 +29,32 @@ def _extract_email(record: dict) -> str:
     if upn and "#EXT#" not in upn:
         return upn
     return ""
+
+
+async def _fetch_automatic_replies(
+    client: GraphClient,
+    permissions: PermissionRegistry,
+    email: str,
+) -> dict | None:
+    """Fetch a user's automatic-replies (OOO) setting.
+
+    Returns the Graph response dict with keys: status, externalAudience,
+    scheduledStartDateTime, scheduledEndDateTime, internalReplyMessage,
+    externalReplyMessage. Returns None if the scope is missing, the user
+    isn't found, or any error occurs (graceful degradation).
+    """
+    if not email:
+        return None
+    scope_msg = permissions.check("MailboxSettings.Read")
+    if scope_msg:
+        return None
+    try:
+        result = await client.get(
+            f"/users/{email}/mailboxSettings/automaticRepliesSetting",
+        )
+        return result if result else None
+    except GraphAPIError:
+        return None
 
 
 async def compose_people(
@@ -87,7 +113,10 @@ async def compose_people(
 
     recent_chat = _find_chat_with_person(chats, display_name, email_addr)
 
-    markdown = format_people_markdown(query, people, recent_emails, recent_chat)
+    # OOO / automatic-replies signal
+    auto_replies = await _fetch_automatic_replies(client, permissions, email_addr)
+
+    markdown = format_people_markdown(query, people, recent_emails, recent_chat, auto_replies)
     data = {
         "name": display_name or query,
         "email": email_addr,
@@ -101,11 +130,16 @@ async def compose_people(
             for m in recent_emails
         ],
         "recent_chat": {
-            "body": ((recent_chat.get("lastMessagePreview") or {}).get("body") or {}).get("content", ""),
-            "last_message_at": (recent_chat.get("lastMessagePreview") or {}).get("createdDateTime"),
+            "body": (
+                (recent_chat.get("lastMessagePreview") or {}).get("body") or {}
+            ).get("content", ""),
+            "last_message_at": (
+                recent_chat.get("lastMessagePreview") or {}
+            ).get("createdDateTime"),
             "chat_id": recent_chat.get("id", ""),
             "chat_url": recent_chat.get("webUrl", ""),
         } if recent_chat else None,
+        "out_of_office": _build_ooo_data(auto_replies),
     }
     return data, markdown
 
@@ -242,3 +276,33 @@ async def _lookup_person(
         if any(_extract_email(p) for p in results):
             return results
     return []
+
+
+def _build_ooo_data(auto_replies: dict | None) -> dict | None:
+    """Convert Graph automaticRepliesSetting into structured OOO data.
+
+    Returns None when auto-replies are disabled or unavailable.
+    """
+    if not auto_replies:
+        return None
+    status = auto_replies.get("status", "disabled")
+    if status == "disabled":
+        return None
+    scheduled_start = (auto_replies.get("scheduledStartDateTime") or {}).get("dateTime")
+    scheduled_end = (auto_replies.get("scheduledEndDateTime") or {}).get("dateTime")
+    internal_msg = auto_replies.get("internalReplyMessage") or ""
+    external_msg = auto_replies.get("externalReplyMessage") or ""
+    return {
+        "status": status,
+        "scheduled_start": scheduled_start,
+        "scheduled_end": scheduled_end,
+        "message": _strip_html_simple(internal_msg or external_msg),
+    }
+
+
+def _strip_html_simple(html: str) -> str:
+    """Minimal HTML tag stripping for OOO messages."""
+    import re
+
+    text = re.sub(r"<[^>]+>", " ", html)
+    return " ".join(text.split()).strip()[:300]

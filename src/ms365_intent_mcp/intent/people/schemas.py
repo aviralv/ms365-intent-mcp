@@ -4,7 +4,7 @@ Single payload: ``PeoplePayload``.
 
 Response model: ``PersonDetail`` (extends ``BaseResponse``).
 
-Nested types: ``MailPreview``, ``ChatPreview``.
+Nested types: ``MailPreview``, ``ChatPreview``, ``OutOfOfficeStatus``.
 
 Note: ``EmailStr`` is available (pydantic[email] is installed as a
 transitive dep via fastmcp). If it ever becomes unavailable, replace
@@ -41,6 +41,16 @@ class ChatPreview(BaseModel):
     chat_url: str = ""
 
 
+class OutOfOfficeStatus(BaseModel):
+    """Automatic-replies (OOO) status for a person."""
+
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["scheduled", "alwaysEnabled"]
+    scheduled_start: datetime | None = None
+    scheduled_end: datetime | None = None
+    message: str = ""
+
+
 class PersonDetail(BaseResponse):
     """Structured person lookup result.
 
@@ -54,6 +64,7 @@ class PersonDetail(BaseResponse):
     name: str
     email: EmailStr | None = None
     job_title: str | None = None
+    out_of_office: OutOfOfficeStatus | None = None
     recent_mail: list[MailPreview]
     recent_chat: ChatPreview | None = None
     rendered_markdown: str
