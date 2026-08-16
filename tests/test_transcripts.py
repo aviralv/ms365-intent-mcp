@@ -480,7 +480,7 @@ def test_parse_url_recap_link_extracts_drive_and_item_from_query():
     assert p.filename == ""
 
 
-def test_parse_url_recap_link_works_without_fileUrl():
+def test_parse_url_recap_link_works_without_fileUrl():  # noqa: N802
     url = "https://teams.microsoft.com/l/meetingrecap?driveId=b%21abc123&driveItemId=01XYZ"
     p = parse_recording_url(url)
     assert p is not None

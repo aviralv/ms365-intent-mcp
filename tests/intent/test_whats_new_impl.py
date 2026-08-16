@@ -1,6 +1,6 @@
 """Unit tests for _whats_new_impl — mocked context, no FastMCP."""
 
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

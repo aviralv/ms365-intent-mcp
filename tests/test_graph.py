@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from ms365_intent_mcp.graph import GraphAPIError
@@ -105,8 +106,6 @@ class TestGetAll:
         assert items == []
         assert has_more is False
 
-
-import httpx
 
 
 class TestGetContent:

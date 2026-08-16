@@ -4,7 +4,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from ms365_intent_mcp.composers.find import _fetch_chat_messages, _list_user_chats, compose_find
+from ms365_intent_mcp.composers.find import (
+    _fetch_chat_messages,
+    _list_user_chats,
+    _prefilter_chats_by_query,
+    compose_find,
+)
 from ms365_intent_mcp.graph import GraphAPIError
 from ms365_intent_mcp.permissions import PermissionRegistry
 
@@ -292,7 +297,6 @@ def _mock_search_response(query: str) -> dict:
     }
 
 
-from ms365_intent_mcp.composers.find import _prefilter_chats_by_query
 
 
 class TestPrefilterChatsByQuery:

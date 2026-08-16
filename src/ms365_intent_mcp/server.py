@@ -66,7 +66,7 @@ mcp = FastMCP(
     lifespan=lifespan,
 )
 
-from .intent import register_all as _register_intent_surface
+from .intent import register_all as _register_intent_surface  # noqa: E402
 
 _register_intent_surface(mcp)
 

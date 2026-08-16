@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC
+
 from fastmcp import Context
 
 from ...composers.meeting import compose_meeting
@@ -14,7 +16,6 @@ from .schemas import (
     PersonRef,
     RecordingMetadata,
 )
-from datetime import UTC
 
 TOOL_NAME = "meeting"
 
@@ -59,7 +60,6 @@ async def _meeting_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail:
 
     # Parse datetimes — use a fallback for empty strings
     from datetime import datetime
-    from datetime import timezone as _tz
 
     def _parse_dt(s: str):
         if not s:
