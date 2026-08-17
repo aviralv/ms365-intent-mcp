@@ -98,6 +98,10 @@ async def compose_people(
     else:
         email_addr = _extract_email(person)
 
+    # For OOO lookup, always use the first match's email — OOO is read-only
+    # and safe even with ambiguity (no send risk).
+    ooo_email = _extract_email(person) if not email_addr else email_addr
+
     recent_emails: list[dict] = []
     if email_addr and permissions.has("Mail.Read"):
         try:
@@ -117,7 +121,7 @@ async def compose_people(
     recent_chat = _find_chat_with_person(chats, display_name, email_addr)
 
     # OOO / automatic-replies signal
-    auto_replies = await _fetch_automatic_replies(client, permissions, email_addr)
+    auto_replies = await _fetch_automatic_replies(client, permissions, ooo_email)
 
     markdown = format_people_markdown(query, people, recent_emails, recent_chat, auto_replies)
     data = {
