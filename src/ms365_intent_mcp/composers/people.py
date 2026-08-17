@@ -34,26 +34,41 @@ def _extract_email(record: dict) -> str:
 async def _fetch_automatic_replies(
     client: GraphClient,
     permissions: PermissionRegistry,
-    email: str,
+    emails: list[str],
 ) -> dict | None:
-    """Fetch a user's automatic-replies (OOO) setting.
+    """Fetch automatic-replies (OOO) status via getMailTips.
 
-    Returns the Graph response dict with keys: status, externalAudience,
-    scheduledStartDateTime, scheduledEndDateTime, internalReplyMessage,
-    externalReplyMessage. Returns None if the scope is missing, the user
-    isn't found, or any error occurs (graceful degradation).
+    Uses POST /me/getMailTips which works cross-user with Mail.Read
+    (unlike /users/{id}/mailboxSettings which needs admin consent).
+    Accepts a list of candidate emails and returns the first active
+    auto-reply found, or None if none are active or the call fails.
     """
-    if not email:
+    if not emails:
         return None
-    scope_msg = permissions.check("MailboxSettings.Read")
+    scope_msg = permissions.check("Mail.Read")
     if scope_msg:
         return None
     try:
-        result = await client.get(
-            f"/users/{email}/mailboxSettings/automaticRepliesSetting",
+        result = await client.post(
+            "/me/getMailTips",
+            {
+                "EmailAddresses": emails,
+                "MailTipsOptions": "automaticReplies",
+            },
         )
-        return result if result else None
-    except GraphAPIError:
+        if not isinstance(result, dict):
+            return None
+        for tip in result.get("value", []):
+            auto = tip.get("automaticReplies") or {}
+            message = auto.get("message", "")
+            if message:
+                return {
+                    "status": "alwaysEnabled",
+                    "message": message,
+                    "email": (tip.get("emailAddress") or {}).get("address", ""),
+                }
+        return None
+    except (GraphAPIError, AttributeError, TypeError):
         return None
 
 
@@ -98,6 +113,14 @@ async def compose_people(
     else:
         email_addr = _extract_email(person)
 
+    # For OOO lookup, try all matches' emails (read-only, no send risk).
+    # The first successful response wins. This handles the common case where
+    # the same person has entries on different tenants (e.g. @leanix.net +
+    # @sap.com) — only the same-tenant one will return data.
+    ooo_emails = [_extract_email(p) for p in people if _extract_email(p)]
+    if email_addr and email_addr not in ooo_emails:
+        ooo_emails.insert(0, email_addr)
+
     recent_emails: list[dict] = []
     if email_addr and permissions.has("Mail.Read"):
         try:
@@ -116,8 +139,8 @@ async def compose_people(
 
     recent_chat = _find_chat_with_person(chats, display_name, email_addr)
 
-    # OOO / automatic-replies signal
-    auto_replies = await _fetch_automatic_replies(client, permissions, email_addr)
+    # OOO / automatic-replies signal — pass all candidate emails in one call
+    auto_replies = await _fetch_automatic_replies(client, permissions, ooo_emails)
 
     markdown = format_people_markdown(query, people, recent_emails, recent_chat, auto_replies)
     data = {
@@ -293,24 +316,22 @@ async def _lookup_person(
 
 
 def _build_ooo_data(auto_replies: dict | None) -> dict | None:
-    """Convert Graph automaticRepliesSetting into structured OOO data.
+    """Convert getMailTips auto-reply data into structured OOO data.
 
-    Returns None when auto-replies are disabled or unavailable.
+    Returns None when auto-replies are not active or unavailable.
+    The input shape (from _fetch_automatic_replies) is:
+    {"status": "alwaysEnabled", "message": "<html>...</html>", "email": "..."}
     """
     if not auto_replies:
         return None
     status = auto_replies.get("status", "disabled")
     if status == "disabled":
         return None
-    scheduled_start = (auto_replies.get("scheduledStartDateTime") or {}).get("dateTime")
-    scheduled_end = (auto_replies.get("scheduledEndDateTime") or {}).get("dateTime")
-    internal_msg = auto_replies.get("internalReplyMessage") or ""
-    external_msg = auto_replies.get("externalReplyMessage") or ""
     return {
         "status": status,
-        "scheduled_start": scheduled_start,
-        "scheduled_end": scheduled_end,
-        "message": _strip_html_simple(internal_msg or external_msg),
+        "scheduled_start": None,
+        "scheduled_end": None,
+        "message": _strip_html_simple(auto_replies.get("message", "")),
     }
 
 
