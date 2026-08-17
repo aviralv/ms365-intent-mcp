@@ -98,9 +98,13 @@ async def compose_people(
     else:
         email_addr = _extract_email(person)
 
-    # For OOO lookup, always use the first match's email — OOO is read-only
-    # and safe even with ambiguity (no send risk).
-    ooo_email = _extract_email(person) if not email_addr else email_addr
+    # For OOO lookup, try all matches' emails (read-only, no send risk).
+    # The first successful response wins. This handles the common case where
+    # the same person has entries on different tenants (e.g. @leanix.net +
+    # @sap.com) — only the same-tenant one will return data.
+    ooo_emails = [_extract_email(p) for p in people if _extract_email(p)]
+    if email_addr and email_addr not in ooo_emails:
+        ooo_emails.insert(0, email_addr)
 
     recent_emails: list[dict] = []
     if email_addr and permissions.has("Mail.Read"):
@@ -120,8 +124,12 @@ async def compose_people(
 
     recent_chat = _find_chat_with_person(chats, display_name, email_addr)
 
-    # OOO / automatic-replies signal
-    auto_replies = await _fetch_automatic_replies(client, permissions, ooo_email)
+    # OOO / automatic-replies signal — try each candidate email until one succeeds
+    auto_replies = None
+    for ooo_email in ooo_emails:
+        auto_replies = await _fetch_automatic_replies(client, permissions, ooo_email)
+        if auto_replies:
+            break
 
     markdown = format_people_markdown(query, people, recent_emails, recent_chat, auto_replies)
     data = {
