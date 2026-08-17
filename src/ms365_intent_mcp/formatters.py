@@ -479,27 +479,13 @@ def format_people_markdown(
         lines.append(f"📧 {email_addr}")
     # OOO status
     if auto_replies and auto_replies.get("status", "disabled") != "disabled":
-        ooo_status = auto_replies["status"]
         lines.append("")
-        if ooo_status == "alwaysEnabled":
-            lines.append("🏖️ **Out of Office** (always enabled)")
-        else:
-            start = (auto_replies.get("scheduledStartDateTime") or {}).get("dateTime", "")
-            end = (auto_replies.get("scheduledEndDateTime") or {}).get("dateTime", "")
-            period = ""
-            if start and end:
-                period = f" ({start[:10]} → {end[:10]})"
-            elif start:
-                period = f" (from {start[:10]})"
-            lines.append(f"🏖️ **Out of Office**{period}")
+        lines.append("🏖️ **Out of Office**")
         # Show a brief OOO message if present
-        msg = (
-            auto_replies.get("internalReplyMessage")
-            or auto_replies.get("externalReplyMessage")
-            or ""
-        )
+        msg = auto_replies.get("message") or ""
         if msg:
             import re
+
             text = re.sub(r"<[^>]+>", " ", msg)
             text = " ".join(text.split()).strip()[:200]
             if text:

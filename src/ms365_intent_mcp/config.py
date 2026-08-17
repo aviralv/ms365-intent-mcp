@@ -37,7 +37,6 @@ class Config(BaseSettings):
             "Calendars.ReadWrite",
             "Mail.Read",
             "Mail.ReadWrite",
-            "MailboxSettings.Read",
             "Tasks.Read",
             "Files.Read",
             "Contacts.Read",
