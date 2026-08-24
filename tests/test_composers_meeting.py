@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from ms365_intent_mcp.composers.meeting import _resolve_recording_for_event, compose_meeting
+from ms365_intent_mcp.composers.meeting import (
+    _extract_recording_entry,
+    _resolve_recording_for_event,
+    compose_meeting,
+)
 from ms365_intent_mcp.permissions import PermissionRegistry
 
 
@@ -236,6 +240,132 @@ class TestResolveRecordingForEvent:
 
         assert result is not None
         assert result["recording_url"] == "https://new"
+
+
+class TestRecordingOccurrenceDateMatching:
+    """Recurring meetings share one chat thread; the recording must match the
+    requested occurrence's date, not just be the freshest overall (issue #79/#51)."""
+
+    def _msg(self, ts: str, display_name: str, url: str):
+        return {
+            "createdDateTime": ts,
+            "eventDetail": {
+                "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                "callRecordingStatus": "success",
+                "callRecordingUrl": url,
+                "callRecordingDisplayName": display_name,
+            },
+        }
+
+    def test_matches_recording_to_occurrence_date_not_freshest(self):
+        """The thread holds an older + a newer occurrence; requesting the older
+        date returns the older recording, flagged as matching."""
+        messages = [
+            self._msg(
+                "2026-05-18T11:07:24Z",
+                "Catch-up-20260518_110724-Meeting Recording.mp4",
+                "https://may18",
+            ),
+            self._msg(
+                "2026-08-24T09:05:00Z",
+                "Catch-up-20260824_090500-Meeting Recording.mp4",
+                "https://aug24",
+            ),
+        ]
+        entry = _extract_recording_entry(messages, occurrence_date="2026-05-18")
+        assert entry["recording_url"] == "https://may18"
+        assert entry["recording_date"] == "2026-05-18"
+        assert entry["occurrence_date"] == "2026-05-18"
+        assert entry["date_matches_occurrence"] is True
+
+    def test_flags_stale_when_no_recording_matches_occurrence(self):
+        """issue #79: only a May 18 recording exists in the thread but the
+        occurrence is Aug 24 — return the stale one flagged, not silently."""
+        messages = [
+            self._msg(
+                "2026-05-18T11:07:24Z",
+                "Catch-up-20260518_110724-Meeting Recording.mp4",
+                "https://may18",
+            ),
+        ]
+        entry = _extract_recording_entry(messages, occurrence_date="2026-08-24")
+        assert entry["recording_url"] == "https://may18"
+        assert entry["recording_date"] == "2026-05-18"
+        assert entry["occurrence_date"] == "2026-08-24"
+        assert entry["date_matches_occurrence"] is False
+
+    def test_picks_freshest_same_date_recording(self):
+        """Two recordings on the requested date — the freshest of that date wins."""
+        messages = [
+            self._msg(
+                "2026-08-24T09:05:00Z",
+                "Catch-up-20260824_090500-Meeting Recording.mp4",
+                "https://morning",
+            ),
+            self._msg(
+                "2026-08-24T15:30:00Z",
+                "Catch-up-20260824_153000-Meeting Recording.mp4",
+                "https://afternoon",
+            ),
+        ]
+        entry = _extract_recording_entry(messages, occurrence_date="2026-08-24")
+        assert entry["recording_url"] == "https://afternoon"
+        assert entry["date_matches_occurrence"] is True
+
+    def test_date_matches_none_when_occurrence_unknown(self):
+        """No occurrence date — can't evaluate the match; fall back to freshest."""
+        messages = [
+            self._msg(
+                "2026-05-18T11:07:24Z",
+                "Catch-up-20260518_110724-Meeting Recording.mp4",
+                "https://may18",
+            ),
+            self._msg(
+                "2026-08-24T09:05:00Z",
+                "Catch-up-20260824_090500-Meeting Recording.mp4",
+                "https://aug24",
+            ),
+        ]
+        entry = _extract_recording_entry(messages, occurrence_date="")
+        assert entry["recording_url"] == "https://aug24"
+        assert entry["date_matches_occurrence"] is None
+
+    @pytest.mark.asyncio
+    async def test_resolve_derives_occurrence_date_from_event_start(self):
+        """End-to-end: the occurrence date comes from the event's start, so a
+        thread carrying only an older occurrence is flagged stale."""
+        client = AsyncMock()
+        client.get = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "createdDateTime": "2026-05-18T11:07:24Z",
+                        "eventDetail": {
+                            "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                            "callRecordingStatus": "success",
+                            "callRecordingUrl": "https://may18",
+                            "callRecordingDisplayName": (
+                                "Catch-up-20260518_110724-Meeting Recording.mp4"
+                            ),
+                        },
+                    },
+                ]
+            }
+        )
+        with patch("ms365_intent_mcp.composers.meeting._enrich_call_recording") as enrich:
+            enrich.return_value = None
+            event = {
+                "isOnlineMeeting": True,
+                "start": {"dateTime": "2026-08-24T09:00:00", "timeZone": "UTC"},
+                "onlineMeeting": {
+                    "joinUrl": "https://teams.microsoft.com/l/meetup-join/19%3Ameeting_abc%40thread.v2/0",
+                },
+            }
+            result = await _resolve_recording_for_event(client, event)
+
+        assert result["occurrence_date"] == "2026-08-24"
+        assert result["recording_date"] == "2026-05-18"
+        assert result["date_matches_occurrence"] is False
 
 
 class TestMeetingDetailTimezones:

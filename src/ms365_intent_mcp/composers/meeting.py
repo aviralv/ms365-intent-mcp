@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from ..formatters import format_event_detail_markdown, graph_dt_to_aware_iso
 from ..graph import GraphAPIError, GraphClient
 from ..permissions import PermissionRegistry
+from ..transcripts import TEAMS_FILENAME_RE
 from ._utils import _escape_odata
 from .resolve import _enrich_call_recording
 
@@ -72,6 +73,9 @@ async def compose_meeting(
             "drive_item_id": recording.get("drive_item_id"),
             "owner_upn": recording.get("owner_upn"),
             "vroom_url": recording.get("vroom_url"),
+            "recording_date": recording.get("recording_date"),
+            "occurrence_date": recording.get("occurrence_date"),
+            "date_matches_occurrence": recording.get("date_matches_occurrence"),
         }
 
     start_iso, start_tz = graph_dt_to_aware_iso(event.get("start", {}))
@@ -121,7 +125,8 @@ async def _resolve_recording_for_event(client: GraphClient, event: dict) -> dict
         return None
 
     messages = (msgs or {}).get("value", [])
-    entry = _extract_recording_entry(messages)
+    occurrence_date = _event_occurrence_date(event)
+    entry = _extract_recording_entry(messages, occurrence_date)
     if not entry:
         return None
 
@@ -131,10 +136,50 @@ async def _resolve_recording_for_event(client: GraphClient, event: dict) -> dict
     return entry
 
 
-def _extract_recording_entry(messages: list[dict]) -> dict | None:
-    """Collapse callRecording events into a single entry with the freshest
-    success URL, transcript_ready flag, and initiator. Returns None if no
-    callRecording events are present."""
+def _event_occurrence_date(event: dict) -> str:
+    """Local (timezone-aware) calendar date of the event occurrence, ``YYYY-MM-DD``.
+
+    Returns "" when the event has no resolvable start — callers then skip
+    date-matching and fall back to freshest-recording selection.
+    """
+    start_iso, _ = graph_dt_to_aware_iso(event.get("start", {}))
+    return start_iso[:10] if start_iso else ""
+
+
+def _recording_date_from_name(display_name: str, fallback_ts: str) -> str:
+    """Date the recording was actually made, ``YYYY-MM-DD``.
+
+    Parsed from the Teams-generated filename (``-YYYYMMDD_HHMMSS-Meeting ...``),
+    which is the true meeting date. Falls back to the chat event's
+    ``createdDateTime`` when the display name doesn't follow the convention.
+    """
+    match = TEAMS_FILENAME_RE.match(display_name or "")
+    if match:
+        d = match.group(2)
+        return f"{d[:4]}-{d[4:6]}-{d[6:8]}"
+    return (fallback_ts or "")[:10]
+
+
+def _extract_recording_entry(
+    messages: list[dict], occurrence_date: str = ""
+) -> dict | None:
+    """Collapse callRecording events into a single entry for this occurrence.
+
+    Recurring meetings share one chat thread across all occurrences, so the
+    thread carries callRecording events for *every* recorded occurrence. We
+    can't pick 'freshest overall' — that returns a prior occurrence's file
+    (issue #79). Instead we match on the date embedded in each recording's
+    Teams filename:
+
+      * If a recording's date matches ``occurrence_date``, choose the freshest
+        of those (``date_matches_occurrence=True``).
+      * Otherwise fall back to the freshest recording in the thread and flag
+        ``date_matches_occurrence=False`` with its own ``recording_date`` so a
+        stale pick is a hard, visible signal, not silent wrong data (issue #51).
+
+    ``date_matches_occurrence`` is ``None`` when ``occurrence_date`` is unknown
+    (the match can't be evaluated). Returns None if no success recording exists.
+    """
     recording_events = [
         m
         for m in messages
@@ -148,26 +193,40 @@ def _extract_recording_entry(messages: list[dict]) -> dict | None:
     if not recording_events:
         return None
 
-    recording_url = ""
-    latest_success_ts = ""
-    display_name = ""
+    # (event_ts, recording_url, display_name, recording_date) per success event.
+    candidates: list[tuple[str, str, str, str]] = []
     for msg in recording_events:
         detail = msg.get("eventDetail") or {}
         status = (detail.get("callRecordingStatus") or "").lower()
+        url = detail.get("callRecordingUrl")
+        if status != "success" or not url:
+            continue
         event_ts = msg.get("createdDateTime", "")
-        if status == "success" and detail.get("callRecordingUrl"):
-            if event_ts > latest_success_ts:
-                latest_success_ts = event_ts
-                recording_url = detail["callRecordingUrl"]
-                display_name = detail.get("callRecordingDisplayName") or display_name
+        display_name = detail.get("callRecordingDisplayName") or ""
+        rec_date = _recording_date_from_name(display_name, event_ts)
+        candidates.append((event_ts, url, display_name, rec_date))
 
-    if not recording_url:
+    if not candidates:
         return None
+
+    same_date = [c for c in candidates if occurrence_date and c[3] == occurrence_date]
+    pool = same_date or candidates
+    # Freshest by chat-event timestamp within the chosen pool.
+    _, recording_url, display_name, recording_date = max(pool, key=lambda c: c[0])
+
+    date_matches: bool | None
+    if not occurrence_date:
+        date_matches = None
+    else:
+        date_matches = bool(same_date)
 
     return {
         "recording_url": recording_url,
         "display_name": display_name,
         "transcript_ready": bool(transcript_events),
+        "recording_date": recording_date,
+        "occurrence_date": occurrence_date or None,
+        "date_matches_occurrence": date_matches,
     }
 
 
