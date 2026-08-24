@@ -141,6 +141,14 @@ def _event_occurrence_date(event: dict) -> str:
 
     Returns "" when the event has no resolvable start — callers then skip
     date-matching and fall back to freshest-recording selection.
+
+    Note: this is the event's *own* timezone date (Graph populates
+    ``start.timeZone`` under the outlook.timezone Prefer header), compared
+    downstream against the Teams filename's *tenant-local* date. When the event
+    timezone and tenant timezone differ enough to straddle midnight, a correct
+    recording can be flagged ``date_matches_occurrence=False`` (a false-stale
+    warning). That's the safe failure mode — visible over-warning, never silent
+    wrong data — and rare for single-tenant same-tz usage.
     """
     start_iso, _ = graph_dt_to_aware_iso(event.get("start", {}))
     return start_iso[:10] if start_iso else ""
@@ -193,8 +201,8 @@ def _extract_recording_entry(
     if not recording_events:
         return None
 
-    # (event_ts, recording_url, display_name, recording_date) per success event.
-    candidates: list[tuple[str, str, str, str]] = []
+    # (event_ts, recording_url, display_name, recording_date, call_id) per success event.
+    candidates: list[tuple[str, str, str, str, str]] = []
     for msg in recording_events:
         detail = msg.get("eventDetail") or {}
         status = (detail.get("callRecordingStatus") or "").lower()
@@ -204,7 +212,8 @@ def _extract_recording_entry(
         event_ts = msg.get("createdDateTime", "")
         display_name = detail.get("callRecordingDisplayName") or ""
         rec_date = _recording_date_from_name(display_name, event_ts)
-        candidates.append((event_ts, url, display_name, rec_date))
+        call_id = detail.get("callId") or ""
+        candidates.append((event_ts, url, display_name, rec_date, call_id))
 
     if not candidates:
         return None
@@ -212,7 +221,7 @@ def _extract_recording_entry(
     same_date = [c for c in candidates if occurrence_date and c[3] == occurrence_date]
     pool = same_date or candidates
     # Freshest by chat-event timestamp within the chosen pool.
-    _, recording_url, display_name, recording_date = max(pool, key=lambda c: c[0])
+    _, recording_url, display_name, recording_date, call_id = max(pool, key=lambda c: c[0])
 
     date_matches: bool | None
     if not occurrence_date:
@@ -220,10 +229,23 @@ def _extract_recording_entry(
     else:
         date_matches = bool(same_date)
 
+    # Tie transcript_ready to the *chosen* recording via callId — a shared
+    # recurring thread carries transcripts for other occurrences, so a
+    # thread-wide bool would report ready for a stale/other recording (issue
+    # #79). Fall back to thread-wide only when the chosen recording has no
+    # callId to match against (older data), preserving prior behavior.
+    if call_id:
+        transcript_ready = any(
+            ((m.get("eventDetail") or {}).get("callId") or "") == call_id
+            for m in transcript_events
+        )
+    else:
+        transcript_ready = bool(transcript_events)
+
     return {
         "recording_url": recording_url,
         "display_name": display_name,
-        "transcript_ready": bool(transcript_events),
+        "transcript_ready": transcript_ready,
         "recording_date": recording_date,
         "occurrence_date": occurrence_date or None,
         "date_matches_occurrence": date_matches,

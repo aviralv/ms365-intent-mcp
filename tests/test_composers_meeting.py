@@ -330,6 +330,66 @@ class TestRecordingOccurrenceDateMatching:
         assert entry["recording_url"] == "https://aug24"
         assert entry["date_matches_occurrence"] is None
 
+    def test_recording_date_falls_back_to_created_ts_on_unparseable_name(self):
+        """A display name that doesn't follow the Teams convention falls back to
+        the chat event's createdDateTime date, and still matches by that date."""
+        messages = [
+            self._msg("2026-08-24T09:05:00Z", "adhoc-recording.mp4", "https://x"),
+        ]
+        entry = _extract_recording_entry(messages, occurrence_date="2026-08-24")
+        assert entry["recording_date"] == "2026-08-24"
+        assert entry["date_matches_occurrence"] is True
+
+    def test_transcript_ready_scoped_to_chosen_recording_by_call_id(self):
+        """issue #79: transcript_ready must reflect the *chosen* recording, not
+        any transcript in the shared recurring thread. A transcript for a
+        different occurrence's callId must not mark this one ready."""
+        messages = [
+            {
+                "createdDateTime": "2026-08-24T09:05:00Z",
+                "eventDetail": {
+                    "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                    "callRecordingStatus": "success",
+                    "callRecordingUrl": "https://aug24",
+                    "callRecordingDisplayName": "Catch-up-20260824_090500-Meeting Recording.mp4",
+                    "callId": "call-aug24",
+                },
+            },
+            {
+                "createdDateTime": "2026-05-18T11:10:00Z",
+                "eventDetail": {
+                    "@odata.type": "#microsoft.graph.callTranscriptEventMessageDetail",
+                    "callId": "call-may18",  # transcript for a DIFFERENT occurrence
+                },
+            },
+        ]
+        entry = _extract_recording_entry(messages, occurrence_date="2026-08-24")
+        assert entry["recording_url"] == "https://aug24"
+        assert entry["transcript_ready"] is False
+
+    def test_transcript_ready_true_when_call_id_matches_chosen_recording(self):
+        messages = [
+            {
+                "createdDateTime": "2026-08-24T09:05:00Z",
+                "eventDetail": {
+                    "@odata.type": "#microsoft.graph.callRecordingEventMessageDetail",
+                    "callRecordingStatus": "success",
+                    "callRecordingUrl": "https://aug24",
+                    "callRecordingDisplayName": "Catch-up-20260824_090500-Meeting Recording.mp4",
+                    "callId": "call-aug24",
+                },
+            },
+            {
+                "createdDateTime": "2026-08-24T09:40:00Z",
+                "eventDetail": {
+                    "@odata.type": "#microsoft.graph.callTranscriptEventMessageDetail",
+                    "callId": "call-aug24",
+                },
+            },
+        ]
+        entry = _extract_recording_entry(messages, occurrence_date="2026-08-24")
+        assert entry["transcript_ready"] is True
+
     @pytest.mark.asyncio
     async def test_resolve_derives_occurrence_date_from_event_start(self):
         """End-to-end: the occurrence date comes from the event's start, so a
