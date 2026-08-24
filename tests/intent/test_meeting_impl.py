@@ -117,6 +117,51 @@ class TestMeetingV1HappyPath:
         assert response.organizer.name == "Carol"
         assert response.attendees == []
 
+    @pytest.mark.asyncio
+    async def test_recording_with_occurrence_date_fields_survives_validation(self, monkeypatch):
+        """Regression: the recording dict now carries recording_date /
+        occurrence_date / date_matches_occurrence. These must be in the
+        RecordingMetadata schema (extra='forbid'), else model_validate raises
+        and the recording is silently swallowed to None (issue #79/#51)."""
+        ctx, _, _ = _mock_ctx()
+
+        async def _fake_compose(client, permissions, identifier, timezone):
+            return {
+                "id": "evt-recurring",
+                "subject": "Catch-up",
+                "start": "2026-08-24T09:00:00",
+                "end": "2026-08-24T09:30:00",
+                "organizer": {"name": "Avi", "email": "avi@example.com"},
+                "attendees": [],
+                "location": None,
+                "online_meeting": None,
+                "recording": {
+                    "recording_url": "https://sap-my.sharepoint.com/:v:/p/avi/IQ",
+                    "display_name": "Catch-up-20260518_110724-Meeting Recording.mp4",
+                    "transcript_ready": True,
+                    "drive_id": None,
+                    "drive_item_id": None,
+                    "owner_upn": None,
+                    "vroom_url": None,
+                    "recording_date": "2026-05-18",
+                    "occurrence_date": "2026-08-24",
+                    "date_matches_occurrence": False,
+                },
+            }, "## Catch-up\n"
+
+        monkeypatch.setattr(
+            "ms365_intent_mcp.intent.meeting.impl.compose_meeting",
+            _fake_compose,
+        )
+
+        payload = MeetingPayload(identifier="Catch-up")
+        response = await _meeting_impl(ctx, payload)
+
+        assert response.recording is not None, "recording must not be swallowed to None"
+        assert response.recording.recording_date == "2026-05-18"
+        assert response.recording.occurrence_date == "2026-08-24"
+        assert response.recording.date_matches_occurrence is False
+
 
 class TestMeetingV1PayloadValidation:
     def test_empty_identifier_rejected(self):
