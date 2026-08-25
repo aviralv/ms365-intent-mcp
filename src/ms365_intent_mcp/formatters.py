@@ -348,6 +348,19 @@ def format_event_detail_markdown(event: dict) -> str:
         display_name = recording.get("display_name")
         if display_name:
             lines.append(f"- name: {display_name}")
+        rec_date = recording.get("recording_date")
+        if rec_date:
+            lines.append(f"- date: {rec_date}")
+        # Hard staleness signal for recurring series: the thread's recording
+        # may be from a different occurrence than the one requested (issue #79/#51).
+        if recording.get("date_matches_occurrence") is False:
+            occ = recording.get("occurrence_date") or "this occurrence"
+            lines.append(
+                f"- ⚠️ **stale:** this recording is from {rec_date or 'another date'}, "
+                f"not this occurrence ({occ}). Recurring meetings share one chat thread — "
+                f"verify the date before using, or use `transcript(list=true)` to find the "
+                f"right occurrence."
+            )
         url = recording.get("recording_url")
         if url:
             lines.append(f"- link: {url}")

@@ -60,6 +60,13 @@ class RecordingMetadata(BaseModel):
     drive_item_id: str | None = None
     owner_upn: str | None = None
     vroom_url: HttpUrl | None = None
+    # Occurrence date-matching (issue #79/#51): recording_date is the recording's
+    # own date; date_matches_occurrence is False when the chosen recording is
+    # from a different occurrence than requested (None when the occurrence date
+    # couldn't be determined).
+    recording_date: str | None = None
+    occurrence_date: str | None = None
+    date_matches_occurrence: bool | None = None
 
 
 class MeetingDetail(BaseResponse):

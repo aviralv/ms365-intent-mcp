@@ -90,6 +90,18 @@
       "additionalProperties": false,
       "description": "Recording metadata surfaced when a meeting has a recording (issue #8).",
       "properties": {
+        "date_matches_occurrence": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date Matches Occurrence"
+        },
         "display_name": {
           "anyOf": [
             {
@@ -126,6 +138,18 @@
           "default": null,
           "title": "Drive Item Id"
         },
+        "occurrence_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Occurrence Date"
+        },
         "owner_upn": {
           "anyOf": [
             {
@@ -137,6 +161,18 @@
           ],
           "default": null,
           "title": "Owner Upn"
+        },
+        "recording_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recording Date"
         },
         "recording_url": {
           "format": "uri",
