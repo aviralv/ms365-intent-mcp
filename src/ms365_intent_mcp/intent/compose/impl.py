@@ -198,9 +198,7 @@ async def _handle_teams_message(
         "content_type": payload.content_type,
     }
     if payload.attachments:
-        params["attachments"] = [
-            {"name": a.name, "url": a.url} for a in payload.attachments
-        ]
+        params["attachments"] = [{"name": a.name, "url": a.url} for a in payload.attachments]
     data, markdown = await compose_action(client, permissions, ComposeType.TEAMS_MESSAGE, params)
 
     return TeamsMessageSent(

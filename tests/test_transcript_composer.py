@@ -9,6 +9,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
+from urllib.parse import urlencode
 
 import pytest
 
@@ -101,6 +102,47 @@ def test_unresolved_reason_names_missing_site_root():
 def test_unresolved_reason_falls_back_when_no_hint():
     msg = _unresolved_reason(hint="", site_root="", drive_id="", item_id="")
     assert msg  # non-empty; user-facing fallback
+
+
+# ---------- recap URL download: both Teams browser hosts ----------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+async def test_recap_url_downloads_using_sharepoint_coordinates(host, tmp_path, full_permissions):
+    site_root = "https://sap-my.sharepoint.com/personal/u"
+    query = urlencode(
+        {
+            "driveId": "b!drv",
+            "driveItemId": "01XYZ",
+            "fileUrl": f"{site_root}/Documents/Recordings/Sync.mp4",
+        }
+    )
+    graph = AsyncMock()
+    vroom = AsyncMock()
+    vroom.list_transcripts.return_value = [{"id": "tx123"}]
+    content = "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n<v Avi>Hello\n"
+
+    async def download(site, drive, item, transcript, dest):
+        assert (site, drive, item, transcript) == (site_root, "b!drv", "01XYZ", "tx123")
+        Path(dest).write_text(content)
+        return len(content.encode())
+
+    vroom.download_transcript_to_file.side_effect = download
+    data, _ = await compose_transcript(
+        graph,
+        vroom,
+        full_permissions,
+        url=f"https://{host}/l/meetingrecap?{query}",
+        name=None,
+        output_dir=str(tmp_path),
+    )
+    assert data["status"] == "ok"
+    assert Path(data["file_path"]).read_text() == content
+    assert data["has_speaker_tags"] is True
+    vroom.list_transcripts.assert_awaited_once_with(site_root, "b!drv", "01XYZ")
+    graph.get.assert_not_awaited()
+    graph.post.assert_not_awaited()
 
 
 # ---------- list mode (ferret `list` parity) ----------

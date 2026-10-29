@@ -462,14 +462,16 @@ class TestComposeTeamsMessageAttachments:
             _fake,
         )
 
-        payload = ComposeTeamsMessage.model_validate({
-            "type": "teams_message",
-            "chat_id": "19:abc@thread.v2",
-            "content": "Check this file",
-            "attachments": [
-                {"name": "report.xlsx", "url": "https://sp.com/report.xlsx"},
-            ],
-        })
+        payload = ComposeTeamsMessage.model_validate(
+            {
+                "type": "teams_message",
+                "chat_id": "19:abc@thread.v2",
+                "content": "Check this file",
+                "attachments": [
+                    {"name": "report.xlsx", "url": "https://sp.com/report.xlsx"},
+                ],
+            }
+        )
         response = await _compose_impl(ctx, payload)
 
         assert isinstance(response, TeamsMessageSent)
@@ -494,11 +496,13 @@ class TestComposeTeamsMessageAttachments:
             _fake,
         )
 
-        payload = ComposeTeamsMessage.model_validate({
-            "type": "teams_message",
-            "chat_id": "19:abc@thread.v2",
-            "content": "just text",
-        })
+        payload = ComposeTeamsMessage.model_validate(
+            {
+                "type": "teams_message",
+                "chat_id": "19:abc@thread.v2",
+                "content": "just text",
+            }
+        )
         await _compose_impl(ctx, payload)
 
         assert "attachments" not in captured_params

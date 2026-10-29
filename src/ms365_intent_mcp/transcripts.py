@@ -18,6 +18,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import parse_qs, unquote, urlparse
 
+from .teams_urls import is_teams_url
+
 # Teams-generated filename pattern, e.g.
 #   "Sprint Review-20260518_130242-Meeting Recording.mp4"
 # Group 1 captures the meeting name prefix; group 2 the YYYYMMDD_HHMMSS
@@ -236,7 +238,8 @@ def parse_recording_url(url: str) -> ParsedRecordingUrl | None:
       1. Direct `/drives/{driveId}/items/{itemId}/...` (Vroom or Graph)
       2. Sharable `/:v:/r/<site>/Documents/Recordings/<filename>?...`
       3. `_layouts/15/onedrive.aspx?id=<encoded-path>`
-      4. `teams.microsoft.com/l/meetingrecap?driveId=...&driveItemId=...`
+      4. Teams `/l/meetingrecap?driveId=...&driveItemId=...` on either
+         `teams.microsoft.com` or `teams.cloud.microsoft`
          — Teams "Copy link" output on the recap chiclet.
       5. `/:v:/p/<user>/<share-id>` short share URL — emitted by Teams
          chat recording events (`callRecordingUrl`). The share-id is
@@ -253,12 +256,10 @@ def parse_recording_url(url: str) -> ParsedRecordingUrl | None:
     if not parsed.scheme.startswith("http"):
         return None
 
-    # Shape 4: Teams recap link. Detected by hostname, not site segment —
-    # `teams.microsoft.com` URLs don't have `/personal/` or `/sites/` in
-    # them, so we check this BEFORE the site_segment guard below would
-    # reject the URL. The recap link encodes everything we need in query
-    # params; site_root gets derived from the embedded fileUrl.
-    if "teams.microsoft.com/l/meetingrecap" in url:
+    # Shape 4: Teams recap link. Check both exact browser hosts before the
+    # site-segment guard: recap URLs have no /personal/ or /sites/ segment.
+    # The query carries drive/item IDs and an embedded SharePoint fileUrl.
+    if is_teams_url(url) and parsed.path == "/l/meetingrecap":
         qs = parse_qs(parsed.query)
         drive_id = qs.get("driveId", [""])[0]
         item_id = qs.get("driveItemId", [""])[0]

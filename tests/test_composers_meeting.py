@@ -111,7 +111,8 @@ class TestResolveRecordingForEvent:
         client.get.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_extracts_thread_from_join_url_and_calls_chat(self):
+    @pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+    async def test_extracts_thread_from_join_url_and_calls_chat(self, host):
         """The joinUrl carries the same threadId that chatInfo would give us."""
         client = AsyncMock()
         client.get = AsyncMock(
@@ -136,8 +137,7 @@ class TestResolveRecordingForEvent:
                 "isOnlineMeeting": True,
                 "onlineMeeting": {
                     "joinUrl": (
-                        "https://teams.microsoft.com/l/meetup-join/"
-                        "19%3Ameeting_abc%40thread.v2/0?context=..."
+                        f"https://{host}/l/meetup-join/19%3Ameeting_abc%40thread.v2/0?context=..."
                     ),
                 },
             }

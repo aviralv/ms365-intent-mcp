@@ -253,12 +253,14 @@ async def _send_teams_message(client: GraphClient, params: dict) -> tuple[dict, 
     graph_attachments = []
     for i, att in enumerate(attachments):
         att_id = f"file-{i}"
-        graph_attachments.append({
-            "id": att_id,
-            "contentType": "reference",
-            "contentUrl": att["url"],
-            "name": att["name"],
-        })
+        graph_attachments.append(
+            {
+                "id": att_id,
+                "contentType": "reference",
+                "contentUrl": att["url"],
+                "name": att["name"],
+            }
+        )
 
     # If attachments are present, ensure content_type is html (attachment tags are HTML)
     if graph_attachments and content_type == "text":

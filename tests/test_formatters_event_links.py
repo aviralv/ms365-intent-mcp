@@ -1,5 +1,7 @@
 """Tests for _extract_event_links — absolute-only, deduped, joinUrl-filtered."""
 
+import pytest
+
 from ms365_intent_mcp.formatters import _extract_event_links
 
 
@@ -20,8 +22,9 @@ def test_drops_relative_links():
     assert _extract_event_links(html, _event()) == ["https://ok.example.com"]
 
 
-def test_removes_event_join_url():
-    join = "https://teams.microsoft.com/l/meetup-join/19:abc@thread.v2/0"
+@pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+def test_removes_event_join_url(host):
+    join = f"https://{host}/l/meetup-join/19:abc@thread.v2/0"
     html = f'<a href="{join}">Join</a> <a href="https://wiki.example.com/x">Spec</a>'
     assert _extract_event_links(html, _event(join)) == ["https://wiki.example.com/x"]
 
@@ -35,15 +38,16 @@ def test_empty_body_returns_empty():
     assert _extract_event_links("", _event()) == []
 
 
-def test_filters_teams_boilerplate_links():
+@pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+def test_filters_teams_boilerplate_links(host):
     """Teams-invite boilerplate URLs (help, dial-in, meeting-options, meet,
     meetup-join) are noise — only the substantive link survives."""
     html = (
         '<a href="https://aka.ms/JoinTeamsMeeting?omkt=en-US">Need help?</a>'
         '<a href="https://dialin.teams.microsoft.com/ba77?id=1">Find a local number</a>'
-        '<a href="https://teams.microsoft.com/meetingOptions/?organizerId=x">Meeting options</a>'
-        '<a href="https://teams.microsoft.com/meet/369947989999958?p=abc">Join</a>'
-        '<a href="https://teams.microsoft.com/l/meetup-join/19:abc@thread.v2/0">'
+        f'<a href="https://{host}/meetingOptions/?organizerId=x">Meeting options</a>'
+        f'<a href="https://{host}/meet/369947989999958?p=abc">Join</a>'
+        f'<a href="https://{host}/l/meetup-join/19:abc@thread.v2/0">'
         "System reference</a>"
         '<a href="https://leanix.atlassian.net/wiki/spaces/NOVA/pages/9772893179/Knowledge+Cafe">'
         "Agenda</a>"
@@ -51,6 +55,20 @@ def test_filters_teams_boilerplate_links():
     assert _extract_event_links(html, _event()) == [
         "https://leanix.atlassian.net/wiki/spaces/NOVA/pages/9772893179/Knowledge+Cafe",
     ]
+
+
+@pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+def test_preserves_substantive_teams_links(host):
+    url = f"https://{host}/l/message/19:abc@thread.v2/123456"
+    assert _extract_event_links(f'<a href="{url}">Discussion</a>', _event()) == [url]
+
+
+@pytest.mark.parametrize(
+    "host", ["teams.cloud.microsoft.evil.example", "evilteams.cloud.microsoft"]
+)
+def test_does_not_filter_boilerplate_paths_on_other_hosts(host):
+    url = f"https://{host}/meetingOptions/?organizerId=x"
+    assert _extract_event_links(f'<a href="{url}">Spec</a>', _event()) == [url]
 
 
 def test_decodes_html_entities_in_url():

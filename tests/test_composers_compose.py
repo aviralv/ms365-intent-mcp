@@ -141,7 +141,9 @@ class TestComposeTeamsMessage:
         assert len(call_payload["attachments"]) == 2
         assert call_payload["attachments"][0]["contentType"] == "reference"
         assert call_payload["attachments"][0]["name"] == "report.xlsx"
-        assert call_payload["attachments"][0]["contentUrl"] == "https://sp.com/sites/team/report.xlsx"
+        assert (
+            call_payload["attachments"][0]["contentUrl"] == "https://sp.com/sites/team/report.xlsx"
+        )
         # Attachment tags in body
         assert '<attachment id="file-0"></attachment>' in call_payload["body"]["content"]
         assert '<attachment id="file-1"></attachment>' in call_payload["body"]["content"]

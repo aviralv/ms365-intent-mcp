@@ -168,9 +168,7 @@ def _recording_date_from_name(display_name: str, fallback_ts: str) -> str:
     return (fallback_ts or "")[:10]
 
 
-def _extract_recording_entry(
-    messages: list[dict], occurrence_date: str = ""
-) -> dict | None:
+def _extract_recording_entry(messages: list[dict], occurrence_date: str = "") -> dict | None:
     """Collapse callRecording events into a single entry for this occurrence.
 
     Recurring meetings share one chat thread across all occurrences, so the
@@ -236,8 +234,7 @@ def _extract_recording_entry(
     # callId to match against (older data), preserving prior behavior.
     if call_id:
         transcript_ready = any(
-            ((m.get("eventDetail") or {}).get("callId") or "") == call_id
-            for m in transcript_events
+            ((m.get("eventDetail") or {}).get("callId") or "") == call_id for m in transcript_events
         )
     else:
         transcript_ready = bool(transcript_events)
