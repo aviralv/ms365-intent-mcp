@@ -462,9 +462,10 @@ def test_parse_url_explicitly_rejects_xplatplugins():
 # ---------- parse_recording_url: Shape 4 (Teams recap link) ----------
 
 
-def test_parse_url_recap_link_extracts_drive_and_item_from_query():
+@pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+def test_parse_url_recap_link_extracts_drive_and_item_from_query(host):
     url = (
-        "https://teams.microsoft.com/l/meetingrecap"
+        f"https://{host}/l/meetingrecap"
         "?driveId=b%21abc123"
         "&driveItemId=01XYZ"
         "&fileUrl=https%3A%2F%2Fsap-my.sharepoint.com%2Fpersonal%2Faviral_vaid_sap_com"
@@ -480,8 +481,9 @@ def test_parse_url_recap_link_extracts_drive_and_item_from_query():
     assert p.filename == ""
 
 
-def test_parse_url_recap_link_works_without_fileUrl():  # noqa: N802
-    url = "https://teams.microsoft.com/l/meetingrecap?driveId=b%21abc123&driveItemId=01XYZ"
+@pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+def test_parse_url_recap_link_works_without_fileUrl(host):  # noqa: N802
+    url = f"https://{host}/l/meetingrecap?driveId=b%21abc123&driveItemId=01XYZ"
     p = parse_recording_url(url)
     assert p is not None
     assert p.drive_id == "b!abc123"
@@ -489,8 +491,24 @@ def test_parse_url_recap_link_works_without_fileUrl():  # noqa: N802
     assert p.site_root == ""  # no fileUrl means no derivable site_root
 
 
-def test_parse_url_recap_link_without_ids_returns_none():
-    url = "https://teams.microsoft.com/l/meetingrecap?threadId=19%3Ameeting_abc%40thread.v2"
+@pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+def test_parse_url_recap_link_without_ids_returns_none(host):
+    url = f"https://{host}/l/meetingrecap?threadId=19%3Ameeting_abc%40thread.v2"
+    assert parse_recording_url(url) is None
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "https://teams.cloud.microsoft.evil.example",
+        "https://evilteams.cloud.microsoft",
+        "https://teams.microsoft.com.evil.example",
+        "https://evil.example/https://teams.microsoft.com",
+        "https://evil.example/?next=https://teams.microsoft.com",
+    ],
+)
+def test_parse_url_recap_rejects_lookalikes_and_embedded_urls(prefix):
+    url = f"{prefix}/l/meetingrecap?driveId=b%21abc123&driveItemId=01XYZ"
     assert parse_recording_url(url) is None
 
 

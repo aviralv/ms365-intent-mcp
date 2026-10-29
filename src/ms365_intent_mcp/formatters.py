@@ -4,8 +4,10 @@ import datetime as _dt
 import html
 import logging
 import re
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .teams_urls import is_teams_url
 from .windows_tz import windows_to_iana
 
 logger = logging.getLogger(__name__)
@@ -103,18 +105,12 @@ def _anchor_to_markdown(match: re.Match) -> str:
 
 _HREF_RE = re.compile(r'<a\b[^>]*\bhref="([^"]*)"', re.IGNORECASE)
 
-# Substrings marking Teams-invite boilerplate URLs (help, dial-in, meeting
-# options, the join links). Matched host+path, not a bare domain — so a real
-# Confluence/Jira link on teams.microsoft.com's neighbours is unaffected. This
-# is scoped noise-removal, distinct from a fragile "is this a Teams domain"
-# guess; adding a new boilerplate host here is a one-line, low-risk change.
+# Help/dial-in markers are separate from the exact Teams-browser host check.
 _BOILERPLATE_URL_MARKERS = (
     "aka.ms/jointeamsmeeting",
     "dialin.teams.",
-    "teams.microsoft.com/meetingoptions",
-    "teams.microsoft.com/meet/",
-    "teams.microsoft.com/l/meetup-join",
 )
+_TEAMS_BOILERPLATE_PATHS = ("/meetingoptions", "/meet/", "/l/meetup-join")
 
 
 # Teams inserts a long horizontal rule of underscores before the "Microsoft
@@ -164,6 +160,8 @@ def _extract_event_links(raw_html: str, event: dict) -> list[str]:
             continue
         lowered = url.lower()
         if any(marker in lowered for marker in _BOILERPLATE_URL_MARKERS):
+            continue
+        if is_teams_url(url) and urlparse(url).path.lower().startswith(_TEAMS_BOILERPLATE_PATHS):
             continue
         if url in seen:
             continue

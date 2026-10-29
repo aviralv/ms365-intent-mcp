@@ -1,6 +1,5 @@
 """Tests for URL resolver dispatch table."""
 
-import re
 import urllib.parse
 
 import pytest
@@ -258,11 +257,44 @@ class TestChatThread:
         assert "tenantId" not in build_chat_thread_url("19:abc@thread.v2")
 
     def test_chat_thread_regex_prefix_matches_url_base(self):
-        # build and parse hardcode the l/chat/ literal separately (a regex
-        # can't interpolate the constant). Guard against drift: the host+path
-        # of the base URL must appear in the chat_thread parse pattern. The
-        # regex omits the https:// scheme by design (so .search matches
-        # anywhere), so compare the post-scheme portion.
-        host_path = _CHAT_THREAD_URL_BASE.split("://", 1)[1]
         chat_thread_pattern = next(pat for name, pat, _ in _PATTERNS if name == "chat_thread")
-        assert re.escape(host_path) in chat_thread_pattern.pattern
+        assert chat_thread_pattern.match(f"{_CHAT_THREAD_URL_BASE}19:abc@thread.v2")
+
+
+@pytest.mark.parametrize("host", ["teams.microsoft.com", "teams.cloud.microsoft"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "l/message/19:abc@thread.tacv2/1234567890.123456",
+        "l/message/19:abc@unq.gbl.spaces/1234567890.123456",
+        "l/message/19:abc@thread.spaces/1234567890.123456",
+        "l/message/19:abc@thread.v2/1234567890.123456",
+        "l/chat/19:abc@thread.v2/conversations",
+        "l/chat/19:abc@unq.gbl.spaces/conversations",
+        "l/chat/19:abc@thread.spaces/conversations",
+        "l/meetup-join/19:abc@thread.v2/0",
+    ],
+)
+@pytest.mark.parametrize("encoded", [False, True])
+def test_both_teams_hosts_resolve_to_same_graph_target(host, path, encoded):
+    if encoded:
+        path = path.replace(":", "%3A").replace("@", "%40")
+    query = f"?context={_ctx({'groupId': 'team-uuid-123'})}"
+    expected = resolve_url(f"https://teams.microsoft.com/{path}{query}")
+    actual = resolve_url(f"https://{host}/{path}{query}")
+    assert actual == expected
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "https://teams.cloud.microsoft.evil.example",
+        "https://evilteams.cloud.microsoft",
+        "https://teams.microsoft.com.evil.example",
+        "https://evil.example/https://teams.cloud.microsoft",
+        "https://evil.example/?next=https://teams.microsoft.com",
+    ],
+)
+def test_teams_host_lookalikes_and_embedded_urls_are_rejected(prefix):
+    with pytest.raises(UrlParseError):
+        resolve_url(f"{prefix}/l/chat/19:abc@thread.v2")

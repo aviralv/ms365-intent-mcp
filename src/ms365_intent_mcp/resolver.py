@@ -8,6 +8,8 @@ import re
 import urllib.parse
 from dataclasses import dataclass, field
 
+from .teams_urls import TEAMS_HOSTS, TEAMS_URL_PREFIX
+
 
 class UrlParseError(Exception):
     pass
@@ -35,10 +37,9 @@ class ResolvedUrl:
     extra: dict[str, str] = field(default_factory=dict)
 
 
-# Base of the Teams "deep link to a chat" URL format. Single source of truth
-# for both the chat_thread parse pattern below and build_chat_thread_url() —
-# keeping parse and build next to each other so the l/chat/ format can't drift.
-_CHAT_THREAD_URL_BASE = "https://teams.microsoft.com/l/chat/"
+# Keep generated chat links on the legacy host for backward compatibility;
+# parsing accepts both Teams hosts through the shared URL prefix.
+_CHAT_THREAD_URL_BASE = f"https://{TEAMS_HOSTS[0]}/l/chat/"
 
 
 def build_chat_thread_url(chat_id: str) -> str:
@@ -56,7 +57,7 @@ _PATTERNS: list[tuple[str, re.Pattern, str]] = [
     (
         "channel_message",
         re.compile(
-            r"teams\.microsoft\.com/l/message/"
+            rf"^{TEAMS_URL_PREFIX}/l/message/"
             r"(19:[^/]+@thread\.tacv2)/"
             r"(\d+(?:\.\d+)?)"
         ),
@@ -65,7 +66,7 @@ _PATTERNS: list[tuple[str, re.Pattern, str]] = [
     (
         "chat_message",
         re.compile(
-            r"teams\.microsoft\.com/l/message/"
+            rf"^{TEAMS_URL_PREFIX}/l/message/"
             r"(19:[^/]+@(?:unq\.gbl\.spaces|thread\.spaces|thread\.v2))/"
             r"(\d+(?:\.\d+)?)"
         ),
@@ -74,14 +75,14 @@ _PATTERNS: list[tuple[str, re.Pattern, str]] = [
     (
         "chat_thread",
         re.compile(
-            r"teams\.microsoft\.com/l/chat/"
+            rf"^{TEAMS_URL_PREFIX}/l/chat/"
             r"(19:[^/]+@(?:thread\.v2|unq\.gbl\.spaces|thread\.spaces))"
         ),
         "Chat.ReadWrite",
     ),
     (
         "meeting",
-        re.compile(r"teams\.microsoft\.com/l/meetup-join/([^/\?&]+)"),
+        re.compile(rf"^{TEAMS_URL_PREFIX}/l/meetup-join/([^/\?&]+)"),
         "Calendars.Read",
     ),
     (
