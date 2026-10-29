@@ -578,9 +578,7 @@ class TestOutOfOffice:
 
     @pytest.fixture
     def ooo_permissions(self):
-        return PermissionRegistry(
-            ["People.Read", "Mail.Read", "Chat.ReadWrite"]
-        )
+        return PermissionRegistry(["People.Read", "Mail.Read", "Chat.ReadWrite"])
 
     def _client(self, mailtips_response):
         client = AsyncMock()
@@ -600,18 +598,22 @@ class TestOutOfOffice:
 
     def _mailtips_active(self, message="<p>I'm on vacation until Aug 24.</p>"):
         return {
-            "value": [{
-                "emailAddress": {"address": "alice@example.com"},
-                "automaticReplies": {"message": message},
-            }]
+            "value": [
+                {
+                    "emailAddress": {"address": "alice@example.com"},
+                    "automaticReplies": {"message": message},
+                }
+            ]
         }
 
     def _mailtips_inactive(self):
         return {
-            "value": [{
-                "emailAddress": {"address": "alice@example.com"},
-                "automaticReplies": {},
-            }]
+            "value": [
+                {
+                    "emailAddress": {"address": "alice@example.com"},
+                    "automaticReplies": {},
+                }
+            ]
         }
 
     @pytest.mark.asyncio
