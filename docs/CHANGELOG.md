@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.1 — 2026-11-09
+
+### Fixed
+- `meeting` now advertises both `MeetingDetail` and `ErrorResponse` in its MCP output schema, so explicit-date misses, ID/date mismatches and Graph errors reach consumers instead of failing output validation. Both success and error responses retain their flat shape; the explicit object-root union avoids FastMCP's inferred `result` wrapper.
+- Added synthetic MCP-client integration regressions that validate actual tool results against the advertised output schema, rather than only exercising the implementation directly.
+
 ## 1.13.0 — 2026-11-09
 
 ### Added
