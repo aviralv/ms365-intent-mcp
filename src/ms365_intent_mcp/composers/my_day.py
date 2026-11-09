@@ -29,7 +29,7 @@ async def compose_my_day(
 
     tasks = {}
 
-    select = "subject,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting"
+    select = "id,subject,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting"
     if include_bodies:
         select += ",body"
     cal_params = {
@@ -142,6 +142,7 @@ async def compose_my_day(
         start_iso, start_tz = graph_dt_to_aware_iso(e.get("start", {}))
         end_iso, end_tz = graph_dt_to_aware_iso(e.get("end", {}))
         event_entry = {
+            "id": e.get("id", ""),
             "subject": e.get("subject", ""),
             "start": start_iso,
             "end": end_iso,

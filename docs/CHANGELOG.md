@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.13.0 — 2026-11-09
+
+### Added
+- Optional `meeting(payload={identifier, date})` occurrence start date (`YYYY-MM-DD`, configured calendar timezone). Explicit-date subject searches use day-scoped Graph `calendarView`, validate the selected occurrence, and never fall back to another date. Event IDs remain supported; date plus an occurrence ID validates its date, while series-master IDs and date plus `next` are rejected. Omitted-date lookup behavior is unchanged.
+- `my_day.events[].id` exposes each Graph event/occurrence ID for roundtripping into `meeting`, without adding IDs to rendered markdown or changing existing event fields.
+
+### Fixed
+- Explicit-date recurring meeting lookup no longer selects the earliest subject match in a ±7-day window. Date misses return `not_found`; existing recording occurrence-date matching and stale warnings are preserved.
+
 ## 1.5.0 — 2026-07-17
 
 ### Added

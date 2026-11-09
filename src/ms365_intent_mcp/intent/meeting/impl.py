@@ -29,6 +29,7 @@ async def _meeting_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail:
         permissions,
         payload.identifier,
         config.default_timezone,
+        **({"date": payload.date.isoformat()} if payload.date is not None else {}),
     )
 
     organizer_data = data.get("organizer") or {}

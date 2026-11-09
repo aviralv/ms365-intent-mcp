@@ -2,6 +2,20 @@
   "additionalProperties": false,
   "description": "Payload for meeting.",
   "properties": {
+    "date": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Occurrence start date (YYYY-MM-DD) in the configured calendar timezone. With an event ID, validates that occurrence; series-master IDs are rejected. Omit to retain legacy lookup. Not supported with 'next'.",
+      "title": "Date"
+    },
     "identifier": {
       "description": "Event ID, subject substring, or 'next'.",
       "minLength": 1,

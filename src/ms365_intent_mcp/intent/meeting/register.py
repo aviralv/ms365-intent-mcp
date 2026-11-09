@@ -19,7 +19,9 @@ def register(mcp: FastMCP) -> None:
         payload: Annotated[
             MeetingPayload,
             "Full context for a meeting. identifier can be an event ID, "
-            "a subject substring, or 'next' for the upcoming meeting.",
+            "a subject substring, or 'next' for the upcoming meeting. Optional date "
+            "(YYYY-MM-DD) selects an occurrence starting that day in the configured "
+            "calendar timezone, or validates an occurrence ID. Not supported with 'next'.",
         ],
     ) -> MeetingDetail:
         """Tell me about this meeting.
