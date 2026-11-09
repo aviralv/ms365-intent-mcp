@@ -11,7 +11,7 @@ Replace 76 API-mirroring tools with ~8 composed intent tools. Eliminate the need
 | Tool | Intent |
 |------|--------|
 | `my_day(date?)` | "What does my day look like?" — calendar + mail + teams |
-| `meeting(identifier)` | "Tell me about this meeting" — full context |
+| `meeting(identifier, date?)` | "Tell me about this meeting" — full context; optional occurrence start date |
 | `compose(type, params)` | "Create something" — drafts, events, messages |
 | `resolve(url)` | "What is this link?" — any M365 URL → content |
 | `whats_new(since, scope?)` | "What happened?" — unified activity |

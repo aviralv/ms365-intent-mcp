@@ -7,10 +7,20 @@ until Task 12 refactors composers to return ``(dict, markdown)`` tuples.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+import re
+from datetime import date as calendar_date
+from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    HttpUrl,
+    field_validator,
+    model_validator,
+)
 
 from .._shared import BaseResponse
 
@@ -23,6 +33,27 @@ class MeetingPayload(BaseModel):
         str,
         Field(min_length=1, description="Event ID, subject substring, or 'next'."),
     ]
+    date: calendar_date | None = Field(
+        default=None,
+        description="Occurrence start date (YYYY-MM-DD) in the configured calendar timezone. "
+        "With an event ID, validates that occurrence; series-master IDs are rejected. "
+        "Omit to retain legacy lookup. Not supported with 'next'.",
+    )
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def validate_date(cls, value):
+        if value is None or type(value) is calendar_date:
+            return value
+        if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            raise ValueError("date must be YYYY-MM-DD")
+        return calendar_date.fromisoformat(value)
+
+    @model_validator(mode="after")
+    def validate_next(self):
+        if self.date is not None and self.identifier.lower() == "next":
+            raise ValueError("date cannot be combined with 'next'; use a subject or occurrence ID")
+        return self
 
 
 class PersonRef(BaseModel):
@@ -75,8 +106,8 @@ class MeetingDetail(BaseResponse):
     type: Literal["meeting_detail"] = "meeting_detail"
     id: str
     subject: str
-    start: date | datetime
-    end: date | datetime
+    start: calendar_date | datetime
+    end: calendar_date | datetime
     start_timezone: str | None = None
     end_timezone: str | None = None
     organizer: PersonRef

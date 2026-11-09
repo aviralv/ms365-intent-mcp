@@ -31,6 +31,7 @@ class EventSummary(BaseModel):
     """Compact summary of a single calendar event."""
 
     model_config = ConfigDict(extra="forbid")
+    id: str = Field(default="", description="Graph occurrence ID; pass as meeting identifier.")
     subject: str
     start: _dt.date | _dt.datetime
     end: _dt.date | _dt.datetime

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.13.1 — 2026-11-09
+
+### Fixed
+- `meeting` now advertises both `MeetingDetail` and `ErrorResponse` in its MCP output schema, so explicit-date misses, ID/date mismatches and Graph errors reach consumers instead of failing output validation. Both success and error responses retain their flat shape; the explicit object-root union avoids FastMCP's inferred `result` wrapper.
+- Added synthetic MCP-client integration regressions that validate actual tool results against the advertised output schema, rather than only exercising the implementation directly.
+
+### Changed
+- Raised the FastMCP minimum to `4.1.6` (current stable) and refreshed the lockfile from `3.4.2` to `4.1.6`, including required framework dependency updates. Python `>=3.11` remains supported; the lockfile is retained for reproducible test/install environments.
+
+## 1.13.0 — 2026-11-09
+
+### Added
+- Optional `meeting(payload={identifier, date})` occurrence start date (`YYYY-MM-DD`, configured calendar timezone). Explicit-date subject searches use day-scoped Graph `calendarView`, validate the selected occurrence, and never fall back to another date. Event IDs remain supported; date plus an occurrence ID validates its date, while series-master IDs and date plus `next` are rejected. Omitted-date lookup behavior is unchanged.
+- `my_day.events[].id` exposes each Graph event/occurrence ID for roundtripping into `meeting`, without adding IDs to rendered markdown or changing existing event fields.
+
+### Fixed
+- Explicit-date recurring meeting lookup no longer selects the earliest subject match in a ±7-day window. Date misses return `not_found`; existing recording occurrence-date matching and stale warnings are preserved.
+
 ## 1.5.0 — 2026-07-17
 
 ### Added

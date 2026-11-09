@@ -8,6 +8,7 @@ from fastmcp import Context
 
 from ...composers.meeting import compose_meeting
 from .._helpers import _get_deps, wrap_errors
+from .._shared import ErrorResponse
 from .schemas import (
     AttendeeStatus,
     MeetingDetail,
@@ -21,14 +22,15 @@ TOOL_NAME = "meeting"
 
 
 @wrap_errors(TOOL_NAME)
-async def _meeting_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail:
-    """Call the underlying composer and return a typed MeetingDetail."""
+async def _meeting_impl(ctx: Context, payload: MeetingPayload) -> MeetingDetail | ErrorResponse:
+    """Return a typed MeetingDetail or the decorator's ErrorResponse envelope."""
     config, client, permissions = _get_deps(ctx)
     data, markdown = await compose_meeting(
         client,
         permissions,
         payload.identifier,
         config.default_timezone,
+        **({"date": payload.date.isoformat()} if payload.date is not None else {}),
     )
 
     organizer_data = data.get("organizer") or {}

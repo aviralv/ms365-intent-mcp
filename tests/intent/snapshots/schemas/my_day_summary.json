@@ -41,6 +41,12 @@
           "default": null,
           "title": "End Timezone"
         },
+        "id": {
+          "default": "",
+          "description": "Graph occurrence ID; pass as meeting identifier.",
+          "title": "Id",
+          "type": "string"
+        },
         "is_online_meeting": {
           "default": false,
           "title": "Is Online Meeting",

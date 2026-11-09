@@ -2,12 +2,16 @@
 
 import re
 import urllib.parse
+from datetime import date as calendar_date
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..formatters import format_event_detail_markdown, graph_dt_to_aware_iso
 from ..graph import GraphAPIError, GraphClient
+from ..intent._helpers import IntentError
 from ..permissions import PermissionRegistry
 from ..transcripts import TEAMS_FILENAME_RE
+from ..windows_tz import windows_to_iana
 from ._utils import _escape_odata
 from .resolve import _enrich_call_recording
 
@@ -19,8 +23,16 @@ async def compose_meeting(
     permissions: PermissionRegistry,
     identifier: str,
     timezone: str,
+    date: str | None = None,
 ) -> tuple[dict, str]:
-    event = await _resolve_event(client, identifier, timezone)
+    if date is None:
+        event = await _resolve_event(client, identifier, timezone)
+    else:
+        event = await _resolve_event_on_date(client, identifier, timezone, date)
+        if event is None:
+            raise IntentError(
+                "not_found", f'No meeting found matching "{identifier}" starting on {date}'
+            )
     if event is None:
         markdown = f'❌ No meeting found matching "{identifier}"'
         return {
@@ -247,6 +259,92 @@ def _extract_recording_entry(messages: list[dict], occurrence_date: str = "") ->
         "occurrence_date": occurrence_date or None,
         "date_matches_occurrence": date_matches,
     }
+
+
+async def _resolve_event_on_date(
+    client: GraphClient,
+    identifier: str,
+    timezone: str,
+    requested_date: str,
+) -> dict | None:
+    """Resolve only occurrences starting on the requested local calendar date.
+
+    Graph interprets offset-less calendarView bounds as UTC, irrespective of
+    outlook.timezone. Use explicit offsets and the next local midnight (DST-safe),
+    then check start dates because calendarView also returns overlapping events.
+    Keep the legacy omitted-date path separate to preserve its behavior.
+    """
+    try:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", requested_date):
+            raise ValueError("date must be YYYY-MM-DD")
+        day = calendar_date.fromisoformat(requested_date)
+        next_day = day + timedelta(days=1)
+        zone = ZoneInfo(windows_to_iana(timezone) or timezone)
+    except (ValueError, OverflowError, ZoneInfoNotFoundError) as exc:
+        raise IntentError(
+            "validation_error", f"Invalid occurrence date or timezone: {exc}"
+        ) from exc
+    if identifier.lower() == "next":
+        raise IntentError("validation_error", "date cannot be combined with 'next'")
+
+    def starts_on_day(event: dict) -> bool:
+        start_iso, _ = graph_dt_to_aware_iso(event.get("start", {}))
+        if not start_iso:
+            return False
+        if len(start_iso) == 10:
+            return start_iso == requested_date
+        try:
+            start = datetime.fromisoformat(start_iso)
+            return start.tzinfo is not None and start.astimezone(zone).date() == day
+        except ValueError:
+            return False
+
+    headers = GraphClient.calendar_headers(timezone)
+    if " " not in identifier:
+        try:
+            event = await client.get(
+                f"/me/events/{urllib.parse.quote(identifier, safe='')}", headers=headers
+            )
+        except GraphAPIError as exc:
+            if exc.status_code not in (400, 404):
+                raise
+        else:
+            if event.get("type") == "seriesMaster":
+                raise IntentError(
+                    "validation_error", "Use an occurrence ID from my_day, not a series-master ID"
+                )
+            # A valid ID on another day must not fall through to subject search.
+            return event if starts_on_day(event) else None
+
+    params = {
+        "startDateTime": datetime.combine(day, datetime.min.time(), zone).isoformat(),
+        "endDateTime": datetime.combine(next_day, datetime.min.time(), zone).isoformat(),
+        "$orderby": "start/dateTime asc",
+        "$top": "50",
+        "$filter": f"contains(subject, '{_escape_odata(identifier)}')",
+    }
+    try:
+        events, has_more = await client.get_all("/me/calendarView", params=params, headers=headers)
+    except GraphAPIError as exc:
+        # Some calendars reject contains on calendarView; retain the local-search fallback.
+        if exc.status_code != 400:
+            raise
+        params.pop("$filter")
+        events, has_more = await client.get_all("/me/calendarView", params=params, headers=headers)
+
+    subject_lower = identifier.lower()
+    for event in events:
+        if (
+            event.get("type") != "seriesMaster"
+            and subject_lower in event.get("subject", "").lower()
+            and starts_on_day(event)
+        ):
+            return event
+    if has_more:
+        raise IntentError(
+            "graph_api_error", "Calendar results truncated before a matching occurrence was found"
+        )
+    return None
 
 
 async def _resolve_event(
