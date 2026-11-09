@@ -21,6 +21,7 @@ dependencies = [
 # no-op alias — installing the extra pulls nothing new.
 auth = ["msal>=1.28.0"]
 dev = [
+    "jsonschema>=4.0.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.4.0",

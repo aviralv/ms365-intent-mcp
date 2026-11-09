@@ -65,7 +65,7 @@ async def test_success_and_date_misses_match_advertised_output_schema(
         result = await client.call_tool("meeting", {"payload": payload})
 
     data = result.structured_content
-    validate(instance=data, schema=tool.outputSchema)
+    validate(instance=data, schema=tool.model_dump(by_alias=True)["outputSchema"])
     assert "result" not in data, "Successful responses must not gain a FastMCP union wrapper"
     assert data["type"] == expected_type
     if expected_type == "error":
@@ -91,7 +91,7 @@ async def test_graph_errors_also_match_advertised_output_schema(meeting_server, 
             "meeting", {"payload": {"identifier": "Synthetic Weekly Sync", "date": "2026-11-09"}}
         )
     data = result.structured_content
-    validate(instance=data, schema=tool.outputSchema)
+    validate(instance=data, schema=tool.model_dump(by_alias=True)["outputSchema"])
     assert "result" not in data
     assert data["type"] == "error"
     assert data["code"] == ("rate_limited" if status == 429 else "graph_api_error")
@@ -108,7 +108,7 @@ async def test_series_master_validation_error_matches_output_schema(meeting_serv
             "meeting", {"payload": {"identifier": "synthetic-occurrence-id", "date": "2026-11-09"}}
         )
     data = result.structured_content
-    validate(instance=data, schema=tool.outputSchema)
+    validate(instance=data, schema=tool.model_dump(by_alias=True)["outputSchema"])
     assert data["type"] == "error"
     assert data["code"] == "validation_error"
     assert "result" not in data
