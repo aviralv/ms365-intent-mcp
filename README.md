@@ -50,6 +50,8 @@ meeting(payload={"identifier": "synthetic-occurrence-id"})
 
 ## Installation
 
+Requires Python **3.11+** and FastMCP **4.1.6+**. The development lockfile pins FastMCP 4.1.6 for reproducible validation; normal tool installs resolve compatible dependencies from the declared minimum.
+
 Not published to PyPI — install from GitHub:
 
 ```bash
