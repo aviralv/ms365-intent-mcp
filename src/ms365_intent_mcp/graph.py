@@ -74,6 +74,14 @@ class GraphClient:
     ) -> dict:
         return await self._request("POST", endpoint, json_data=json_data, headers=headers)
 
+    async def patch(
+        self,
+        endpoint: str,
+        json_data: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict:
+        return await self._request("PATCH", endpoint, json_data=json_data, headers=headers)
+
     async def get_all(
         self,
         endpoint: str,
@@ -195,6 +203,8 @@ class GraphClient:
                 response = await self._client.get(url, params=params, headers=merged)
             elif method == "POST":
                 response = await self._client.post(url, json=json_data, headers=merged)
+            elif method == "PATCH":
+                response = await self._client.patch(url, json=json_data, headers=merged)
             else:
                 raise ValueError(f"Unsupported method: {method}")
 
@@ -209,6 +219,8 @@ class GraphClient:
                 await asyncio.sleep(retry_after)
                 if method == "GET":
                     response = await self._client.get(url, params=params, headers=merged)
+                elif method == "PATCH":
+                    response = await self._client.patch(url, json=json_data, headers=merged)
                 else:
                     response = await self._client.post(url, json=json_data, headers=merged)
 

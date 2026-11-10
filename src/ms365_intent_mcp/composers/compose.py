@@ -12,6 +12,7 @@ from ..formatters import (
 from ..graph import GraphClient
 from ..permissions import PermissionRegistry
 from ..resolver import normalize_message_id
+from .event_update import update_event
 
 
 class ComposeType(StrEnum):
@@ -20,6 +21,7 @@ class ComposeType(StrEnum):
     EMAIL_FORWARD = "email_forward"
     EVENT = "event"
     EVENT_FORWARD = "event_forward"
+    EVENT_UPDATE = "event_update"
     TEAMS_MESSAGE = "teams_message"
 
 
@@ -29,6 +31,7 @@ SCOPE_REQUIREMENTS = {
     ComposeType.EMAIL_FORWARD: "Mail.ReadWrite",
     ComposeType.EVENT: "Calendars.ReadWrite",
     ComposeType.EVENT_FORWARD: "Calendars.ReadWrite",
+    ComposeType.EVENT_UPDATE: "Calendars.ReadWrite",
     ComposeType.TEAMS_MESSAGE: "ChatMessage.Send",
 }
 
@@ -42,6 +45,10 @@ async def compose_action(
     required_scope = SCOPE_REQUIREMENTS[action_type]
     scope_msg = permissions.check(required_scope)
     if scope_msg:
+        if action_type == ComposeType.EVENT_UPDATE:
+            from ..intent._helpers import IntentError
+
+            raise IntentError("insufficient_scope", scope_msg)
         return {}, scope_msg
 
     if action_type == ComposeType.EMAIL_DRAFT:
@@ -54,6 +61,8 @@ async def compose_action(
         return await _create_event(client, params)
     elif action_type == ComposeType.EVENT_FORWARD:
         return await _forward_event(client, params)
+    elif action_type == ComposeType.EVENT_UPDATE:
+        return await update_event(client, params)
     elif action_type == ComposeType.TEAMS_MESSAGE:
         return await _send_teams_message(client, params)
     else:

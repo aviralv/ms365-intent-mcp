@@ -275,6 +275,72 @@ class TestRetryAfter:
         mock_sleep.assert_called_once_with(10)
 
 
+class TestGraphPatch:
+    @pytest.mark.asyncio
+    async def test_patch_sends_body_auth_and_conditional_headers(self):
+        client = make_graph_client()
+        async with client:
+            with patch.object(
+                client._client,
+                "patch",
+                AsyncMock(return_value=make_graph_response(200, {"id": "synthetic"})),
+            ) as mock_patch:
+                result = await client.patch(
+                    "/me/events/synthetic", {"subject": "New"}, headers={"If-Match": 'W/"v1"'}
+                )
+        assert result == {"id": "synthetic"}
+        assert mock_patch.call_args.args == (
+            "https://graph.microsoft.com/v1.0/me/events/synthetic",
+        )
+        assert mock_patch.call_args.kwargs["json"] == {"subject": "New"}
+        assert mock_patch.call_args.kwargs["headers"]["If-Match"] == 'W/"v1"'
+        assert mock_patch.call_args.kwargs["headers"]["Authorization"].startswith("Bearer ")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status", [429, 503])
+    async def test_retry_preserves_patch_method_body_and_headers(self, status):
+        client = make_graph_client()
+        error = make_graph_response(status, {"error": {"code": "Synthetic", "message": "retry"}})
+        success = make_graph_response(200, {"id": "synthetic"})
+        async with client:
+            with (
+                patch.object(
+                    client._client, "patch", AsyncMock(side_effect=[error, success])
+                ) as mock_patch,
+                patch("ms365_intent_mcp.graph.asyncio.sleep", new_callable=AsyncMock),
+            ):
+                assert await client.patch(
+                    "/me/events/synthetic", {"subject": "New"}, headers={"If-Match": 'W/"v1"'}
+                ) == {"id": "synthetic"}
+                assert mock_patch.call_count == 2
+                assert mock_patch.call_args_list[0] == mock_patch.call_args_list[1]
+
+    @pytest.mark.asyncio
+    async def test_precondition_failure_is_not_retried(self):
+        client = make_graph_client()
+        response = make_graph_response(412, {"error": {"code": "PreconditionFailed"}})
+        async with client:
+            with patch.object(
+                client._client, "patch", AsyncMock(return_value=response)
+            ) as mock_patch:
+                with pytest.raises(GraphAPIError) as exc:
+                    await client.patch("/me/events/synthetic", {"subject": "New"})
+                assert exc.value.status_code == 412
+                assert mock_patch.call_count == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("host", ["evil.example.com", "graph.microsoft.com.evil.example.com"])
+    async def test_patch_does_not_widen_graph_allowlist(self, host):
+        client = make_graph_client()
+        async with client:
+            with patch.object(client._client, "patch", AsyncMock()) as mock_patch:
+                with pytest.raises(ValueError, match="non-Graph host"):
+                    await client.patch(
+                        f"https://{host}/v1.0/me/events/synthetic", {"subject": "New"}
+                    )
+                mock_patch.assert_not_awaited()
+
+
 class TestGraphClientAbsoluteURL:
     @pytest.mark.asyncio
     async def test_accepts_absolute_graph_url(self):

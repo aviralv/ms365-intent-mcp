@@ -11,12 +11,28 @@ Most Microsoft 365 MCP servers replicate Graph API endpoints as tools — one to
 | `resolve` | Takes any M365 URL (Teams message, email, file, meeting) and returns its content |
 | `my_day` | Your day at a glance: calendar with bodies, mail summary, Teams activity |
 | `meeting` | Everything about a meeting: metadata, body, attendees, transcript, chat |
-| `compose` | Create email drafts, calendar events, or Teams messages |
+| `compose` | Create email drafts or Teams messages; create, forward, or update calendar events |
 | `whats_new` | Unified activity feed across calendar, mail, and Teams for a time window |
 | `find` | Search across all M365 data (mail, files, SharePoint, Teams) |
 | `people` | Person lookup with recent interaction context |
 | `schedule` | Find available meeting times using the scheduling assistant |
 | `transcript` | Download a meeting recording's VTT (by URL, meeting name, or item_id+drive_id+site_root), or `list=true` to enumerate recordings newest-first |
+
+### Targeted calendar-event editing
+
+```python
+# Synthetic example: resize one occurrence from 13:00–16:00 to 14:00–16:00 CET.
+# Use the exact events[i].id from the structured my_day response, not a subject.
+compose(payload={
+    "type": "event", "mode": "update", "event_id": "synthetic-occurrence-id",
+    "start": "2026-11-13T14:00:00", "timezone": "Europe/Berlin",
+})
+```
+
+- **Partial PATCH:** `event_id` and at least one of `subject`, `start`, `end`, or `location` are required. Omitted fields are not sent to Graph. Null updates, empty subjects, timezone-only requests, and requests with no effective change are rejected. An explicit `location=""` clears the location. Body, attendees, online-meeting settings, `to`, and `comment` are deliberately unsupported in update mode, even if supplied as empty/default values; leave them out. Create and forward contracts remain unchanged.
+- **Time safety:** naive timestamps require an explicit valid IANA timezone. Offset-aware timestamps identify an instant; an optional IANA timezone controls interpretation/display, never reinterprets the offset. Without one, aware updates and the response use UTC, not the configured default timezone. Ambiguous/nonexistent naive DST wall clocks are rejected; specify an offset to distinguish a repeated hour. Changed endpoints are sent as UTC `dateTimeTimeZone` pairs to preserve DST-fold instants. Omitted endpoints are not rewritten. The composer fetches the existing event in UTC and checks `end > start` using actual instants, including an omitted endpoint. Unlike create, update has no 12-hour limit, so longer existing events can be edited without truncation.
+- **Target and notifications:** updates address `/me/events/{event_id}` only, never search by subject or touch neighboring events. Use an occurrence ID for a recurring meeting; series masters and all-day time edits are rejected. Existing attendees, body (including Teams metadata), recurrence, and other omitted details are preserved. Graph can send meeting-update notifications when editing a meeting with attendees; this is an immediate edit, not a draft. No delete/cancel or scheduling automation is added.
+- **Result and errors:** success is `EventUpdated(type="event_updated", event_id, subject, start, end, timezone, web_link, rendered_markdown)` with offset-aware times from Graph's updated response. Human markdown shows the subject, both times, and calendar link, never raw IDs. The existing compose MCP `result` wrapper is retained and its output schema now accepts `ErrorResponse` as well as success responses. Missing `Calendars.ReadWrite`, read/PATCH failures, and validation failures never produce a success response. When Graph supplies an ETag it is sent as `If-Match`; a stale write (412) surfaces as `graph_api_error`, without an unconditional retry. Without an ETag the read/validation/write is not atomic. After an ambiguous transport failure or response-validation failure, re-read the event before retrying: the mutation may already have completed. The existing optional 10-minute idempotency cache stores successful responses only.
 
 ### Occurrence-safe meeting lookup
 
