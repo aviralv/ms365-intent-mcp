@@ -431,6 +431,20 @@ def format_event_created_markdown(event: dict) -> str:
     return "\n".join(lines)
 
 
+def format_event_updated_markdown(event: dict) -> str:
+    start = event.get("start") or {}
+    end = event.get("end") or {}
+    lines = [
+        "✅ Event updated",
+        f"**Subject:** {event.get('subject', '(no subject)')}",
+        f"**Start:** {start.get('dateTime', '')} {start.get('timeZone', '')}",
+        f"**End:** {end.get('dateTime', '')} {end.get('timeZone', '')}",
+    ]
+    if event.get("webLink"):
+        lines.append(f"**Calendar:** {event['webLink']}")
+    return "\n".join(lines)
+
+
 def format_event_forwarded_markdown(to_names: list[str], comment: str | None) -> str:
     lines = [
         "✅ Meeting invite forwarded",

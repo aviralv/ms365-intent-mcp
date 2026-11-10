@@ -25,6 +25,7 @@ from ms365_intent_mcp.intent.compose.schemas import (
     ComposeTeamsMessage,
     EmailDraftCreated,
     EventCreated,
+    EventUpdated,
     TeamsMessageSent,
 )
 from ms365_intent_mcp.intent.find.schemas import (
@@ -131,6 +132,10 @@ def test_email_draft_created(snapshot: Any) -> None:
 
 def test_event_created(snapshot: Any) -> None:
     snapshot("event_created", EventCreated.model_json_schema())
+
+
+def test_event_updated(snapshot: Any) -> None:
+    snapshot("event_updated", EventUpdated.model_json_schema())
 
 
 def test_teams_message_sent(snapshot: Any) -> None:

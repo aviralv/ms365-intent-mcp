@@ -16,7 +16,7 @@ from .._helpers import (
     idempotency_store,
     wrap_errors,
 )
-from .._shared import Recipient
+from .._shared import ErrorResponse, Recipient
 from .schemas import (
     ComposeEmail,
     ComposeEvent,
@@ -26,6 +26,7 @@ from .schemas import (
     EmailDraftCreated,
     EventCreated,
     EventForwarded,
+    EventUpdated,
     TeamsMessageSent,
 )
 
@@ -33,7 +34,7 @@ TOOL_NAME = "compose"
 
 
 @wrap_errors(TOOL_NAME)
-async def _compose_impl(ctx: Context, payload: ComposePayload) -> ComposeResponse:
+async def _compose_impl(ctx: Context, payload: ComposePayload) -> ComposeResponse | ErrorResponse:
     """Dispatch a compose payload to the underlying composer.
 
     Returns a typed response model. On error, ``wrap_errors`` catches
@@ -138,8 +139,21 @@ async def _handle_event(
     client,
     permissions,
     config_default_tz: str,
-) -> EventCreated | EventForwarded:
-    """Create a calendar event via the legacy composer, or forward an existing one."""
+) -> EventCreated | EventForwarded | EventUpdated:
+    """Create, forward, or partially update a calendar event."""
+    if payload.mode == "update":
+        params_update = payload.model_dump(
+            mode="json",
+            exclude_unset=True,
+            include={"event_id", "subject", "start", "end", "timezone", "location"},
+        )
+        data, markdown = await compose_action(
+            client,
+            permissions,
+            ComposeType.EVENT_UPDATE,
+            params_update,
+        )
+        return EventUpdated(**data, rendered_markdown=markdown)
     if payload.mode == "forward":
         params_fwd: dict = {
             "event_id": payload.event_id,

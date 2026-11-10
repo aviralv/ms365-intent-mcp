@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
@@ -55,31 +56,68 @@ class ComposeEmail(BaseModel):
 
 
 class ComposeEvent(BaseModel):
-    """Create a calendar event (mode='create'), or forward an existing one to
-    new recipients (mode='forward', which sends immediately — no draft)."""
+    """Create, forward (sent immediately), or partially update an existing event.
+
+    Update supports only subject/start/end/location; omitted fields are preserved.
+    """
 
     model_config = ConfigDict(extra="forbid")
     type: Literal["event"]
-    mode: Literal["create", "forward"] = "create"
+    mode: Literal["create", "forward", "update"] = "create"
     subject: str | None = None
     start: datetime | None = None
     end: datetime | None = None
     timezone: str | None = Field(
         default=None,
-        description="IANA timezone (e.g. 'Europe/Berlin'); required for mode='create'.",
+        description="IANA timezone; required for create and naive update timestamps. "
+        "Aware update timestamps are converted to this zone (UTC when omitted).",
     )
     attendees: list[Attendee] | None = None
     location: str | None = None
     body: str | None = None
     is_online_meeting: bool = False
-    # forward mode:
-    event_id: str | None = None
+    # forward/update modes:
+    event_id: str | None = Field(default=None, description="Exact Graph event/occurrence ID.")
     to: list[Recipient] | None = None
     comment: str | None = None
     idempotency_key: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def _check_times(self) -> ComposeEvent:
+        if self.mode == "update":
+            if not self.event_id or not self.event_id.strip():
+                raise ValueError("mode='update' requires 'event_id'")
+            changes = self.model_fields_set & {"subject", "start", "end", "location"}
+            if not changes:
+                raise ValueError("mode='update' requires subject, start, end, or location")
+            unsupported = self.model_fields_set & {
+                "body",
+                "attendees",
+                "is_online_meeting",
+                "to",
+                "comment",
+            }
+            if unsupported:
+                raise ValueError(f"mode='update' does not accept {', '.join(sorted(unsupported))}")
+            if any(getattr(self, field) is None for field in changes):
+                raise ValueError("update fields cannot be null; omit fields to preserve them")
+            if "subject" in changes and not self.subject.strip():
+                raise ValueError("updated subject cannot be empty")
+            if "timezone" in self.model_fields_set:
+                try:
+                    ZoneInfo(self.timezone or "")
+                except (ZoneInfoNotFoundError, ValueError) as exc:
+                    raise ValueError("timezone must be a valid IANA timezone") from exc
+                if not changes & {"start", "end"}:
+                    raise ValueError("timezone requires an updated start or end")
+            if (
+                any(value is not None and value.tzinfo is None for value in (self.start, self.end))
+                and not self.timezone
+            ):
+                raise ValueError("naive update timestamps require an explicit IANA timezone")
+            # Compare instants after timezone/DST normalization in the composer,
+            # including the stored endpoint when only one endpoint is supplied.
+            return self
         if self.mode == "forward":
             if not self.event_id:
                 raise ValueError("mode='forward' requires 'event_id'")
@@ -159,6 +197,19 @@ class EventCreated(BaseResponse):
     rendered_markdown: str
 
 
+class EventUpdated(BaseResponse):
+    """Response: a targeted event was updated; times include explicit offsets."""
+
+    type: Literal["event_updated"] = "event_updated"
+    event_id: str
+    subject: str
+    start: datetime
+    end: datetime
+    timezone: str
+    web_link: HttpUrl | None = None
+    rendered_markdown: str
+
+
 class EventForwarded(BaseResponse):
     """Response: a calendar event was forwarded (sent immediately, 202 — no body)."""
 
@@ -176,4 +227,6 @@ class TeamsMessageSent(BaseResponse):
     rendered_markdown: str
 
 
-ComposeResponse = EmailDraftCreated | EventCreated | EventForwarded | TeamsMessageSent
+ComposeResponse = (
+    EmailDraftCreated | EventCreated | EventForwarded | EventUpdated | TeamsMessageSent
+)

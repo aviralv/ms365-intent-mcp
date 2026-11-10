@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.0 — 2026-11-10
+
+### Added
+- `compose` event `mode="update"` by exact Graph event/occurrence ID, with partial `subject`, `start`, `end`, and `location` updates. Omitted fields (including attendees, body, recurrence, online-meeting settings, and an unchanged time endpoint) are not sent in the PATCH. Series masters and all-day time edits are rejected; there is no delete/cancel operation.
+- Strict timezone/DST and actual-instant ordering validation against current UTC event timing, UTC serialization of changed endpoints, no-op/null/default guards, conditional `If-Match` when Graph returns an ETag, and an offset-aware `EventUpdated` response with human-readable subject/times/link. Existing create/forward behavior and compose's MCP `result` wrapper are preserved; the advertised output union additionally accepts existing `ErrorResponse` outcomes.
+- Mocked schema, dispatch, Graph PATCH, preservation, CET/CEST/DST, partial timing, failure, and MCP-client contract regressions. No live calendar mutations were used in development.
+
 ## 1.13.1 — 2026-11-09
 
 ### Fixed
